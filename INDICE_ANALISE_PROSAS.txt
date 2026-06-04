@@ -1,0 +1,237 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                 ÍNDICE DE ANÁLISE - buscarEditaisProsas()                     ║
+║                                                                               ║
+║                Arquivo Analisado: lib/scraper/prosas-scraper.ts              ║
+║                Data: 29 de maio de 2026                                       ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+DOCUMENTOS GERADOS (4 arquivos, 50+ KB)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. 📄 RESUMO_ANALISE_PROSAS.txt (13 KB)
+   ├─ Visão Executiva Consolidada
+   ├─ Problema Crítico Identificado
+   ├─ Lista de 7 Problemas Altos
+   ├─ Status Atual da Função
+   ├─ Comportamento Esperado vs Atual
+   ├─ Recomendações Imediatas (Hoje)
+   ├─ Recomendações Curto Prazo (2 dias)
+   └─ Recomendações Médio Prazo (semana)
+   
+   👉 COMECE POR AQUI para entender o problema geral
+
+2. 📊 MAPA_PROBLEMAS_PROSAS.txt (20 KB)
+   ├─ Fluxo de Execução com Problemas Mapeados
+   ├─ Tabela de 10 Problemas Detalhados
+   ├─ Matriz de Impacto (Performance, Dados, Operação, Debug, Segurança)
+   ├─ Análise de Causa Raiz (Zero Editais)
+   ├─ Análise de Tempo de Execução
+   └─ Resumo de Ações Requeridas
+   
+   👉 Use para visualizar impactos e dependências
+
+3. 📋 ANALISE_PROSAS_DETALHADA.md (12 KB)
+   ├─ Seção 1: Status de Autenticação e Credenciais
+   ├─ Seção 2: Logs de Erro Recentes
+   ├─ Seção 3: Análise da Paginação
+   ├─ Seção 4: Análise de Requisições de Detalhe
+   ├─ Seção 5: Problemas de Resposta da API
+   ├─ Seção 6: Validação com IA (Filtros-TI)
+   ├─ Seção 7: Restrições e Limitações
+   ├─ Seção 8: Resumo Executivo de Problemas
+   └─ Seção 9: Recomendações Técnicas
+   
+   👉 Leia para análise profunda com números de linha
+
+4. 💡 SUGESTOES_FIX_PROSAS.md (18 KB)
+   ├─ FIX 1: Debug Logs para Identificar Zero Editais
+   ├─ FIX 2: Validação de Sessão com Expiração
+   ├─ FIX 3: Remover Limite de 10 Páginas
+   ├─ FIX 4: Backoff Exponencial para Rate Limiting
+   ├─ FIX 5: Paralelizar Requisições de Detalhe
+   ├─ FIX 6: Cache de Token OAuth2
+   ├─ FIX 7: Fallback para OpenAI Indisponível
+   ├─ FIX 8: Tratamento Robusto de ID de Edital
+   ├─ FIX 9: Tratamento de Erro de Paginação
+   ├─ Checklist de Implementação
+   ├─ Prioridade de Implementação
+   └─ Teste Após Implementação
+   
+   👉 Leia para implementar correções com código antes/depois
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ROTEIRO DE LEITURA RECOMENDADO
+═══════════════════════════════════════════════════════════════════════════════
+
+CENÁRIO 1: Entender o Problema (5 minutos)
+   └─ Leia: RESUMO_ANALISE_PROSAS.txt (seções 1-2)
+
+CENÁRIO 2: Implementar Fixes Imediatos (1 hora)
+   ├─ Leia: RESUMO_ANALISE_PROSAS.txt (seção 6)
+   ├─ Leia: SUGESTOES_FIX_PROSAS.md (FIX 1 e FIX 2)
+   └─ Implemente: 2 FIXs críticos (15 minutos cada)
+
+CENÁRIO 3: Análise Técnica Completa (30 minutos)
+   ├─ Leia: RESUMO_ANALISE_PROSAS.txt (completo)
+   ├─ Leia: MAPA_PROBLEMAS_PROSAS.txt (completo)
+   └─ Referência: ANALISE_PROSAS_DETALHADA.md (para detalhes)
+
+CENÁRIO 4: Planejamento de Sprint (45 minutos)
+   ├─ Leia: RESUMO_ANALISE_PROSAS.txt (seções 6-8)
+   ├─ Leia: SUGESTOES_FIX_PROSAS.md (Checklist + Prioridade)
+   └─ Resultado: Roadmap de 2 horas de implementação
+
+
+═══════════════════════════════════════════════════════════════════════════════
+PROBLEMAS CRÍTICOS RESUMIDOS
+═══════════════════════════════════════════════════════════════════════════════
+
+🔴 CRÍTICO 1: Zero Editais Retornados
+   └─ Teste retornou 0 editais após 70s com sucesso de autenticação
+   └─ Causa desconhecida: credenciais limitadas, sessão expirada, ou rate limit
+   └─ Solução: FIX 1 (adicionar debug logs)
+
+🔴 CRÍTICO 2: OpenAI como Bloqueador
+   └─ Se OpenAI falha, zero editais retornam
+   └─ Sem fallback ou modo degradado
+   └─ Solução: FIX 7 (implementar fallback)
+
+🔴 CRÍTICO 3: Sem Limite de Re-autenticação
+   └─ Loop infinito possível em autenticação cíclica
+   └─ Solução: Adicionar contador de tentativas
+
+🟡 ALTO 4: Limite Hard-coded de 10 Páginas
+   └─ Máximo 500 editais quando API pode ter 1000+
+   └─ Solução: FIX 3 (remover limite ou fazer configurável)
+
+🟡 ALTO 5: Performance Sequencial (4+ horas)
+   └─ 500 editais × 30s = inviável em produção
+   └─ Solução: FIX 5 (paralelizar com Promise.all)
+
+🟡 ALTO 6: Rate Limiting Inadequado
+   └─ Delay fixo 500ms, sem detecção de 429
+   └─ Solução: FIX 4 (backoff exponencial)
+
+🟡 ALTO 7: Sessão Pode Estar Expirada
+   └─ Arquivo de 12+ horas, sem verificação de timestamp
+   └─ Solução: FIX 2 (validar timestamp)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+AÇÕES IMEDIATAS (PRÓXIMAS 2 HORAS)
+═══════════════════════════════════════════════════════════════════════════════
+
+IMEDIATO (15 minutos):
+├─ [ ] Ler RESUMO_ANALISE_PROSAS.txt (seções 1-2)
+├─ [ ] Executar scripts de teste
+│       └─ node scripts/teste-prosas.js
+│       └─ node scripts/explore-prosas-api.js
+└─ [ ] Registrar resultados
+
+HOJE (1 hora):
+├─ [ ] Implementar FIX 1 (debug logs na API)
+│       └─ Adicionar logs na linha 164-165
+│       └─ Testar e registrar resposta da API
+├─ [ ] Implementar FIX 2 (validação de sessão)
+│       └─ Adicionar verificação de expiração
+│       └─ Testar re-autenticação
+└─ [ ] Verificar causa de zero editais
+
+PRÓXIMAS 24 HORAS:
+├─ [ ] Implementar FIX 7 (fallback OpenAI)
+├─ [ ] Implementar FIX 3 (remover limite de páginas)
+├─ [ ] Implementar FIX 8 (logs de erro robusto)
+└─ [ ] Implementar FIX 9 (tratamento de erro em paginação)
+
+PRÓXIMA SEMANA:
+├─ [ ] Implementar FIX 5 (paralelização)
+├─ [ ] Implementar FIX 4 (backoff exponencial)
+└─ [ ] Implementar FIX 6 (cache de token)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+MÉTRICAS ANTES vs DEPOIS
+═══════════════════════════════════════════════════════════════════════════════
+
+MÉTRICA                    ANTES       DEPOIS      GANHO
+─────────────────────────────────────────────────────────
+Editais Retornados         0           100-500     ∞
+Tempo de Execução          4+ horas    30 min      8x mais rápido
+Taxa de Sucesso API        Opaco       Transparente
+Resiliência                Sem fallback Com fallback
+Performance                Sequencial  Paralelo
+Rate Limiting              Inadequado  Exponencial
+Debug Logs                 Incompletos Detalhados
+Cache de Token             Não         Sim (55m)
+─────────────────────────────────────────────────────────
+
+
+═══════════════════════════════════════════════════════════════════════════════
+REFERÊNCIA RÁPIDA - LINHAS DE CÓDIGO
+═══════════════════════════════════════════════════════════════════════════════
+
+Autenticação:           Linhas 13-127
+├─ Carregar sessão:     Linhas 13-27 ⚠️
+├─ Login:               Linhas 43-108
+└─ Token OAuth2:        Linhas 134-146 ⚠️
+
+Busca de Editais:       Linhas 150-425
+├─ API Listagem:        Linhas 152-162 🔴
+├─ Paginação:           Linhas 175-212 🟡
+└─ Detalhes:            Linhas 217-392 🟡
+
+Validação:              Linhas 310-354
+├─ Whitelist:           Linhas 313-323 ✅
+├─ OpenAI:              Linhas 329-339 🔴
+└─ Blacklist:           Linhas 344-354 ✅
+
+Logs:                   Linhas 394-409 ✅
+
+
+═══════════════════════════════════════════════════════════════════════════════
+CHECKLIST FINAL
+═══════════════════════════════════════════════════════════════════════════════
+
+[ ] Leu RESUMO_ANALISE_PROSAS.txt
+[ ] Consultou MAPA_PROBLEMAS_PROSAS.txt
+[ ] Estudou ANALISE_PROSAS_DETALHADA.md
+[ ] Revisou SUGESTOES_FIX_PROSAS.md
+[ ] Implementou FIX 1 (debug logs)
+[ ] Implementou FIX 2 (validação sessão)
+[ ] Testou com node scripts/teste-prosas.js
+[ ] Identificou causa de zero editais
+[ ] Planejou implementação de FIXs restantes
+[ ] Atualizou timeline com equipe
+
+
+═══════════════════════════════════════════════════════════════════════════════
+CONTATO / DÚVIDAS
+═══════════════════════════════════════════════════════════════════════════════
+
+Para questões técnicas sobre:
+  • Autenticação Prosas:      Ver ANALISE_PROSAS_DETALHADA.md Seção 1
+  • Paginação:                Ver ANALISE_PROSAS_DETALHADA.md Seção 3
+  • Performance:              Ver MAPA_PROBLEMAS_PROSAS.txt (análise de tempo)
+  • Implementação:            Ver SUGESTOES_FIX_PROSAS.md (código)
+
+Todos os problemas têm:
+  ✅ Número de linha específico
+  ✅ Código antes/depois
+  ✅ Estimativa de tempo de fix
+  ✅ Prioridade indicada
+
+
+═══════════════════════════════════════════════════════════════════════════════
+PRÓXIMOS PASSOS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Implementar FIX 1 e FIX 2 hoje (15 minutos)
+2. Executar testes para diagnosticar zero editais
+3. Priorizar remaining FIXs baseado em resultado dos testes
+4. Atualizar documentação com findings
+
+Tempo estimado: ~2 horas de implementação + testes
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,11 @@
+{
+  "id": "187e5726-afb3-4ac1-9fd0-f82f22a806ac",
+  "tipo": "editais_novos",
+  "titulo": "3 novos editais disponíveis",
+  "descricao": "Encontrados 3 editais aguardando revisão",
+  "quantidade": 3,
+  "link": "/editais?tab=review",
+  "lida": false,
+  "criadoEm": "2026-05-29T04:17:19.999Z",
+  "urgencia": "alta"
+}

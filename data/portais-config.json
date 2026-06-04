@@ -1,0 +1,24 @@
+[
+  {
+    "id": "prosas",
+    "nome": "Prosas - Central de Editais",
+    "urlBusca": "https://prosas.com.br/editais",
+    "tipo": "session",
+    "categoria": "Terceiro Setor e Social"
+  },
+  {
+    "id": "finep",
+    "nome": "FINEP - Chamadas Públicas",
+    "urlBusca": "https://www.finep.gov.br/chamadas-publicas",
+    "tipo": "html",
+    "categoria": "Inovação e Tecnologia"
+  },
+  {
+    "id": "funcap",
+    "nome": "FUNCAP - Chamadas Públicas",
+    "urlBusca": "https://montenegro.funcap.ce.gov.br/sugba/editais-site-wordpress/",
+    "tipo": "html",
+    "categoria": "Inovação e Tecnologia"
+  }
+]
+  

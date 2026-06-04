@@ -1,0 +1,11 @@
+{
+  "id": "1014e22c-3447-42ba-ab36-3f3254791467",
+  "tipo": "editais_novos",
+  "titulo": "2 novos editais disponíveis",
+  "descricao": "Encontrados 2 editais aguardando revisão. Acesse o painel para analisar.",
+  "quantidade": 2,
+  "link": "/editais?tab=review",
+  "urgencia": "alta",
+  "lida": false,
+  "criadoEm": "2026-06-03T19:13:08.318Z"
+}

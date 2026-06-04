@@ -1,0 +1,1 @@
+export { TecnologiaFoco, TipoFerramenta } from '../scraper/filtros/enums';

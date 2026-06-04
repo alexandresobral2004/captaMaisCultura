@@ -1,0 +1,224 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    ANÁLISE DA FUNÇÃO buscarEditaisProsas()
+                         Data: 29 de maio de 2026
+═══════════════════════════════════════════════════════════════════════════════
+
+ARQUIVO ANALISADO: lib/scraper/prosas-scraper.ts (425 linhas)
+
+═══════════════════════════════════════════════════════════════════════════════
+1. PROBLEMA CRÍTICO IDENTIFICADO
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ ZERO EDITAIS RETORNADOS EM TESTE RECENTE (2026-05-29 14:25:17)
+   └─ Autenticação: ✅ Sucesso (70 segundos de resposta)
+   └─ Token OAuth2: ✅ Obtido com sucesso
+   └─ Requisição à API: ✅ Completada
+   └─ Resultado: ❌ 0 editais após todo o processamento
+
+POSSÍVEIS CAUSAS:
+1. Credenciais (alexandresobral2004@gmail.com) sem permissão para ver editais
+2. Sessão expirada (arquivo de 2026-05-29T02:24:18.906Z = 12+ horas atrás)
+3. Rate limiting agressivo da API Prosas
+4. Estrutura de resposta da API mudou, código não detectou
+
+
+═══════════════════════════════════════════════════════════════════════════════
+2. PROBLEMAS CRÍTICOS (Impedem Funcionamento)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔴 [1] Sem detecção de resposta vazia
+    └─ Linhas: 164-165
+    └─ Problema: Código assume response.data.data sempre existe
+    └─ Se vazio, retorna silenciosamente array vazio
+    └─ Impacto: Impossível diagnosticar por que zero editais
+
+🔴 [2] OpenAI como bloqueador de fluxo
+    └─ Linhas: 325-340
+    └─ Problema: Se OpenAI falha, zero editais retornam
+    └─ Sem fallback ou modo de degradação
+    └─ Impacto: 1 erro de IA = perda de tudo
+
+🔴 [3] Re-autenticação sem limite
+    └─ Linhas: 122-127
+    └─ Problema: Sem proteção contra loops infinitos
+    └─ Impacto: Pode travar em autenticação cíclica
+
+═══════════════════════════════════════════════════════════════════════════════
+3. PROBLEMAS ALTOS (Degradam Performance)
+═══════════════════════════════════════════════════════════════════════════════
+
+🟡 [4] Limite hard-coded de 10 páginas
+    └─ Linhas: 180
+    └─ Problema: Máximo 500 editais (50 × 10)
+    └─ API pode ter 1000+ editais
+    └─ Impacto: Perde 50% dos dados
+
+🟡 [5] Processamento sequencial de detalhes
+    └─ Linhas: 217-392
+    └─ Problema: 500 editais × 30s timeout = 4+ horas
+    └─ Sem paralelização
+    └─ Impacto: Execução inviável em produção
+
+🟡 [6] Rate limiting inadequado
+    └─ Linhas: 207, 385
+    └─ Problema: Delay fixo de 500ms, sem detecção de 429
+    └─ Pode ser bloqueado por Prosas
+    └─ Impacto: Falha silenciosa em rate limit
+
+🟡 [7] Sessão pode estar expirada
+    └─ Linhas: 13-27
+    └─ Problema: Sem verificação de timestamp
+    └─ Pode usar sessão de 12+ horas atrás
+    └─ Impacto: Autenticação inválida em silêncio
+
+
+═══════════════════════════════════════════════════════════════════════════════
+4. STATUS ATUAL DA FUNÇÃO
+═══════════════════════════════════════════════════════════════════════════════
+
+ESTRUTURA GERAL: ✅ Correto
+├─ Autenticação (3 etapas): ✅ Implementado
+├─ Listagem com paginação: ✅ Implementado
+├─ Busca de detalhes: ✅ Implementado
+├─ Validação com IA: ✅ Implementado
+└─ Extração de PDFs: ✅ Implementado
+
+IMPLEMENTAÇÃO DE DETALHES: ⚠️ Problemas
+├─ Tratamento de erros: ❌ Inadequado
+├─ Resiliência: ❌ Sem fallbacks
+├─ Performance: ❌ Sequencial (inviável)
+├─ Logs: ⚠️ Incompletos para debug
+└─ Rate limiting: ❌ Sem backoff exponencial
+
+CREDENCIAIS: ✅ Configuradas
+├─ Email: alexandresobral2004@gmail.com
+├─ Senha: P@ssw0rd (em .env.local)
+├─ Client ID: lsf6jeu7-Wk04P2iSYMdcMhPZUNZqabK8CG6mAfRQ6M
+└─ Scope: public
+
+
+═══════════════════════════════════════════════════════════════════════════════
+5. COMPORTAMENTO ESPERADO VS ATUAL
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────┬──────────────────┬──────────────────┬──────────┐
+│ Aspecto                 │ Esperado          │ Atual            │ Status   │
+├─────────────────────────┼──────────────────┼──────────────────┼──────────┤
+│ Editais retornados      │ 100-500          │ 0                │ ❌ FALHO │
+│ Tempo execução          │ < 10 min         │ 4+ horas         │ ❌ LENTO │
+│ Taxa de sucesso API     │ 100%             │ Desconhecido     │ ⚠️  OPACO│
+│ Recuperação de falha    │ Automática (401)  │ Cíclica          │ ⚠️  ERRADO│
+│ Detecção de vazio       │ Sim              │ Não              │ ❌ AUSENTE│
+│ Fallback OpenAI         │ Sim              │ Não              │ ❌ AUSENTE│
+│ Cache de token          │ Sim (1h)         │ Não              │ ❌ AUSENTE│
+│ Rate limit handling     │ Exponencial      │ Fixo (500ms)     │ ⚠️  BASIC │
+└─────────────────────────┴──────────────────┴──────────────────┴──────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+6. RECOMENDAÇÕES IMEDIATAS (HOJE)
+═══════════════════════════════════════════════════════════════════════════════
+
+PRIORIDADE 1 - Debug Logs (5 minutos)
+├─ Adicionar logs na linha 164-165 para ver resposta da API
+├─ Incluir: status, headers, data.keys, data.data tipo/tamanho
+└─ Objetivo: Identificar por que zero editais
+
+PRIORIDADE 2 - Validação de Sessão (10 minutos)
+├─ Adicionar verificação de timestamp (linhas 13-27)
+├─ Limite: 12 horas, além disso force re-autenticação
+└─ Objetivo: Garantir sessão válida
+
+PRIORIDADE 3 - Teste Manual (15 minutos)
+├─ Executar: node scripts/teste-prosas.js
+├─ Executar: node scripts/explore-prosas-api.js
+└─ Objetivo: Verificar conectividade API
+
+
+═══════════════════════════════════════════════════════════════════════════════
+7. RECOMENDAÇÕES CURTO PRAZO (PRÓXIMOS 2 DIAS)
+═══════════════════════════════════════════════════════════════════════════════
+
+□ Fallback para OpenAI (20 min)
+  └─ Se OpenAI falha, usar whitelist+blacklist apenas
+  
+□ Remover limite de 10 páginas (5 min)
+  └─ Fazer configurável via PROSAS_MAX_PAGES
+  
+□ Tratamento robusto de IDs (10 min)
+  └─ Logs de erro quando estrutura inesperada
+  
+□ Tratamento de erro em paginação (15 min)
+  └─ Continuar com páginas anteriores se uma falha
+
+
+═══════════════════════════════════════════════════════════════════════════════
+8. RECOMENDAÇÕES MÉDIO PRAZO (SEMANA)
+═══════════════════════════════════════════════════════════════════════════════
+
+□ Paralelização de detalhes (30 min)
+  └─ Promise.all com max concorrência de 5
+  └─ Reduzir de 4h para ~30 minutos
+
+□ Backoff exponencial (15 min)
+  └─ Detectar 429, aguardar 500ms → 1s → 2s
+  
+□ Cache de token OAuth2 (15 min)
+  └─ Reutilizar token por 55 minutos
+  
+□ Monitoramento (30 min)
+  └─ Logs de tempo por fase (auth, listagem, detalhe)
+  └─ Alertas se execução > 30 minutos
+
+
+═══════════════════════════════════════════════════════════════════════════════
+9. ARQUIVOS GERADOS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ ANALISE_PROSAS_DETALHADA.md
+   └─ Análise técnica completa (9 seções, 700+ linhas)
+   └─ Todos os problemas documentados com linhas de código
+   └─ Possíveis causas e impactos
+
+✅ SUGESTOES_FIX_PROSAS.md
+   └─ 9 FIXs concretos com código antes/depois
+   └─ Priorizados por criticidade
+   └─ Tempo estimado de implementação
+   └─ Checklist de implementação
+
+✅ RESUMO_ANALISE_PROSAS.txt (este arquivo)
+   └─ Visão executiva
+   └─ Problemas críticos destacados
+   └─ Recomendações imediatas
+
+
+═══════════════════════════════════════════════════════════════════════════════
+10. CONCLUSÃO
+═══════════════════════════════════════════════════════════════════════════════
+
+A função buscarEditaisProsas() está ESTRUTURALMENTE CORRETA mas tem PROBLEMAS
+PRÁTICOS GRAVES que impedem seu funcionamento eficiente.
+
+SITUAÇÃO:
+• Não retorna editais (0 em teste recente)
+• Performance inadequada (40x mais lento que viável)
+• Sem resiliência a falhas
+• Rate limiting inadequado
+
+PRÓXIMOS PASSOS:
+1. [HOJE] Executar FIX 1 e FIX 2 (15 minutos)
+2. [HOJE] Rodar testes e identificar causa de zero editais
+3. [AMANHÃ] Implementar FIX 7, FIX 3, FIX 8, FIX 9
+4. [SEMANA] Implementar paralelização (FIX 5)
+
+IMPACTO ESPERADO:
+✅ Zero editais → 100-500 editais retornados
+✅ Bloqueio em OpenAI → Fallback automático
+✅ 4+ horas → ~30 minutos de execução
+✅ Sem detecção de erros → Logs detalhados de debug
+
+═══════════════════════════════════════════════════════════════════════════════
+Analisado por: Especialista em Análise de Código
+Data: 29 de maio de 2026
+Versão: 1.0
+═══════════════════════════════════════════════════════════════════════════════

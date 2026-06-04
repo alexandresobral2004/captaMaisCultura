@@ -1,0 +1,352 @@
+{
+  "normalizacaoTecnologia": {
+    "ia & machine learning": "IA & Machine Learning",
+    "ia generativa": "IA Generativa",
+    "processamento de linguagem natural": "Processamento de Linguagem Natural",
+    "visão computacional": "Visão Computacional",
+    "sistemas de recomendação": "Sistemas de Recomendação",
+    "big data & analytics": "Big Data & Analytics",
+    "data science": "Data Science",
+    "mineração de dados": "Mineração de Dados",
+    "engenharia de dados": "Engenharia de Dados",
+    "visualização de dados": "Visualização de Dados",
+    "banco de dados": "Banco de Dados",
+    "recuperação de informação": "Recuperação de Informação",
+    "bioinformática": "Bioinformática",
+    "engenharia de software": "Engenharia de Software",
+    "arquitetura de software": "Arquitetura de Software",
+    "qualidade de software": "Qualidade de Software",
+    "teste de software": "Teste de Software",
+    "manutenção & evolução de software": "Manutenção & Evolução de Software",
+    "desenvolvimento de soluções": "Desenvolvimento de Soluções",
+    "web & mobile": "Web & Mobile",
+    "jogos digitais": "Jogos Digitais",
+    "computação gráfica": "Computação Gráfica",
+    "cloud computing": "Cloud Computing",
+    "devops & infraestrutura": "DevOps & Infraestrutura",
+    "mlops": "MLOps",
+    "sistemas distribuídos": "Sistemas Distribuídos",
+    "sistemas operacionais": "Sistemas Operacionais",
+    "arquitetura de computadores": "Arquitetura de Computadores",
+    "redes de computadores": "Redes de Computadores",
+    "edge computing": "Edge Computing",
+    "computação de alto desempenho": "Computação de Alto Desempenho",
+    "segurança & criptografia": "Segurança & Criptografia",
+    "segurança de aplicações": "Segurança de Aplicações",
+    "privacidade & proteção de dados": "Privacidade & Proteção de Dados",
+    "forense digital": "Forense Digital",
+    "lgpd, compliance & gestão de riscos": "LGPD, Compliance & Gestão de Riscos",
+    "blockchain & web3": "Blockchain & Web3",
+    "interação humano-computador": "Interação Humano-Computador",
+    "ux/ui & experiência do usuário": "UX/UI & Experiência do Usuário",
+    "acessibilidade digital": "Acessibilidade Digital",
+    "educação digital": "Educação Digital",
+    "tecnologia assistiva": "Tecnologia Assistiva",
+    "inclusão digital": "Inclusão Digital",
+    "tecnologia para impacto social": "Tecnologia para Impacto Social",
+    "iot & sistemas embarcados": "IoT & Sistemas Embarcados",
+    "robótica & automação": "Robótica & Automação",
+    "computação ubíqua": "Computação Ubíqua",
+    "indústria 4.0": "Indústria 4.0",
+    "algoritmos & estruturas de dados": "Algoritmos & Estruturas de Dados",
+    "linguagens & compiladores": "Linguagens & Compiladores",
+    "teoria da computação": "Teoria da Computação",
+    "métodos formais & verificação": "Métodos Formais & Verificação",
+    "otimização": "Otimização",
+    "computação quântica": "Computação Quântica",
+    "pesquisa acadêmica": "Pesquisa Acadêmica",
+    "inovação tecnológica": "Inovação Tecnológica",
+    "transformação digital": "Transformação Digital",
+    "empreendedorismo tecnológico": "Empreendedorismo Tecnológico",
+    "transferência de tecnologia": "Transferência de Tecnologia",
+    "ti sustentável & green it": "TI Sustentável & Green IT",
+    "saúde digital": "Saúde Digital",
+    "agrotech & tecnologia no agro": "Agrotech & Tecnologia no Agro",
+    "cidades inteligentes": "Cidades Inteligentes",
+    "govtech & governo digital": "GovTech & Governo Digital",
+    "computação aplicada": "Computação Aplicada",
+    "evento científico": "Evento Científico",
+    "bolsa de iniciação científica": "Bolsa de Iniciação Científica",
+    "bolsa de pós-graduação": "Bolsa de Pós-Graduação",
+    "intercâmbio & mobilidade em pesquisa": "Intercâmbio & Mobilidade em Pesquisa",
+    "residência tecnológica": "Residência Tecnológica",
+    "multidisciplinar": "Multidisciplinar",
+    "outro - computação": "Outro - Computação",
+    "outro - ti geral": "Outro - Computação"
+  },
+  "normalizacaoTipo": {
+    "framework": "Framework",
+    "linguagem de programação": "Linguagem de Programação",
+    "banco de dados": "Banco de Dados",
+    "ide/editor": "IDE/Editor",
+    "plataforma": "Plataforma",
+    "biblioteca/pacote": "Biblioteca/Pacote",
+    "ferramenta de desenvolvimento": "Ferramenta de Desenvolvimento",
+    "solução corporativa": "Outro",
+    "sistema educacional": "Outro",
+    "solução acadêmica": "Outro",
+    "outro": "Outro"
+  },
+  "regrasInferenciaTecnologia": [
+    {
+      "categoria": "IA & Machine Learning",
+      "palavras": [
+        "inteligência artificial",
+        "inteligencia artificial",
+        "machine learning",
+        "aprendizado de máquina",
+        "aprendizado de maquina",
+        "deep learning",
+        "rede neural",
+        "modelos generativos"
+      ]
+    },
+    {
+      "categoria": "Big Data & Analytics",
+      "palavras": [
+        "big data",
+        "data science",
+        "análise de dados",
+        "analise de dados",
+        "engenharia de dados",
+        "data analytics"
+      ]
+    },
+    {
+      "categoria": "Cloud Computing",
+      "palavras": [
+        "cloud",
+        "computação em nuvem",
+        "computacao em nuvem",
+        "nuvem",
+        "aws",
+        "azure",
+        "gcp",
+        "kubernetes",
+        "container"
+      ]
+    },
+    {
+      "categoria": "Segurança & Criptografia",
+      "palavras": [
+        "cibersegurança",
+        "ciberseguranca",
+        "segurança da informação",
+        "seguranca da informacao",
+        "criptografia",
+        "pentest",
+        "cybersecurity"
+      ]
+    },
+    {
+      "categoria": "DevOps & Infraestrutura",
+      "palavras": [
+        "devops",
+        "ci/cd",
+        "automação de infraestrutura",
+        "infraestrutura como código",
+        "infraestrutura como codigo"
+      ]
+    },
+    {
+      "categoria": "Web & Mobile",
+      "palavras": [
+        "aplicativo",
+        "aplicações web",
+        "aplicacoes web",
+        "frontend",
+        "backend",
+        "mobile",
+        "web",
+        "site",
+        "plataforma digital"
+      ]
+    },
+    {
+      "categoria": "Blockchain & Web3",
+      "palavras": [
+        "blockchain",
+        "web3",
+        "criptoativo",
+        "crypto",
+        "contrato inteligente"
+      ]
+    },
+    {
+      "categoria": "Computação Quântica",
+      "palavras": [
+        "computação quântica",
+        "computacao quantica",
+        "qubits",
+        "quantum"
+      ]
+    },
+    {
+      "categoria": "IoT & Sistemas Embarcados",
+      "palavras": [
+        "internet das coisas",
+        "iot",
+        "dispositivo inteligente",
+        "sensor conectado",
+        "sistemas embarcados"
+      ]
+    },
+    {
+      "categoria": "Data Science",
+      "palavras": [
+        "análise estatística",
+        "analise estatistica",
+        "modelagem preditiva",
+        "cientista de dados"
+      ]
+    },
+    {
+      "categoria": "Linguagens & Compiladores",
+      "palavras": [
+        "linguagem de programação",
+        "linguagem de programacao",
+        "compilador",
+        "interpretador"
+      ]
+    },
+    {
+      "categoria": "Pesquisa Acadêmica",
+      "palavras": [
+        "pesquisa acadêmica",
+        "pesquisa academica",
+        "universidade",
+        "instituto federal",
+        "acadêmico",
+        "academico"
+      ]
+    },
+    {
+      "categoria": "Desenvolvimento de Soluções",
+      "palavras": [
+        "desenvolvimento de soluções",
+        "desenvolvimento de solucoes",
+        "prototipagem",
+        "projeto tecnológico",
+        "projeto tecnologico"
+      ]
+    },
+    {
+      "categoria": "Inovação Tecnológica",
+      "palavras": [
+        "inovação tecnológica",
+        "inovacao tecnologica",
+        "transformação digital",
+        "transformacao digital",
+        "modernização",
+        "modernizacao"
+      ]
+    },
+    {
+      "categoria": "Educação Digital",
+      "palavras": [
+        "educação digital",
+        "educacao digital",
+        "formação em tecnologia",
+        "formacao em tecnologia",
+        "capacitação digital",
+        "capacitacao digital"
+      ]
+    },
+    {
+      "categoria": "Transformação Digital",
+      "palavras": [
+        "transformação digital",
+        "transformacao digital",
+        "modernização digital",
+        "modernizacao digital",
+        "gestão tecnológica",
+        "gestao tecnologica"
+      ]
+    },
+    {
+      "categoria": "Evento Científico",
+      "palavras": [
+        "congresso",
+        "seminário",
+        "seminario",
+        "simpósio",
+        "simposio",
+        "evento científico",
+        "evento cientifico",
+        "workshop"
+      ]
+    }
+  ],
+  "regrasInferenciaTipo": [
+    {
+      "tipo": "Framework",
+      "palavras": [
+        "framework",
+        "metodologia ágil",
+        "metodologia agil",
+        "boas práticas",
+        "boas praticas"
+      ]
+    },
+    {
+      "tipo": "Linguagem de Programação",
+      "palavras": [
+        "linguagem de programação",
+        "linguagem de programacao",
+        "python",
+        "java",
+        "javascript",
+        "typescript",
+        "go",
+        "rust",
+        "c++",
+        "c#"
+      ]
+    },
+    {
+      "tipo": "Banco de Dados",
+      "palavras": [
+        "banco de dados",
+        "database",
+        "dados estruturados"
+      ]
+    },
+    {
+      "tipo": "IDE/Editor",
+      "palavras": [
+        "ide",
+        "editor de código",
+        "editor de codigo"
+      ]
+    },
+    {
+      "tipo": "Plataforma",
+      "palavras": [
+        "plataforma",
+        "portal",
+        "ambiente digital",
+        "ambiente online",
+        "sistema online"
+      ]
+    },
+    {
+      "tipo": "Biblioteca/Pacote",
+      "palavras": [
+        "biblioteca",
+        "sdk",
+        "pacote",
+        "package"
+      ]
+    },
+    {
+      "tipo": "Ferramenta de Desenvolvimento",
+      "palavras": [
+        "ferramenta",
+        "software",
+        "solução tecnológica",
+        "solucao tecnologica",
+        "aplicativo"
+      ]
+    }
+  ]
+}
