@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { propostaCompletaSchema, secaoSchema, PropostaCompleta, SecaoGerada } from './schema-projeto';
 import { gerarPromptCompleto, gerarPromptSecao, gerarPromptPolimento, SearchResult } from './prompts-projeto';
 import { buscarDadosProjetoMCP } from './tavily-mcp.client';
+import { buscarContextoRAG, formatarContextoRAG } from '../rag/rag-service';
 
 interface EditalContext {
   titulo: string;
@@ -23,9 +24,18 @@ interface UserProposal {
   propostaUsuario: string;
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!openai) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY não está definida. Configure a variável de ambiente.');
+    }
+    openai = new OpenAI({ apiKey });
+  }
+  return openai;
+}
 
 export class ProposalWriter {
   private model: string;
@@ -46,9 +56,10 @@ export class ProposalWriter {
       console.warn('Busca Tavily falhou, continuando sem search:', e);
     }
 
-    const prompt = gerarPromptCompleto(edil, proposal, searchResults);
+    const prompt = await gerarPromptCompleto(edil, proposal, searchResults);
 
-    const response = await openai.chat.completions.create({
+    const client = getOpenAIClient();
+    const response = await client.chat.completions.create({
       model: this.model,
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
@@ -76,9 +87,10 @@ export class ProposalWriter {
       console.warn('Busca Tavily falhou, continuando sem search:', e);
     }
 
-    const prompt = gerarPromptSecao(secao, edil, proposal, secoesAnteriores, searchResults);
+    const prompt = await gerarPromptSecao(secao, edil, proposal, secoesAnteriores, searchResults);
 
-    const response = await openai.chat.completions.create({
+    const client = getOpenAIClient();
+    const response = await client.chat.completions.create({
       model: this.model,
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
@@ -95,7 +107,8 @@ export class ProposalWriter {
   async polirTexto(texto: string, tipo: 'completo' | 'secao' = 'secao'): Promise<string> {
     const prompt = gerarPromptPolimento(texto, tipo);
 
-    const response = await openai.chat.completions.create({
+    const client = getOpenAIClient();
+    const response = await client.chat.completions.create({
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,

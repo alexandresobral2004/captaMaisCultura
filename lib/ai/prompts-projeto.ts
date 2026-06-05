@@ -1,4 +1,5 @@
 import { PropostaCompleta } from './schema-projeto';
+import { buscarContextoRAG, formatarContextoRAG } from '../rag/rag-service';
 
 interface EditalContext {
   titulo: string;
@@ -40,16 +41,30 @@ function formatarFontes(searchResults: SearchResult[]): string {
   ).join('\n\n');
 }
 
-export function gerarPromptCompleto(
+export async function gerarPromptCompleto(
   edil: EditalContext,
   proposal: UserProposal,
   searchResults?: SearchResult[]
-): string {
+): Promise<string> {
   const valoresFinanciaveis = edil.itensFinanciaveis?.join('\n') || 'Nao especificado';
   const criterios = edil.criteriosAvaliacao?.join('\n') || 'Nao especificado';
   const elegibilidade = edil.elegibilidade?.join('\n') || 'Nao especificado';
   const areas = edil.areasTematicas?.join(', ') || 'Nao especificada';
   const fontesBusca = searchResults ? formatarFontes(searchResults) : 'Nenhuma busca realizada.';
+
+  // Buscar contexto RAG interno
+  const contextoRAG = await buscarContextoRAG(
+    edil.titulo,
+    edil.objetivo,
+    edil.areasTematicas || []
+  );
+
+  const contextoRAGFormatado = contextoRAG.chunks.length > 0
+    ? `
+REFERÊNCIAS INTERNAS (Manuais e Modelos da Instituição):
+${formatarContextoRAG(contextoRAG.chunks)}
+`
+    : '';
 
   return `ATUE COMO um especialista senior em formulacao de projetos tecnicos, captacao de recursos e escrita para editais publicos e privados.
 
@@ -62,6 +77,7 @@ Desenvolva a estrutura narrativa de um projeto executivo focado nos seguintes pa
 
 DADOS DE BUSCA (fontes reais para fundamentacao):
 ${fontesBusca}
+${contextoRAGFormatado}
 
 CONTEXTO DO EDITAL:
 - Titulo: ${edil.titulo}
@@ -207,17 +223,31 @@ Retorne em formato JSON com a estrutura:
 }`;
 }
 
-export function gerarPromptSecao(
+export async function gerarPromptSecao(
   secao: string,
   edil: EditalContext,
   proposal: UserProposal,
   secoesAnteriores?: Partial<PropostaCompleta>,
   searchResults?: SearchResult[]
-): string {
+): Promise<string> {
   const valoresFinanciaveis = edil.itensFinanciaveis?.join('\n') || 'Nao especificado';
   const criterios = edil.criteriosAvaliacao?.join('\n') || 'Nao especificado';
   const areas = edil.areasTematicas?.join(', ') || 'Nao especificada';
   const fontesBusca = searchResults ? formatarFontes(searchResults) : 'Nenhuma busca realizada.';
+
+  // Buscar contexto RAG interno
+  const contextoRAG = await buscarContextoRAG(
+    edil.titulo,
+    edil.objetivo,
+    edil.areasTematicas || []
+  );
+
+  const contextoRAGFormatado = contextoRAG.chunks.length > 0
+    ? `
+REFERÊNCIAS INTERNAS (Manuais e Modelos da Instituição):
+${formatarContextoRAG(contextoRAG.chunks)}
+`
+    : '';
 
   const secaoInstrucoes: Record<string, string> = {
     resumoExecutivo: 'Gere um resumo executive de 2-3 paragrafos que apresente o projeto de forma objetiva, destacando a relevancia, objetivos principais e resultados esperados.',
@@ -247,6 +277,7 @@ Desenvolva a secao "${secao}" de um projeto executivo focado nos seguintes param
 
 DADOS DE BUSCA (fontes reais para fundamentacao):
 ${fontesBusca}
+${contextoRAGFormatado}
 
 CONTEXTO DO EDITAL:
 - Titulo: ${edil.titulo}

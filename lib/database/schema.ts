@@ -441,23 +441,23 @@ export const jobs = sqliteTable('jobs', {
     enum: ['BUSCA', 'DOWNLOAD', 'ANALISE', 'NOTIFICACAO']
   }),
   // Contadores de progresso por fase
-  totalEncontrados:  integer('total_encontrados').default(0),
-  totalValidados:    integer('total_validados').default(0),
-  totalDownloads:    integer('total_downloads').default(0),
-  totalAnalisados:   integer('total_analisados').default(0),
-  totalErros:        integer('total_erros').default(0),
+  totalEncontrados: integer('total_encontrados').default(0),
+  totalValidados: integer('total_validados').default(0),
+  totalDownloads: integer('total_downloads').default(0),
+  totalAnalisados: integer('total_analisados').default(0),
+  totalErros: integer('total_erros').default(0),
   // Detalhes de erro parcial (JSON stringificado)
-  erroDetalhes:      text('erro_detalhes'),
+  erroDetalhes: text('erro_detalhes'),
   // Timestamps ISO 8601
-  iniciadoEm:        text('iniciado_em').notNull(),
-  finalizadoEm:      text('finalizado_em'),
-  atualizadoEm:      text('atualizado_em').notNull(),
+  iniciadoEm: text('iniciado_em').notNull(),
+  finalizadoEm: text('finalizado_em'),
+  atualizadoEm: text('atualizado_em').notNull(),
 }, (table) => {
-    return {
-      statusIdx: index('idx_jobs_status').on(table.status),
-      iniciadoEmIdx: index('idx_jobs_iniciado_em').on(table.iniciadoEm),
-    };
-  });
+  return {
+    statusIdx: index('idx_jobs_status').on(table.status),
+    iniciadoEmIdx: index('idx_jobs_iniciado_em').on(table.iniciadoEm),
+  };
+});
 
 // ============================================================
 // TABELA PORTAIS (Configuração de fontes de editais)
@@ -486,3 +486,37 @@ export const portais = sqliteTable('portais', {
     categoriaIdx: index('idx_portais_categoria').on(table.categoria),
   };
 });
+
+// ============================================================
+// TABELA RAG CHUNKS (Base de Conhecimento Interna)
+// ============================================================
+export const ragChunks = sqliteTable('rag_chunks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+
+  // Identificação do documento fonte
+  documentoNome: text('documento_nome').notNull(),      // nome do arquivo PDF
+  documentoTipo: text('documento_tipo', {
+    enum: ['manual', 'modelo', 'dicas', 'tecnico', 'legislacao']
+  }).notNull(),
+
+  // Conteúdo do chunk
+  titulo: text('titulo').notNull(),                      // título da seção/capítulo
+  conteudo: text('conteudo').notNull(),                  // texto do chunk
+  paginaInicio: integer('pagina_inicio'),                // página de origem
+  paginaFim: integer('pagina_fim'),
+
+  // Metadados para retrieval
+  tags: text('tags'),                                    // JSON array de tags
+  categoria: text('categoria'),                          // ex: 'orcamento', 'metodologia', 'justificativa'
+
+  // Embedding (Fase B)
+  embedding: text('embedding'),                          // JSON array de floats
+
+  // Controle
+  hashConteudo: text('hash_conteudo').notNull(),         // para evitar duplicatas
+  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+}, (table) => ({
+  docIdx: index('idx_rag_documento').on(table.documentoNome),
+  catIdx: index('idx_rag_categoria').on(table.categoria),
+  hashIdx: index('idx_rag_hash').on(table.hashConteudo),
+}));

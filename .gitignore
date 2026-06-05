@@ -1,52 +1,135 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ============================================
+# DEPENDÊNCIAS
+# ============================================
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
+# ============================================
+# TESTING
+# ============================================
 /coverage
 
-# next.js
+# ============================================
+# NEXT.JS
+# ============================================
 /.next/
 /out/
 
-# production
+# ============================================
+# PRODUÇÃO
+# ============================================
 /build
 /build-output.log
 
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
+# ============================================
+# ENVIRONMENT (variáveis de ambiente)
+# ============================================
+.env
+.env.local
 .env*.local
 env.local
+.env.development
+.env.production
+.env.test
 
-# vercel
+# ============================================
+# VERCEL
+# ============================================
 .vercel
 
-# typescript
+# ============================================
+# TYPESCRIPT
+# ============================================
 *.tsbuildinfo
 next-env.d.ts
 
-# logs
+# ============================================
+# SISTEMA / MACOS
+# ============================================
+.DS_Store
+Thumbs.db
+*.pem
+
+# ============================================
+# DEBUG E LOGS
+# ============================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 /logs/
 
-# backups
+# ============================================
+# BACKUPS
+# ============================================
 /backup_*/
 backuo.sh
 backup.sh
 
-# temporary files
+# ============================================
+# ARQUIVOS TEMPORÁRIOS
+# ============================================
 /scratch/
+*.tmp
+*.temp
 
-# pdf downloads
+# ============================================
+# PDFs E DOCUMENTOS DE REFERÊNCIA
+# (materiais grandes que não devem ficar no repo)
+# ============================================
+*.pdf
+base/
+
+# ============================================
+# BINÁRIOS E INSTALADORES
+# ============================================
+*.dmg
+*.exe
+*.msi
+*.apk
+*.iso
+
+# ============================================
+# BANCOS DE DADOS (runtime)
+# ============================================
+*.db
+*.db-shm
+*.db-wal
+*.db.corrupt
+*.sqlite
+*.sqlite3
+
+# ============================================
+# DADOS RUNTIME DO SISTEMA
+# (JSONs gerados, configs de sessão, debug)
+# ============================================
 /data/downloads/
+/data/editais.json
+/data/editais.json.backup
+/data/resumos-editais.json
+/data/prosas-session.json
+/data/prosas-debug.html
+/data/webcomponents.bundle.js
+/data/capta.db
+/data/db/
 
+# ============================================
+# NOTIFICAÇÕES (runtime)
+# ============================================
+/data/notificacoes/
+
+# ============================================
+# AGENT / IA CONFIGS
+# ============================================
+.agent/
+
+# ============================================
+# ARQUIVOS GRANDES / CACHE
+# ============================================
+*.log
+*.gz
+*.tar
+*.zip
+*.rar
