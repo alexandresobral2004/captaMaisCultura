@@ -1,8 +1,8 @@
 # 📚 Índice Geral da Documentação - Capta+
 
 > **📍 Localização:** `docs/00-INDICE.md`
-> **📅 Última revisão:** 04/06/2026
-> **📊 Total de documentos:** 45+
+> **📅 Última revisão:** 07/06/2026
+> **📊 Total de documentos:** 48+
 
 Bem-vindo à documentação consolidada do **Capta+** (CaptaMais v3.0) — Sistema de Gestão Inteligente de Editais e Captação de Recursos.
 
@@ -39,7 +39,7 @@ Arquitetura do sistema, mapas e design.
 
 ---
 
-### 🔄 [03. Fluxos do Pipeline](03-fluxos/) — 6 docs
+### 🔄 [03. Fluxos do Pipeline](03-fluxos/) — 7 docs
 
 Fluxos detalhados de execução do sistema.
 
@@ -51,10 +51,11 @@ Fluxos detalhados de execução do sistema.
 | 04 | [`04-fluxo-extracao-pdf.md`](03-fluxos/04-fluxo-extracao-pdf.md) | 📥 Fluxo de extração de PDF (3 estratégias) |
 | 05 | [`05-fluxo-exclusao-analise.md`](03-fluxos/05-fluxo-exclusao-analise.md) | 🗑️ Fluxo de exclusão e análise manual |
 | 06 | [`06-mudancas-pipeline.md`](03-fluxos/06-mudancas-pipeline.md) | 🔧 Mudanças no pipeline (3 estratégias PDF) |
+| 07 | [`07-fluxo-upload-editais.md`](03-fluxos/07-fluxo-upload-editais.md) | 📤 Fluxo de upload e rastreamento de PDFs |
 
 ---
 
-### 🛠️ [04. Implementação](04-implementacao/) — 4 docs
+### 🛠️ [04. Implementação](04-implementacao/) — 6 docs
 
 Detalhes de implementação dos módulos principais.
 
@@ -64,6 +65,8 @@ Detalhes de implementação dos módulos principais.
 | 02 | [`02-implementacao-editais-com-ia.md`](04-implementacao/02-implementacao-editais-com-ia.md) | 🚀 Sistema completo de varredura com IA |
 | 03 | [`03-implementacao-filtragem-producao.md`](04-implementacao/03-implementacao-filtragem-producao.md) | 🚀 Guia para ativar filtragem em produção |
 | 04 | [`04-expansao-escopo-pesquisa.md`](04-implementacao/04-expansao-escopo-pesquisa.md) | 🚀 Expansão para pesquisa, universidades e IFs |
+| 05 | [`05-editor-propostas-dinamico.md`](04-implementacao/05-editor-propostas-dinamico.md) | 🎨 Editor de propostas dinâmico e rich-text |
+| 06 | [`06-editor-cientifico-avancado.md`](04-implementacao/06-editor-cientifico-avancado.md) | 🎨 Editor científico avançado com IA e proponentes |
 
 ---
 
@@ -152,7 +155,8 @@ Guias rápidos, resumos e referências práticas.
 ### 💻 Vou implementar algo
 1. [`02-arquitetura/03-estrutura-codebase.md`](02-arquitetura/03-estrutura-codebase.md) — Estrutura do código
 2. [`04-implementacao/`](04-implementacao/) — Detalhes de implementação
-3. [`07-skills/03-clean-code-skill.md`](07-skills/03-clean-code-skill.md) — Padrões de código
+3. [`04-implementacao/05-editor-propostas-dinamico.md`](04-implementacao/05-editor-propostas-dinamico.md) — Editor dinâmico
+4. [`07-skills/03-clean-code-skill.md`](07-skills/03-clean-code-skill.md) — Padrões de código
 
 ### 🐛 Estou com problema
 1. [`08-testes-analise/04-indice-analise-prosas.md`](08-testes-analise/04-indice-analise-prosas.md) — Análise Prosas
@@ -192,18 +196,27 @@ Guias rápidos, resumos e referências práticas.
 |-----------|-----------|-----------------|
 | 01-introducao | 4 | ~1.000 |
 | 02-arquitetura | 5 | ~3.000 |
-| 03-fluxos | 6 | ~1.500 |
-| 04-implementacao | 4 | ~1.500 |
+| 03-fluxos | 7 | ~1.600 |
+| 04-implementacao | 6 | ~2.500 |
 | 05-filtragem-keywords | 6 | ~2.000 |
 | 06-integracoes | 3 | ~1.500 |
 | 07-skills | 3 | ~500 |
 | 08-testes-analise | 7 | ~2.000 |
 | 09-guias-referencias | 6 | ~2.000 |
-| **TOTAL** | **44** | **~15.000** |
+| **TOTAL** | **47** | **~16.100** |
 
 ---
 
 ## 🔄 Histórico de Mudanças
+
+### v3.3 (07/06/2026) — Editor Científico Avançado com IA
+- ✅ Adicionado documento detalhado sobre o Editor Científico Avançado, busca Tavily, ABNT e proponentes
+- ✅ Atualizados os totais e índices gerais de documentação
+
+### v3.2 (07/06/2026) — Editor Dinâmico & Upload
+- ✅ Adicionado documento detalhado sobre o Editor Dinâmico e Rich-Text
+- ✅ Integrado e indexado o fluxo de Upload de Editais PDF
+- ✅ Atualizados os mapas e índices arquiteturais gerais
 
 ### v3.1 (04/06/2026) — Reorganização Completa
 - ✅ Reorganização de 41+ documentos em 9 categorias
@@ -229,8 +242,8 @@ docs/
 ├── 00-INDICE.md                                    ⭐ Você está aqui
 ├── 01-introducao/                                  4 docs
 ├── 02-arquitetura/                                 5 docs
-├── 03-fluxos/                                      6 docs
-├── 04-implementacao/                               4 docs
+├── 03-fluxos/                                      7 docs
+├── 04-implementacao/                               5 docs
 ├── 05-filtragem-keywords/                          6 docs
 ├── 06-integracoes/                                 3 docs
 ├── 07-skills/                                      3 docs

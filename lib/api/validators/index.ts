@@ -39,6 +39,7 @@ export const CreateEditalSchema = z.object({
   modoAnaliseIa: z.enum(['ignorar', 'simplificado', 'completo']).optional(),
   hashPontuacao: z.string().optional(),
   cacheClassificacaoUsado: z.boolean().optional(),
+  categoriaArea: z.string().optional(),
 });
 
 // Schema para atualizar edital
@@ -58,6 +59,7 @@ export const ListEditaisQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
+  categoriaArea: z.string().optional(),
 });
 
 // Schema para busca
@@ -69,6 +71,7 @@ export const SearchQuerySchema = z.object({
   orgao: z.string().optional(),
   tecnologia: z.string().optional(),
   scoreMin: z.coerce.number().min(0).max(100).optional(),
+  categoriaArea: z.string().optional(),
 });
 
 // Schema para analise IA

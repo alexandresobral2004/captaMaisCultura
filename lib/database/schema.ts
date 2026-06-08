@@ -79,6 +79,7 @@ export const editais = sqliteTable('editais', {
 
   // Codigo de identificacao (EDT-001, EDT-002, etc.)
   codigo: text('codigo').unique(),
+  categoriaArea: text('categoria_area').notNull().default('Cultura'),
 }, (table) => {
   return {
     statusIdx: index('idx_editais_status').on(table.status),
@@ -115,6 +116,7 @@ export const analiseIa = sqliteTable('analise_ia', {
   elegibilidade: text('elegibilidade'),
   contatoEdital: text('contato_edital'),
   scoreAdequacao: integer('score_adequacao'),
+  secoesRequeridas: text('secoes_requeridas'), // JSON array serializado de strings (ex: ["Justificativa", "Metodologia"])
   criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
   atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
 });
@@ -341,6 +343,14 @@ export const projetos = sqliteTable('projetos', {
   // Fontes utilizadas na geracao
   fontes: text('fontes'), // JSON array de referencias
 
+  // Seções dinâmicas da proposta
+  secoesDinamicas: text('secoes_dinamicas'), // JSON serializado de SecaoDinamica[]
+
+  // Logo e Dados do Proponente
+  logoUrl: text('logo_url'), // Base64 ou URL da logo
+  logoDescricao: text('logo_descricao'), // Descrição textual da logo
+  dadosProponente: text('dados_proponente'), // JSON com identificação, endereço, telefones, e-mails, natureza e dirigentes
+
   // Timestamps
   criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
   atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
@@ -519,4 +529,80 @@ export const ragChunks = sqliteTable('rag_chunks', {
   docIdx: index('idx_rag_documento').on(table.documentoNome),
   catIdx: index('idx_rag_categoria').on(table.categoria),
   hashIdx: index('idx_rag_hash').on(table.hashConteudo),
+}));
+
+// ============================================================
+// TABELAS DE PROMPTS DE IA
+// ============================================================
+
+// Tabela: prompts_sistema (armazena templates padrão)
+export const promptsSistema = sqliteTable('prompts_sistema', {
+  id: text('id').primaryKey(),
+  modulo: text('modulo').notNull(), // 'projetos_cultura' ou 'projetos_pesquisa'
+  chave: text('chave').notNull(), // 'geracao_completa', 'analise_conformidade', etc.
+  conteudoPadrao: text('conteudo_padrao').notNull(),
+  descricao: text('descricao'),
+  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+}, (table) => ({
+  moduloIdx: index('idx_prompts_sistema_modulo').on(table.modulo),
+  chaveIdx: index('idx_prompts_sistema_chave').on(table.chave),
+  moduloChaveIdx: index('idx_prompts_sistema_modulo_chave').on(table.modulo, table.chave),
+}));
+
+// Tabela: prompts_customizados (versões customizadas ativas)
+export const promptsCustomizados = sqliteTable('prompts_customizados', {
+  id: text('id').primaryKey(),
+  promptSistemaId: text('prompt_sistema_id').references(() => promptsSistema.id),
+  conteudo: text('conteudo').notNull(),
+  ativo: integer('ativo', { mode: 'boolean' }).default(true),
+  criadoPor: text('criado_por').references(() => usuarios.id),
+  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+}, (table) => ({
+  promptSistemaIdx: index('idx_prompts_customizados_sistema_id').on(table.promptSistemaId),
+  ativoIdx: index('idx_prompts_customizados_ativo').on(table.ativo),
+}));
+
+// Tabela: prompts_historico (versionamento)
+export const promptsHistorico = sqliteTable('prompts_historico', {
+  id: text('id').primaryKey(),
+  promptCustomizadoId: text('prompt_customizado_id').references(() => promptsCustomizados.id),
+  conteudoAnterior: text('conteudo_anterior').notNull(),
+  conteudoNovo: text('conteudo_novo').notNull(),
+  alteradoPor: text('alterado_por').references(() => usuarios.id),
+  alteradoEm: text('alterado_em').default('CURRENT_TIMESTAMP'),
+  justificativa: text('justificativa'),
+}, (table) => ({
+  promptCustomizadoIdx: index('idx_prompts_historico_customizado_id').on(table.promptCustomizadoId),
+  alteradoEmIdx: index('idx_prompts_historico_alterado_em').on(table.alteradoEm),
+}));
+
+// ============================================================
+// RELACIONAMENTOS DOS PROMPTS
+// ============================================================
+export const promptsSistemaRelations = relations(promptsSistema, ({ many }) => ({
+  customizacoes: many(promptsCustomizados),
+}));
+
+export const promptsCustomizadosRelations = relations(promptsCustomizados, ({ one, many }) => ({
+  sistema: one(promptsSistema, {
+    fields: [promptsCustomizados.promptSistemaId],
+    references: [promptsSistema.id],
+  }),
+  criador: one(usuarios, {
+    fields: [promptsCustomizados.criadoPor],
+    references: [usuarios.id],
+  }),
+  historico: many(promptsHistorico),
+}));
+
+export const promptsHistoricoRelations = relations(promptsHistorico, ({ one }) => ({
+  promptCustomizado: one(promptsCustomizados, {
+    fields: [promptsHistorico.promptCustomizadoId],
+    references: [promptsCustomizados.id],
+  }),
+  alterador: one(usuarios, {
+    fields: [promptsHistorico.alteradoPor],
+    references: [usuarios.id],
+  }),
 }));

@@ -11,6 +11,7 @@ export interface SearchQuery {
   orgao?: string;
   tecnologia?: string;
   scoreMin?: number;
+  categoriaArea?: string;
 }
 
 export class SearchRepository extends BaseRepository {
@@ -41,6 +42,10 @@ export class SearchRepository extends BaseRepository {
     if (query.scoreMin !== undefined) {
       filters.push(`e.score_relevancia >= ?`);
       params.push(query.scoreMin);
+    }
+    if (query.categoriaArea) {
+      filters.push(`e.categoria_area = ?`);
+      params.push(query.categoriaArea);
     }
 
     const whereClause = filters.length ? `AND ${filters.join(' AND ')}` : '';

@@ -24,19 +24,19 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[85vw] bg-white dark:bg-slate-900 shadow-xl lg:hidden">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[85vw] bg-[#0F172A] border-r border-[#1E293B] shadow-xl lg:hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
                   C+
                 </div>
-                <span className="font-bold text-lg text-slate-900 dark:text-slate-100">Capta+</span>
+                <span className="font-bold text-lg text-white">Capta+</span>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-2 rounded-md hover:bg-slate-800"
               >
-                <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                <X className="w-5 h-5 text-slate-400 hover:text-white" />
               </button>
             </div>
             <div className="overflow-y-auto h-full pb-20">

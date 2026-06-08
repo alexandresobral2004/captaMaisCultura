@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProjetoService } from '@/lib/database/services/projeto.service';
 import { ProposalWriter } from '@/lib/ai/writer';
+import { proposalEngine, TargetMetrics, InstitutionContext } from '@/lib/ai/engines/proposal-writer.engine';
+import OpenAI from 'openai';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -47,6 +49,45 @@ function normalizeElegibilidade(elegibilidade: any): string[] {
     return parts.length ? parts : [];
   }
   return [];
+}
+
+async function extrairTargetMetrics(titulo: string, descricao: string, duracaoMeses: number): Promise<TargetMetrics> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY não configurada no ambiente.');
+  }
+  const client = new OpenAI({ apiKey });
+
+  const prompt = `Analise o título e a descrição do projeto abaixo e extraia as métricas estruturadas de impacto no formato JSON.
+Se as informações não forem explícitas na descrição, gere valores/estimativas plausíveis e realistas coerentes com o escopo do projeto.
+
+Título: ${titulo}
+Descrição: ${descricao}
+
+Retorne um objeto JSON estrito com a seguinte estrutura:
+{
+  "publicoAlvo": "breve descrição do público-alvo",
+  "localizacao": "cidade/estado/região provável de execução",
+  "duracaoMeses": ${duracaoMeses},
+  "beneficiariosDiretos": 150,
+  "beneficiariosIndiretos": 600,
+  "produtosEntregues": ["produto 1", "produto 2", ...],
+  "indicadoresImpacto": ["indicador de impacto 1", "indicador de impacto 2", ...]
+}
+Apenas o JSON, sem markdown ou explicações adicionais.`;
+
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.3,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('Falha ao extrair métricas do projeto');
+  }
+  return JSON.parse(content) as TargetMetrics;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -100,16 +141,73 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       propostaUsuario: projeto.propostaUsuario || projeto.descricao || '',
     };
 
-    const resultado = await writer.gerarPropostaCompleta(editalContext, proposalUser);
+    const secoesDinamicasAtuais = (projeto.secoesDinamicas as any[]) || [];
+    const resultado = await writer.gerarPropostaDinamica(editalContext, proposalUser, secoesDinamicasAtuais);
+
+    // Contexto da Instituição - usar dadosProponente do projeto se disponíveis, senão usar padrão
+    const dadosProponente = projeto.dadosProponente as any;
+    const defaultInstitution: InstitutionContext = {
+      nome: dadosProponente?.nomeProponente || 'Instituto Cultural CaptaMais',
+      cnpj: dadosProponente?.cnpjCpf || '12.345.678/0001-99',
+      historico: dadosProponente?.historico || 'O Instituto Cultural CaptaMais é uma associação sem fins lucrativos que há 8 anos atua na democratização do acesso à cultura, arte e educação em regiões de alta vulnerabilidade social.',
+      projetosAnteriores: dadosProponente?.projetosAnteriores || [
+        'Oficinas de Inclusão Digital e Robótica Educacional (2023) - 150 alunos atendidos.',
+        'Ciclo de Teatro Itinerante Nas Escolas (2024) - 1.200 espectadores.',
+      ],
+      certificacoes: dadosProponente?.certificacoes || [
+        'Organização da Sociedade Civil de Interesse Público (OSCIP)',
+        'Cadastro Estadual de Entidades Culturais',
+      ],
+      capacidadeTecnica: dadosProponente?.capacidadeTecnica || 'A entidade conta com equipe de coordenação pedagógica, produtores culturais experientes e analistas técnicos capacitados para a gestão e prestação de contas de projetos financiados por editais.'
+    };
+
+    // Extrair métricas de impacto realistas a partir do input do projeto
+    const targetMetrics = await extrairTargetMetrics(
+      projeto.titulo,
+      proposalUser.descricao,
+      resultado.prazoMeses || 12
+    );
+
+    // Gerar as três seções centrais utilizando a nova Engine de Restrições Rígidas (Engenharia de Requisitos)
+    const rigidas = await proposalEngine.generateFullProposal(
+      editalContext,
+      defaultInstitution,
+      targetMetrics
+    );
+
+    // Formatar as seções rígidas geradas como HTML
+    const justificativaHTML = rigidas.justificativa.paragraphs.map(p => `<p>${p}</p>`).join('');
+    const metodologiaHTML = rigidas.metodologia.paragraphs.map(p => `<p>${p}</p>`).join('');
+
+    // Objetivos: O primeiro parágrafo é de introdução, os demais são os objetivos específicos (bullets)
+    const objetivosIntro = rigidas.objetivos.paragraphs[0] ? `<p>${rigidas.objetivos.paragraphs[0]}</p>` : '';
+    const objetivosBullets = rigidas.objetivos.paragraphs.length > 1
+      ? `<ul>${rigidas.objetivos.paragraphs.slice(1).map(p => `<li>${p.replace(/^[\-•\s*]+/, '').trim()}</li>`).join('')}</ul>`
+      : '';
+    const objetivosHTML = `${objetivosIntro}${objetivosBullets}`;
+
+    // Sobrescrever os conteúdos das seções geradas dinamicamente
+    const secoesDinamicasList = secoesDinamicasAtuais.map(s => {
+      let novoConteudo = resultado.secoes[s.chave] || s.conteudo || '';
+      if (s.chave === 'justificativa') novoConteudo = justificativaHTML;
+      if (s.chave === 'metodologia') novoConteudo = metodologiaHTML;
+      if (s.chave === 'objetivos') novoConteudo = objetivosHTML;
+      return {
+        ...s,
+        conteudo: novoConteudo
+      };
+    });
 
     const atualizacao = {
-      resumoExecutivo: resultado.resumoExecutivo,
-      justificativa: resultado.justificativa,
-      objetivos: resultado.objetivos,
-      metodologia: resultado.metodologia,
-      resultadosEsperados: resultado.resultadosEsperados,
-      cronograma: resultado.cronograma,
-      orcamentoDetalhado: resultado.orcamentoDetalhado,
+      resumoExecutivo: resultado.secoes['resumoExecutivo'] || '',
+      justificativa: justificativaHTML,
+      objetivos: objetivosHTML,
+      metodologia: metodologiaHTML,
+      resultadosEsperados: resultado.secoes['resultadosEsperados'] || '',
+      cronograma: resultado.secoes['cronograma'] || '',
+      orcamentoDetalhado: resultado.secoes['orcamentoDetalhado'] || '',
+
+      secoesDinamicas: JSON.stringify(secoesDinamicasList),
       valorSolicitado: resultado.valorSolicitado,
       prazoMeses: resultado.prazoMeses,
       equipe: resultado.equipe,

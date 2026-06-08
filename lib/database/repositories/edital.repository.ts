@@ -16,6 +16,7 @@ export interface ListEditalQuery {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  categoriaArea?: string;
 }
 
 export interface CreateEditalDTO {
@@ -63,6 +64,7 @@ export interface CreateEditalDTO {
   densidadeKeywords?: number;
   oportunidadesDetectadas?: string[];
   codigo?: string;
+  categoriaArea?: string;
 }
 
 function formatToISODate(dateStr: string | null | undefined): string {
@@ -137,6 +139,9 @@ export class EditalRepository extends BaseRepository {
     }
     if (query.dataFim) {
       conditions.push(lte(editais.dataLimite, query.dataFim));
+    }
+    if (query.categoriaArea) {
+      conditions.push(eq(editais.categoriaArea, query.categoriaArea));
     }
 
     const where = conditions.length ? and(...conditions) : undefined;
@@ -240,6 +245,7 @@ export class EditalRepository extends BaseRepository {
       cacheClassificacaoUsado: !!data.cacheClassificacaoUsado,
       confiancaPorCampo: data.confiancaPorCampo ? JSON.stringify(data.confiancaPorCampo) : null,
       codigo: codigo,
+      categoriaArea: data.categoriaArea || 'Cultura',
     };
 
     const result = await this.database.insert(editais).values(editalData).returning();
@@ -284,6 +290,7 @@ export class EditalRepository extends BaseRepository {
     if (data.areasTematicas !== undefined) updateData.areasTematicas = JSON.stringify(data.areasTematicas);
     if (data.arquivosAnexos !== undefined) updateData.arquivosAnexos = JSON.stringify(data.arquivosAnexos);
     if (data.motivosPontuacao !== undefined) updateData.motivosPontuacao = JSON.stringify(data.motivosPontuacao);
+    if (data.categoriaArea !== undefined) updateData.categoriaArea = data.categoriaArea;
 
     const result = await this.database
       .update(editais)
@@ -400,6 +407,9 @@ export class EditalRepository extends BaseRepository {
     }
     if (query.dataFim) {
       conditions.push(lte(editais.dataLimite, query.dataFim));
+    }
+    if (query.categoriaArea) {
+      conditions.push(eq(editais.categoriaArea, query.categoriaArea));
     }
 
     const where = conditions.length ? and(...conditions) : undefined;

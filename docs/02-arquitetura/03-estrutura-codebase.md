@@ -39,7 +39,7 @@
 │   └── ...outras páginas
 ├── components/                   # Componentes React reutilizáveis
 │   ├── layout/                   # Componentes de layout
-│   └── ui/                       # Componentes UI básicos
+│   └── ui/                       # Componentes UI básicos (incluindo RichTextEditor)
 ├── lib/                          # Lógica de negócio (biblioteca interna)
 │   ├── scraper/                  # Web scraping e busca de editais
 │   ├── ai/                       # Lógica de IA e análise
@@ -550,6 +550,9 @@ Documentação completa em [`05-api-documentacao.md`](05-api-documentacao.md)
 | `lib/scraper/worker.ts` | 27 | Worker em background |
 | `lib/database/schema.ts` | — | Schema Drizzle ORM (15 tabelas) |
 | `lib/database/repositories/edital.repository.ts` | — | CRUD editais (Drizzle) |
+| `lib/database/services/projeto.service.ts` | 400 | Serviço de projetos (migração de seções dinâmicas) |
+| `lib/database/services/edital-upload.service.ts` | 449 | Serviço de upload de editais e extração PDF |
+| `components/ui/rich-text-editor.tsx` | 273 | Componente de Editor Rich-Text (contentEditable) |
 
 ---
 
@@ -602,3 +605,4 @@ O **CaptaMais** é um sistema completo de busca, filtragem e análise inteligent
 - **Architecture Summary (EN):** [`01-architecture-summary.md`](01-architecture-summary.md)
 - **Planejamento SQLite:** [`04-planejamento-sqlite-api.md`](04-planejamento-sqlite-api.md)
 - **API Documentation:** [`05-api-documentacao.md`](05-api-documentacao.md)
+- **Editor de Propostas Dinâmico:** [`../04-implementacao/05-editor-propostas-dinamico.md`](../04-implementacao/05-editor-propostas-dinamico.md)

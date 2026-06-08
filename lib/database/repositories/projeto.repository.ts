@@ -35,6 +35,11 @@ export interface CreateProjetoDTO {
   status?: string;
   versao?: number;
   promptOriginal?: string;
+  secoesDinamicas?: any[] | string;
+  // Logo e Dados do Proponente
+  logoUrl?: string;
+  logoDescricao?: string;
+  dadosProponente?: any | string;
 }
 
 export class ProjetoRepository extends BaseRepository {
@@ -126,6 +131,11 @@ export class ProjetoRepository extends BaseRepository {
       status: (data.status || 'rascunho') as any,
       versao: data.versao || 1,
       promptOriginal: data.promptOriginal || null,
+      secoesDinamicas: data.secoesDinamicas ? (typeof data.secoesDinamicas === 'string' ? data.secoesDinamicas : JSON.stringify(data.secoesDinamicas)) : null,
+      // Logo e Dados do Proponente
+      logoUrl: data.logoUrl || null,
+      logoDescricao: data.logoDescricao || null,
+      dadosProponente: data.dadosProponente ? (typeof data.dadosProponente === 'string' ? data.dadosProponente : JSON.stringify(data.dadosProponente)) : null,
     };
 
     const result = await this.database.insert(projetos).values(projetoData).returning();
@@ -155,6 +165,19 @@ export class ProjetoRepository extends BaseRepository {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.versao !== undefined) updateData.versao = data.versao;
     if (data.promptOriginal !== undefined) updateData.promptOriginal = data.promptOriginal;
+    if (data.secoesDinamicas !== undefined) {
+      updateData.secoesDinamicas = typeof data.secoesDinamicas === 'string'
+        ? data.secoesDinamicas
+        : JSON.stringify(data.secoesDinamicas);
+    }
+    // Logo e Dados do Proponente
+    if (data.logoUrl !== undefined) updateData.logoUrl = data.logoUrl;
+    if (data.logoDescricao !== undefined) updateData.logoDescricao = data.logoDescricao;
+    if (data.dadosProponente !== undefined) {
+      updateData.dadosProponente = typeof data.dadosProponente === 'string'
+        ? data.dadosProponente
+        : JSON.stringify(data.dadosProponente);
+    }
 
     const result = await this.database
       .update(projetos)

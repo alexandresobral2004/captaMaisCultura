@@ -32,11 +32,33 @@ export interface RetrievedChunk {
  * Escapa caracteres especiais para busca FTS5
  */
 function escapeFTS5Query(query: string): string {
+  const stopwords = [
+    'de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'uma', 'para', 'com', 'no', 'na', 'os', 'as', 'dos', 'das', 'como', 'ao', 'à', 'presente', 'edital', 'objetivo', 'selecionar', 'projetos', 'receberem',
+    'por', 'mais', 'se', 'ou', 'quando', 'muito', 'nos', 'ja', 'eu', 'tambem', 'so', 'ate', 'isso', 'ela', 'entre', 'depois', 'sem', 'mesmo', 'aos', 'seus', 'quem', 'nas', 'me', 'esse', 'eles', 'voce', 'essa', 'num', 'nem', 'suas', 'meu', 'minha', 'numa', 'pelos', 'elas', 'qual', 'nós', 'lhe', 'deles', 'essas', 'esses', 'este', 'dele', 'tu', 'te', 'voces', 'vos', 'lhes', 'meus', 'minhas', 'teu', 'tua', 'teus', 'tuas', 'nosso', 'nossa', 'nossos', 'nossas', 'dela', 'delas', 'este', 'estes', 'esta', 'estas', 'aquele', 'aqueles', 'aquela', 'aquelas', 'isto', 'aquilo'
+  ];
+
   // Remove caracteres especiais do FTS5
-  return query
+  const cleanQuery = query
     .replace(/[!"#$%&'()*+,-./:;<=>?@[\]^`{|}~]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+  if (!cleanQuery) return '';
+
+  const words = cleanQuery
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(w => w.length > 2 && !stopwords.includes(w.toLowerCase()));
+
+  // Evitar queries gigantescas no SQLite (max 20 termos para busca assertiva e performática)
+  const topWords = words.slice(0, 20);
+
+  if (topWords.length === 0) {
+    // Se após filtrar tudo sobrou nada, tenta usar a query limpa original
+    return cleanQuery.split(/\s+/).slice(0, 10).join(' OR ');
+  }
+
+  return topWords.join(' OR ');
 }
 
 /**

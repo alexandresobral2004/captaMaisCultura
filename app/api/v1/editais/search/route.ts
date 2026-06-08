@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       scoreMin: searchParams.get('scoreMin')
         ? parseInt(searchParams.get('scoreMin')!)
         : undefined,
+      categoriaArea: searchParams.get('categoriaArea') || undefined,
     });
 
     return NextResponse.json(

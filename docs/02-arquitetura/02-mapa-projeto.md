@@ -41,8 +41,8 @@ BUSCAR → BAIXAR → ANALISAR → GERAR PROJETO
 │  4. GERAR PROJETO (writer.ts + prompts-projeto.ts)              │
 │     Tavily: busca web para fundamentacao                        │
 │     Prompt Anti-IA: sem cliches, tom tecnico                    │
-│     Saida: 8 secoes + compliance + fontes                       │
-│     Export: PDF ou Markdown                                     │
+│     Saida: seções dinâmicas + compliance + fontes               │
+│     Export: PDF (via htmlToMarkdown) ou Markdown               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -100,7 +100,7 @@ captaMais/
 │   ├── editais/page.tsx              # Listagem e revisao de editais
 │   ├── projetos/
 │   │   ├── page.tsx                  # Listagem de projetos
-│   │   └── [id]/page.tsx             # Detalhe e geracao de projeto
+│   │   └── [id]/page.tsx             # Detalhe, editor rich-text e seções dinâmicas
 │   ├── usuarios/page.tsx             # Gestao de usuarios
 │   ├── configuracoes/page.tsx        # Configuracoes
 │   ├── login/page.tsx                # Login
@@ -176,7 +176,7 @@ captaMais/
 │   │   └── topbar.tsx                # Barra superior
 │   └── ui/
 │       ├── badge.tsx, button.tsx, card.tsx, drawer.tsx
-│       ├── input.tsx, spinner.tsx, textarea.tsx
+│       ├── input.tsx, spinner.tsx, textarea.tsx, rich-text-editor.tsx
 ├── scripts/
 │   ├── buscar-editais.sh             # *** PONTO DE ENTRADA ***
 │   ├── resumir-editais.sh            # Resumir editais
@@ -715,6 +715,7 @@ buscarDadosProjetoMCP(tema, areaAtuacao?) → {
 | `status` | TEXT | rascunho/em_geracao/revisando/finalizado |
 | `versao` | INTEGER DEFAULT 1 | Versao do projeto |
 | `fontes` | TEXT | Fontes utilizadas (JSON) |
+| `secoes_dinamicas` | TEXT | Seções dinâmicas da proposta (JSON) |
 
 #### `areas_tematicas`
 

@@ -23,6 +23,7 @@ export function createTestDb() {
       data_resultado TEXT,
       status TEXT NOT NULL DEFAULT 'Aberto',
       status_analise TEXT DEFAULT 'pendente',
+      erro_analise TEXT,
       modalidade TEXT,
       abrangencia TEXT,
       tipo_proponente TEXT,
@@ -66,6 +67,7 @@ export function createTestDb() {
       elegibilidade TEXT,
       contato_edital TEXT,
       score_adequacao INTEGER,
+      secoes_requeridas TEXT,
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (edital_id) REFERENCES editais(id) ON DELETE CASCADE
@@ -199,6 +201,8 @@ export function createTestDb() {
       status TEXT DEFAULT 'rascunho',
       versao INTEGER DEFAULT 1,
       prompt_original TEXT,
+      fontes TEXT,
+      secoes_dinamicas TEXT,
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (edital_id) REFERENCES editais(id) ON DELETE CASCADE

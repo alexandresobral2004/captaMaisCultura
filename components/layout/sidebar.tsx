@@ -6,41 +6,65 @@ import {
   Home,
   FileText,
   CheckCircle,
-  Users,
   Settings,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  FlaskConical
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
+type ColorScheme = 'emerald' | 'amber' | 'sky' | 'violet' | 'slate';
+
 interface SubMenuItem {
   href: string;
   label: string;
+  colorScheme?: ColorScheme;
 }
 
 interface MenuItem {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  colorScheme: ColorScheme;
   submenu?: SubMenuItem[];
 }
 
+const colorMap: Record<ColorScheme, string> = {
+  emerald: '#10B981',
+  amber: '#F59E0B',
+  sky: '#0EA5E9',
+  violet: '#8B5CF6',
+  slate: '#94A3B8',
+};
+
 const menuItems: MenuItem[] = [
-  { href: "/dashboard", label: "Início", icon: Home },
-  { href: "/editais", label: "Meus Editais", icon: FileText },
-  { href: "/projetos", label: "Projetos Aprovados", icon: CheckCircle },
-  { href: "/usuarios", label: "Usuários da Instituição", icon: Users },
+  { href: "/dashboard", label: "Início", icon: Home, colorScheme: 'emerald' },
+  { href: "/editais", label: "Meus Editais", icon: FileText, colorScheme: 'amber' },
+  { href: "/projetos", label: "Projetos Culturais", icon: CheckCircle, colorScheme: 'sky' },
+  {
+    href: "/analise-cientifica",
+    label: "Análise Científica",
+    icon: FlaskConical,
+    colorScheme: 'violet',
+    submenu: [
+      { href: "/analise-cientifica/projetos", label: "Meus Projetos", colorScheme: 'violet' },
+      { href: "/analise-cientifica/editais", label: "Editais Científicos", colorScheme: 'violet' },
+    ]
+  },
   {
     href: "/configuracoes",
     label: "Configurações",
     icon: Settings,
+    colorScheme: 'slate',
     submenu: [
-      { href: "/configuracoes", label: "Geral" },
-      { href: "/configuracoes/logs", label: "Logs de Erro" },
-      { href: "/configuracoes/filtros", label: "Filtros de Editais" },
-      { href: "/configuracoes/scraper-logs", label: "Logs do Scraper" },
-      { href: "/configuracoes/portais", label: "Portais de Editais" },
+      { href: "/configuracoes", label: "Geral", colorScheme: 'slate' },
+      { href: "/configuracoes/usuarios", label: "Usuários", colorScheme: 'slate' },
+      { href: "/configuracoes/logs", label: "Logs de Erro", colorScheme: 'slate' },
+      { href: "/configuracoes/filtros", label: "Filtros de Editais", colorScheme: 'slate' },
+      { href: "/configuracoes/scraper-logs", label: "Logs do Scraper", colorScheme: 'slate' },
+      { href: "/configuracoes/portais", label: "Portais de Editais", colorScheme: 'slate' },
+      { href: "/configuracoes/prompts", label: "Prompts de IA", colorScheme: 'slate' },
     ]
   },
 ]
@@ -119,7 +143,7 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
                     (isActive || isSubMenuActive(item.submenu!)) && "active"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" style={{ color: colorMap[item.colorScheme] }} />
                   <span>{item.label}</span>
                   <ChevronDown
                     className={cn(
@@ -132,6 +156,7 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
                   <div className="nav-submenu">
                     {item.submenu!.map((subItem) => {
                       const isSubActive = pathname === subItem.href;
+                      const subColor = subItem.colorScheme ? colorMap[subItem.colorScheme] : colorMap[item.colorScheme];
                       return (
                         <Link
                           key={subItem.href}
@@ -143,9 +168,9 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
                           )}
                         >
                           {subItem.label === "Logs de Erro" && (
-                            <AlertTriangle className="h-3 w-3" />
+                            <AlertTriangle className="h-3 w-3" style={{ color: subColor }} />
                           )}
-                          <span>{subItem.label}</span>
+                          <span style={{ color: isSubActive ? subColor : undefined }}>{subItem.label}</span>
                         </Link>
                       );
                     })}
@@ -165,7 +190,7 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
                 isActive && "active"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" style={{ color: colorMap[item.colorScheme] }} />
               <span>{item.label}</span>
             </Link>
           );

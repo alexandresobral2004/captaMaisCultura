@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
-import { propostaCompletaSchema, secaoSchema, PropostaCompleta, SecaoGerada } from './schema-projeto';
-import { gerarPromptCompleto, gerarPromptSecao, gerarPromptPolimento, SearchResult } from './prompts-projeto';
+import { propostaCompletaSchema, secaoSchema, PropostaCompleta, SecaoGerada, propostaDinamicaSchema, PropostaDinamica } from './schema-projeto';
+import { gerarPromptCompleto, gerarPromptSecao, gerarPromptPolimento, SearchResult, gerarPromptDinamico } from './prompts-projeto';
 import { buscarDadosProjetoMCP } from './tavily-mcp.client';
 import { buscarContextoRAG, formatarContextoRAG } from '../rag/rag-service';
+import { PromptRepository } from '../database/repositories/prompt.repository';
 
 interface EditalContext {
   titulo: string;
@@ -39,9 +40,11 @@ function getOpenAIClient(): OpenAI {
 
 export class ProposalWriter {
   private model: string;
+  private promptRepository: PromptRepository;
 
   constructor(model: 'mini' | 'full' = 'mini') {
     this.model = model === 'mini' ? 'gpt-4o-mini' : 'gpt-4o';
+    this.promptRepository = new PromptRepository();
   }
 
   async gerarPropostaCompleta(
@@ -56,7 +59,9 @@ export class ProposalWriter {
       console.warn('Busca Tavily falhou, continuando sem search:', e);
     }
 
-    const prompt = await gerarPromptCompleto(edil, proposal, searchResults);
+    // Tentar obter prompt customizado primeiro
+    const promptCustomizado = await this.promptRepository.getAtivo('projetos_cultura', 'geracao_completa');
+    const prompt = promptCustomizado || await gerarPromptCompleto(edil, proposal, searchResults);
 
     const client = getOpenAIClient();
     const response = await client.chat.completions.create({
@@ -73,6 +78,38 @@ export class ProposalWriter {
     return propostaCompletaSchema.parse(parsed);
   }
 
+  async gerarPropostaDinamica(
+    edil: EditalContext,
+    proposal: UserProposal,
+    secoes: { id: string; chave: string; titulo: string; conteudo: string }[]
+  ): Promise<PropostaDinamica> {
+    let searchResults: SearchResult[] = [];
+    try {
+      const searchResponse = await buscarDadosProjetoMCP(proposal.titulo, proposal.areaAtuacao);
+      searchResults = searchResponse.results;
+    } catch (e) {
+      console.warn('Busca Tavily falhou, continuando sem search:', e);
+    }
+
+    // Tentar obter prompt customizado primeiro
+    const promptCustomizado = await this.promptRepository.getAtivo('projetos_cultura', 'geracao_dinamica');
+    const prompt = promptCustomizado || await gerarPromptDinamico(edil, proposal, secoes, searchResults);
+
+    const client = getOpenAIClient();
+    const response = await client.chat.completions.create({
+      model: this.model,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      temperature: 0.5,
+    });
+
+    const raw = response.choices[0]?.message?.content;
+    if (!raw) throw new Error('Resposta vazia da IA');
+
+    const parsed = JSON.parse(raw);
+    return propostaDinamicaSchema.parse(parsed);
+  }
+
   async gerarSecao(
     secao: string,
     edil: EditalContext,
@@ -87,7 +124,9 @@ export class ProposalWriter {
       console.warn('Busca Tavily falhou, continuando sem search:', e);
     }
 
-    const prompt = await gerarPromptSecao(secao, edil, proposal, secoesAnteriores, searchResults);
+    // Tentar obter prompt customizado primeiro
+    const promptCustomizado = await this.promptRepository.getAtivo('projetos_cultura', 'geracao_secao');
+    const prompt = promptCustomizado || await gerarPromptSecao(secao, edil, proposal, secoesAnteriores, searchResults);
 
     const client = getOpenAIClient();
     const response = await client.chat.completions.create({

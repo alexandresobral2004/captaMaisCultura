@@ -31,6 +31,64 @@ function formatarValorBRL(valor: string | number | null | undefined): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
 }
 
+function renderAreaBadge(area: string) {
+  const normArea = area || 'Cultura';
+  let styles = {
+    backgroundColor: '#EEF2F6',
+    color: '#475569',
+    borderColor: '#CBD5E1',
+    emoji: '📁'
+  };
+
+  if (normArea === 'Cultura') {
+    styles = {
+      backgroundColor: '#ECFDF5',
+      color: '#047857',
+      borderColor: '#A7F3D0',
+      emoji: '🎭'
+    };
+  } else if (normArea === 'Pesquisa') {
+    styles = {
+      backgroundColor: '#F5F3FF',
+      color: '#6D28D9',
+      borderColor: '#DDD6FE',
+      emoji: '🔬'
+    };
+  } else if (normArea === 'Esporte') {
+    styles = {
+      backgroundColor: '#EFF6FF',
+      color: '#1D4ED8',
+      borderColor: '#BFDBFE',
+      emoji: '⚽'
+    };
+  } else if (normArea === 'Infraestrutura') {
+    styles = {
+      backgroundColor: '#FFFBEB',
+      color: '#B45309',
+      borderColor: '#FDE68A',
+      emoji: '🚧'
+    };
+  }
+
+  return (
+    <Badge 
+      variant="default" 
+      style={{
+        backgroundColor: styles.backgroundColor,
+        color: styles.color,
+        borderColor: styles.borderColor,
+        fontWeight: 600,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem'
+      }}
+    >
+      <span>{styles.emoji}</span>
+      <span>{normArea}</span>
+    </Badge>
+  );
+}
+
 export default async function DashboardPage() {
   const editaisReais = await getAllEditais();
   const totalEditais = editaisReais.length;
@@ -106,13 +164,14 @@ export default async function DashboardPage() {
                     <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Órgão</th>
                     <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Valor Estimado</th>
                     <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Data Limite</th>
+                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Área</th>
                     <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ultimosEditais.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center p-8 text-slate-500">
+                      <td colSpan={6} className="text-center p-8 text-slate-500">
                         Nenhum edital ativo no banco de dados. Vá em <Link href="/editais" className="text-blue-600 underline">Explorar Editais</Link> para realizar a primeira busca.
                       </td>
                     </tr>
@@ -123,6 +182,7 @@ export default async function DashboardPage() {
                         <td className="p-3 text-slate-600 dark:text-slate-400">{edital.orgao}</td>
                         <td className="p-3 text-slate-900 dark:text-slate-100">{formatarValorBRL(edital.valor)}</td>
                         <td className="p-3 font-medium text-amber-600 dark:text-amber-400">{edital.dataLimite}</td>
+                        <td className="p-3">{renderAreaBadge(edital.categoriaArea || 'Cultura')}</td>
                         <td className="p-3"><Badge variant="success">{edital.status}</Badge></td>
                       </tr>
                     ))

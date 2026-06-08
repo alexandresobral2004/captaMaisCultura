@@ -21,6 +21,7 @@ export interface CreateAnaliseDTO {
   documentos?: string[];
   criterios?: string[];
   pontosFracos?: string[];
+  secoesRequeridas?: string[];
 }
 
 export class AnaliseRepository extends BaseRepository {
@@ -68,6 +69,7 @@ export class AnaliseRepository extends BaseRepository {
       documentosNecessarios: documentos.map((d) => d.documento),
       criteriosAvaliacao: criterios.map((c) => c.criterio),
       pontosFracos: pontos.map((p) => p.pontoFraco),
+      secoesRequeridas: analise[0].secoesRequeridas ? JSON.parse(analise[0].secoesRequeridas) : [],
     };
   }
 
@@ -91,6 +93,7 @@ export class AnaliseRepository extends BaseRepository {
           elegibilidade: data.elegibilidade || existente[0].elegibilidade,
           contatoEdital: data.contatoEdital || existente[0].contatoEdital,
           scoreAdequacao: data.scoreAdequacao ?? existente[0].scoreAdequacao,
+          secoesRequeridas: data.secoesRequeridas ? JSON.stringify(data.secoesRequeridas) : existente[0].secoesRequeridas,
           atualizadoEm: new Date().toISOString(),
         })
         .where(eq(analiseIa.editalId, data.editalId));
@@ -106,6 +109,7 @@ export class AnaliseRepository extends BaseRepository {
           elegibilidade: data.elegibilidade || null,
           contatoEdital: data.contatoEdital || null,
           scoreAdequacao: data.scoreAdequacao || null,
+          secoesRequeridas: data.secoesRequeridas ? JSON.stringify(data.secoesRequeridas) : null,
         })
         .returning();
       analiseId = result[0].id;

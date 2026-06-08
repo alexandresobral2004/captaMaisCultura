@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, ArrowRight, RefreshCw, AlertTriangle, FileSpreadsheet, ListChecks, CheckCircle2, ChevronRight, X, AlertCircle, Trash2, FileUp, CheckCircle, XCircle } from "lucide-react";
+import { ProcessingOverlay } from "@/components/ui/processing-overlay";
 
 interface Edital {
   id: string;
@@ -42,6 +43,7 @@ interface Edital {
   modalidade?: string;
   abrangencia?: string;
   tecnologiaFoco?: string;
+  categoriaArea?: string;
 }
 
 function stripHtmlTags(html: string): string {
@@ -234,6 +236,24 @@ export default function EditaisPage() {
     }
   };
 
+  const handleUpdateCategoriaArea = async (id: string, novaCategoria: string) => {
+    try {
+      const res = await fetch(`/api/v1/editais/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoriaArea: novaCategoria }),
+      });
+      if (res.ok) {
+        setEditais(prev => prev.map(e => e.id === id ? { ...e, categoriaArea: novaCategoria } : e));
+      } else {
+        const data = await res.json();
+        setError(data.error?.message || 'Erro ao atualizar a área do edital.');
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   // Lógica de manipulação de filtros de checkbox
   const handleAreaChange = (area: string) => {
     setSelectedAreas(prev => 
@@ -274,12 +294,16 @@ export default function EditaisPage() {
 
       const tituloInput = document.getElementById('upload-titulo') as HTMLInputElement;
       const orgaoInput = document.getElementById('upload-orgao') as HTMLInputElement;
+      const categoriaInput = document.getElementById('upload-categoria') as HTMLSelectElement;
 
       if (tituloInput?.value) {
         formData.append('titulo', tituloInput.value);
       }
       if (orgaoInput?.value) {
         formData.append('orgao', orgaoInput.value);
+      }
+      if (categoriaInput?.value) {
+        formData.append('categoriaArea', categoriaInput.value);
       }
 
       setUploadProgress(30);
@@ -299,6 +323,7 @@ export default function EditaisPage() {
 
       setUploadProgress(100);
       setUploadResult(data.data);
+      fetchEditais(); // Atualizar a lista após upload com sucesso
     } catch (error: any) {
       setUploadResult({
         erros: [error.message || 'Erro desconhecido'],
@@ -661,6 +686,21 @@ export default function EditaisPage() {
                           </span>
                         </CardTitle>
                         <p className="text-sm text-gray-600" style={{ marginTop: '0.25rem' }}>{edital.orgao}</p>
+                        <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span className="text-xs text-slate-500 font-medium dark:text-slate-400">Área:</span>
+                          <select
+                            value={edital.categoriaArea || 'Cultura'}
+                            onChange={(e) => handleUpdateCategoriaArea(edital.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-slate-800 dark:text-slate-200"
+                          >
+                            <option value="Cultura">🎭 Cultura</option>
+                            <option value="Pesquisa">🔬 Pesquisa</option>
+                            <option value="Esporte">⚽ Esporte</option>
+                            <option value="Infraestrutura">🚧 Infraestrutura</option>
+                            <option value="Outros">📁 Outros</option>
+                          </select>
+                        </div>
                       </CardHeader>
                       
                       <CardContent style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'between' }}>
@@ -1251,6 +1291,19 @@ export default function EditaisPage() {
                         className="bg-slate-800 border-slate-700 text-slate-200 placeholder-slate-500"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Área / Categoria</label>
+                      <select
+                        id="upload-categoria"
+                        className="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="Cultura">🎭 Cultura</option>
+                        <option value="Pesquisa">🔬 Pesquisa</option>
+                        <option value="Esporte">⚽ Esporte</option>
+                        <option value="Infraestrutura">🚧 Infraestrutura</option>
+                        <option value="Outros">📁 Outros</option>
+                      </select>
+                    </div>
                   </div>
 
                   {/* Progress */}
@@ -1291,28 +1344,53 @@ export default function EditaisPage() {
                       {uploading ? (
                         <span className="flex items-center gap-2">
                           <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Processando
+                          Analisando...
                         </span>
                       ) : (
-                        'Processar PDF'
+                        'Analisar'
                       )}
                     </Button>
                   </div>
                 </form>
+              ) : uploadResult.erros && uploadResult.erros.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-red-400 mb-2">
+                      <XCircle className="w-5 h-5" />
+                      <span className="font-medium">Erro no processamento</span>
+                    </div>
+                    {uploadResult.erros.map((erro: string, i: number) => (
+                      <p key={i} className="text-sm text-red-300/80">{erro}</p>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setUploadResult(null);
+                        setUploadProgress(0);
+                        setSelectedFile(null);
+                      }}
+                      className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
+                    >
+                      Tentar Novamente
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowUploadModal(false);
+                        setUploadResult(null);
+                        setUploadProgress(0);
+                        fetchEditais();
+                      }}
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white border-none"
+                    >
+                      Fechar
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  {uploadResult.erros && uploadResult.erros.length > 0 && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                      <div className="flex items-center gap-2 text-red-400 mb-2">
-                        <XCircle className="w-5 h-5" />
-                        <span className="font-medium">Erro no processamento</span>
-                      </div>
-                      {uploadResult.erros.map((erro: string, i: number) => (
-                        <p key={i} className="text-sm text-red-300/80">{erro}</p>
-                      ))}
-                    </div>
-                  )}
-
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
@@ -1382,6 +1460,12 @@ export default function EditaisPage() {
           </div>
         </div>
       )}
+      
+      <ProcessingOverlay
+        isOpen={analyzing !== null || reanalyzing !== null}
+        title={reanalyzing !== null ? "Re-analisando Edital com IA..." : "Analisando Edital com IA..."}
+        message="A inteligência artificial está lendo o arquivo PDF, dividindo o conteúdo em partes (chunks) e extraindo resumos, prazos, elegibilidade, valores e requisitos de conformidade. Aguarde, pois isso pode levar até 1 minuto."
+      />
     </MainLayout>
   );
 }

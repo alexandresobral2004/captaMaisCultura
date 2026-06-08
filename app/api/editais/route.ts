@@ -3,9 +3,11 @@ import { getAllEditais, saveEdital } from '@/lib/db/editais-store';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const editais = await getAllEditais(); // Retorna apenas os editais abertos por padrão (TRAVA ATIVA)
+    const { searchParams } = new URL(request.url);
+    const categoriaArea = searchParams.get('categoriaArea') || undefined;
+    const editais = await getAllEditais(false, categoriaArea); // Retorna apenas os editais abertos por padrão (TRAVA ATIVA)
     return NextResponse.json(editais);
   } catch (error) {
     return NextResponse.json(

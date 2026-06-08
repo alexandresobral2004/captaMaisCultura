@@ -54,7 +54,7 @@ export default function ProjetosPage() {
 
   const fetchEditais = async () => {
     try {
-      const res = await fetch('/api/v1/editais?status=Aberto&limit=100');
+      const res = await fetch('/api/v1/editais?status=Aberto&limit=100&categoriaArea=Cultura');
       if (res.ok) {
         const data = await res.json();
         setEditaisDisponiveis(data.data || []);

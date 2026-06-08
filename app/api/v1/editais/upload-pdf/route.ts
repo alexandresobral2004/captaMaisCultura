@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('pdf') as File | null;
     const titulo = formData.get('titulo') as string | null;
     const orgao = formData.get('orgao') as string | null;
+    const categoriaArea = formData.get('categoriaArea') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
       orgao: orgao || undefined,
       pdfBuffer: buffer,
       nomeOriginal: file.name,
+      categoriaArea: categoriaArea || undefined,
     });
 
     return NextResponse.json(

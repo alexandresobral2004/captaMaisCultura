@@ -145,3 +145,32 @@ export interface SecaoNome {
   nome: string;
   campo: keyof Pick<PropostaCompleta, 'resumoExecutivo' | 'justificativa' | 'objetivos' | 'metodologia' | 'resultadosEsperados' | 'cronograma' | 'orcamentoDetalhado'>;
 }
+
+export const propostaDinamicaSchema = z.object({
+  secoes: z.record(z.string(), z.string()).describe('Mapa de chaves de seções para seus respectivos conteúdos em HTML rico/formatado'),
+  valorSolicitado: z.any().optional().transform(toNumber).default(0),
+  prazoMeses: z.any().optional().transform((v: any) => {
+    if (typeof v === 'number') return v;
+    const parsed = parseInt(String(v), 10);
+    return isNaN(parsed) ? 12 : parsed;
+  }).default(12),
+  equipe: z.any().optional().transform(v => {
+    if (Array.isArray(v)) return toJsonString(v);
+    if (v === null || v === undefined) return JSON.stringify([]);
+    if (typeof v === 'string') return v;
+    return toJsonString(v);
+  }).default('[]'),
+  criteriosAtendidos: z.any().optional().transform(v => {
+    if (Array.isArray(v)) return v;
+    if (v === null || v === undefined) return [];
+    return [];
+  }).default([]),
+  criteriosPendentes: z.any().optional().transform(v => {
+    if (Array.isArray(v)) return v;
+    if (v === null || v === undefined) return [];
+    return [];
+  }).default([]),
+  scoreCompliance: z.any().optional().transform(toNumber).default(0),
+});
+
+export type PropostaDinamica = z.infer<typeof propostaDinamicaSchema>;

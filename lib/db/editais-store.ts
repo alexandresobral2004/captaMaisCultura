@@ -98,6 +98,7 @@ export interface Edital {
     contatoEdital?: string;
     pontosFracos?: string[];
     scoreAdequacao?: number;
+    secoesRequeridas?: string[];
   };
 
   statusAnalise?: 'pendente' | 'pdf_baixado' | 'analisado' | 'sem_pdf' | 'descartado' | 'erro' | 'duvida';
@@ -167,6 +168,7 @@ export interface Edital {
   criadoEm: string;
   atualizadoEm?: string;
   deletedAt?: string | null;
+  categoriaArea?: string;
 }
 
 // ============================================================
@@ -247,6 +249,7 @@ function dbToEdital(row: any, analise?: any): Edital {
     criadoEm: row.criadoEm || new Date().toISOString(),
     atualizadoEm: row.atualizadoEm ?? undefined,
     deletedAt: row.deletedAt ?? undefined,
+    categoriaArea: row.categoriaArea ?? row.categoria_area ?? 'Cultura',
   };
 
   // Mapear analiseIA do banco normalizado
@@ -262,6 +265,7 @@ function dbToEdital(row: any, analise?: any): Edital {
       contatoEdital: analise.contatoEdital ?? undefined,
       pontosFracos: analise.pontosFracos || [],
       scoreAdequacao: analise.scoreAdequacao ?? undefined,
+      secoesRequeridas: analise.secoesRequeridas || [],
     };
   }
 
@@ -324,6 +328,7 @@ function editalToDb(edital: Partial<Edital>): CreateEditalDTO {
     hashPontuacao: edital.hashPontuacao,
     cacheClassificacaoUsado: edital.cacheClassificacaoUsado,
     confiancaPorCampo: edital.confiancaPorCampo,
+    categoriaArea: edital.categoriaArea,
   };
 }
 
@@ -333,7 +338,7 @@ function editalToDb(edital: Partial<Edital>): CreateEditalDTO {
 const repo = new EditalRepository();
 const analiseRepo = new AnaliseRepository();
 
-export async function getAllEditais(incluirFechados = false): Promise<Edital[]> {
+export async function getAllEditais(incluirFechados = false, categoriaArea?: string): Promise<Edital[]> {
   try {
     let query = `SELECT * FROM editais`;
     const conditions: string[] = [];
@@ -344,6 +349,10 @@ export async function getAllEditais(incluirFechados = false): Promise<Edital[]> 
     if (!incluirFechados) {
       const agora = new Date().toISOString();
       conditions.push(`(data_limite IS NULL OR data_limite >= '${agora}')`);
+    }
+
+    if (categoriaArea) {
+      conditions.push(`categoria_area = '${categoriaArea}'`);
     }
 
     if (conditions.length > 0) {
@@ -419,6 +428,7 @@ export async function saveEdital(edital: Partial<Edital> & { id: string }): Prom
         documentos: edital.analiseIA.documentosNecessarios,
         criterios: edital.analiseIA.criteriosAvaliacao,
         pontosFracos: edital.analiseIA.pontosFracos,
+        secoesRequeridas: edital.analiseIA.secoesRequeridas,
       });
     }
 

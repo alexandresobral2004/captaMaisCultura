@@ -317,3 +317,116 @@ ${texto}
 
 Retorne apenas o texto polido em Markdown puro.`;
 }
+
+export async function gerarPromptDinamico(
+  edil: EditalContext,
+  proposal: UserProposal,
+  secoes: { id: string; chave: string; titulo: string; conteudo: string }[],
+  searchResults?: SearchResult[]
+): Promise<string> {
+  const valoresFinanciaveis = edil.itensFinanciaveis?.join('\n') || 'Nao especificado';
+  const criterios = edil.criteriosAvaliacao?.join('\n') || 'Nao especificado';
+  const elegibilidade = edil.elegibilidade?.join('\n') || 'Nao especificado';
+  const areas = edil.areasTematicas?.join(', ') || 'Nao especificada';
+  const fontesBusca = searchResults ? formatarFontes(searchResults) : 'Nenhuma busca realizada.';
+
+  // Buscar contexto RAG interno
+  const contextoRAG = await buscarContextoRAG(
+    edil.titulo,
+    edil.objetivo,
+    edil.areasTematicas || []
+  );
+
+  const contextoRAGFormatado = contextoRAG.chunks.length > 0
+    ? `
+REFERÊNCIAS INTERNAS (Manuais e Modelos da Instituição):
+${formatarContextoRAG(contextoRAG.chunks)}
+`
+    : '';
+
+  const listaSecoesDesc = secoes.map(s => {
+    const cleanConteudo = s.conteudo ? s.conteudo.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    const rascunhoDesc = cleanConteudo && cleanConteudo !== '' && cleanConteudo !== 'br'
+      ? ` - RASCUNHO/DIRETRIZ DO USUÁRIO (Incorpore, desenvolva e expanda este texto): "${cleanConteudo}"`
+      : '';
+    return `* **${s.titulo}** (chave: "${s.chave}")${rascunhoDesc}`;
+  }).join('\n');
+
+  return `ATUE COMO um especialista senior em formulacao de projetos tecnicos, captacao de recursos e escrita para editais publicos e privados.
+
+A TAREFA:
+Desenvolva o conteúdo narrativo e completo da proposta de projeto para captação de recursos. O edital exige que a proposta contenha exatamente as seguintes seções personalizadas:
+${listaSecoesDesc}
+
+Para cada seção da lista acima, você deve gerar um texto aprofundado, técnico, bem fundamentado e formatado em HTML rico (use tags de parágrafo <p>, listas <ul><li>, títulos/subtítulos <h3>, tabelas se aplicável, negrito <strong> etc.).
+
+PARÂMETROS DO PROJETO:
+* **Area de Atuacao:** ${areas}
+* **Tema Especifico:** ${proposal.titulo}
+* **Publico-Alvo e Localidade:** ${proposal.areaAtuacao || 'Nao especificado'}
+* **Objeto/Acao Principal:** ${proposal.descricao}
+
+DADOS DE BUSCA (fontes reais para fundamentacao):
+${fontesBusca}
+${contextoRAGFormatado}
+
+CONTEXTO DO EDITAL:
+- Titulo: ${edil.titulo}
+- Orgao: ${edil.orgao}
+- Valor disponivel: ${edil.valor ? `R$ ${edil.valor.toLocaleString('pt-BR')}` : 'Nao especificado'}
+${edil.valorMax ? `- Valor maximo financiavel: R$ ${edil.valorMax.toLocaleString('pt-BR')}` : ''}
+- Prazo maximo: ${edil.prazoMeses ? `${edil.prazoMeses} meses` : 'Nao especificado'}
+- Areas tematicas: ${areas}
+
+OBJETIVO DO EDITAL:
+${edil.objetivo}
+
+CRITERIOS DE AVALIACAO (pontuacao):
+${criterios}
+
+ITENS FINANCIADOS:
+${valoresFinanciaveis}
+
+ELEGIBILIDADE:
+${elegibilidade}
+
+PROPOSTA DO USUARIO:
+- Titulo sugerido: ${proposal.titulo}
+- Descricao: ${proposal.descricao}
+- Area de atuacao: ${proposal.areaAtuacao || 'Nao especificada'}
+- Proposta detalhada:
+${proposal.propostaUsuario}
+
+---
+
+INSTRUÇÕES DE ESCRITA E FUNDAMENTAÇÃO:
+- Utilize OBRIGATORIAMENTE os dados de busca e as REFERÊNCIAS INTERNAS fornecidas acima para justificar, estruturar e validar as escolhas técnicas do projeto (cite as referências internas de manuais ou dados do edital para embasar a proposta).
+- Garanta que a proposta atenda inteiramente a todos os CRITÉRIOS DE AVALIAÇÃO e regras de ELEGIBILIDADE do edital.
+- Não invente dados fictícios inconsistentes com o edital ou com a proposta do usuário.
+- Para qualquer seção que possua um RASCUNHO/DIRETRIZ DO USUÁRIO indicado acima, você deve obrigatoriamente incorporar as informações descritas e expandir esse texto de forma técnica e detalhada em HTML rico. Não ignore as diretrizes ou textos fornecidos pelo usuário.
+- **CRONOGRAMA EM TABELA OBRIGATÓRIA**: Se houver qualquer seção relacionada a "Cronograma" ou "Cronograma de Atividades" (que contenha a palavra "cronograma" no título), você deve OBRIGATORIAMENTE estruturar essa seção em formato de tabela HTML (<table>, <tr>, <th>, <td>), contendo as seguintes colunas: "Etapa / Fase", "Período (Meses)", "Atividades Previstas" e "Marcos de Entrega". Não use parágrafos de texto corrido para detalhar o cronograma, organize-o integralmente dentro da tabela.
+
+DIRETRIZES DE ESTILO E RESTRICOES "ANTI-IA":
+Para garantir alta densidade tecnica e fluidez organica, obedece estritamente as seguintes regras:
+1. **Variacao Sintatica (Alta Explosividade):** Alterne o ritmo da leitura. Use frases curtas para enfatizar problemas e periodos compostos para detalhar metodologias.
+2. **Tom Impoessoal e Tecnico:** Escreva em 3a pessoa do singular. O tom deve ser pragmatica, direto e institucional.
+3. **Proibicao Absoluta de Cliches:** NUNCA utilize as seguintes palavras ou sinonimos: ${PROIBIDOS}
+4. **Objetividade:** Eh estritamente proibido incluir introducoes amigaveis, saudacoes ou conclusoes reflexivas e moralistas. Entregue apenas a estrutura tecnica solicitada.
+
+---
+
+Você também deve estimar os metadados do projeto (valor solicitado, prazo em meses, equipe sugerida e critérios de compliance atendidos/pendentes).
+
+Retorne obrigatoriamente um objeto JSON com a seguinte estrutura:
+{
+  "secoes": {
+    ${secoes.map(s => `"${s.chave}": "Conteúdo detalhado da seção '${s.titulo}' em HTML rico e bem formatado."`).join(',\n    ')}
+  },
+  "valorSolicitado": numero,
+  "prazoMeses": numero,
+  "equipe": "JSON STRINGIFY do array de membros [{nome, funcao, qualificacao, dedicacao}]",
+  "criteriosAtendidos": ["Critério X atendido pois...", "..."],
+  "criteriosPendentes": ["Critério Y pendente porque...", "..."],
+  "scoreCompliance": numero_0_a_100
+}`;
+}

@@ -4,6 +4,34 @@ import * as schema from './schema';
 import fs from 'fs';
 import path from 'path';
 
+// Carregar variáveis de ambiente manualmente se não estiverem definidas (útil no Next.js)
+if (!process.env.OPENAI_API_KEY) {
+  for (const filename of ['.env.local', 'env.local']) {
+    const envPath = path.join(process.cwd(), filename);
+    if (fs.existsSync(envPath)) {
+      try {
+        const envContent = fs.readFileSync(envPath, 'utf-8');
+        envContent.split('\n').forEach((line) => {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) return;
+          // Ignorar se a linha começar com export
+          const cleanLine = trimmed.startsWith('export ') ? trimmed.substring(7) : trimmed;
+          const parts = cleanLine.split('=');
+          if (parts.length >= 2) {
+            const key = parts[0].trim();
+            const val = parts.slice(1).join('=').trim().replace(/^['"]|['"]$/g, '');
+            process.env[key] = val;
+          }
+        });
+        console.log(`[DB SETUP] Variáveis de ambiente carregadas do arquivo ${filename}`);
+        break;
+      } catch (e: any) {
+        console.warn(`[DB SETUP] Erro ao ler ${filename}:`, e.message);
+      }
+    }
+  }
+}
+
 const DB_PATH = path.join(process.cwd(), 'data', 'db', 'editais.db');
 
 // Garantir que o diretorio existe
@@ -123,12 +151,13 @@ export function createTables() {
       hash_pontuacao TEXT,
       cache_classificacao_usado INTEGER DEFAULT 0,
       confianca_por_campo TEXT,
+      categoria_area TEXT NOT NULL DEFAULT 'Cultura',
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS analise_ia (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       edital_id TEXT NOT NULL UNIQUE,
@@ -137,13 +166,14 @@ export function createTables() {
       elegibilidade TEXT,
       contato_edital TEXT,
       score_adequacao INTEGER,
+      secoes_requeridas TEXT,
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (edital_id) REFERENCES editais(id) ON DELETE CASCADE
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS analise_requisitos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       analise_id INTEGER NOT NULL,
@@ -153,7 +183,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS analise_itens_financiaveis (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       analise_id INTEGER NOT NULL,
@@ -163,7 +193,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS analise_documentos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       analise_id INTEGER NOT NULL,
@@ -173,7 +203,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS analise_criterios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       analise_id INTEGER NOT NULL,
@@ -183,7 +213,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS analise_pontos_fracos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       analise_id INTEGER NOT NULL,
@@ -193,7 +223,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS palavras_chave (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       edital_id TEXT NOT NULL,
@@ -203,7 +233,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS arquivos_anexos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       edital_id TEXT NOT NULL,
@@ -218,7 +248,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS motivos_pontuacao (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       edital_id TEXT NOT NULL,
@@ -232,21 +262,21 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS areas_tematicas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nome TEXT NOT NULL UNIQUE
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tipos_proponente (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nome TEXT NOT NULL UNIQUE
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id TEXT PRIMARY KEY,
       nome TEXT NOT NULL,
@@ -259,7 +289,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS projetos (
       id TEXT PRIMARY KEY,
       edital_id TEXT NOT NULL,
@@ -283,13 +313,18 @@ export function createTables() {
       status TEXT DEFAULT 'rascunho',
       versao INTEGER DEFAULT 1,
       prompt_original TEXT,
+      fontes TEXT,
+      secoes_dinamicas TEXT,
+      logo_url TEXT,
+      logo_descricao TEXT,
+      dados_proponente TEXT,
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (edital_id) REFERENCES editais(id) ON DELETE CASCADE
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS logs_sistema (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nivel TEXT NOT NULL CHECK(nivel IN ('error', 'warning', 'info')),
@@ -307,7 +342,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS jobs (
       id TEXT PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'PENDENTE',
@@ -324,7 +359,7 @@ export function createTables() {
     );
   `);
 
-  sqlite.exec(`
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS portais (
       id TEXT PRIMARY KEY,
       nome TEXT NOT NULL,
@@ -342,30 +377,30 @@ export function createTables() {
     );
   `);
 
-  // Criar indices
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_status ON editais(status);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_data_limite ON editais(data_limite);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_orgao ON editais(orgao);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_score ON editais(score_relevancia);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_tecnologia ON editais(tecnologia_foco);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_criado_em ON editais(criado_em);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_palavras_edital ON palavras_chave(edital_id);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_arquivos_edital ON arquivos_anexos(edital_id);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_edital_id ON projetos(edital_id);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_status ON projetos(status);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_criado_em ON projetos(criado_em);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_nivel ON logs_sistema(nivel);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_criado_em ON logs_sistema(criado_em);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_contexto ON logs_sistema(contexto);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_cenario ON logs_sistema(cenario_falha);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_acao ON logs_sistema(acao_tomada);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_iniciado_em ON jobs(iniciado_em);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_motivos_edital_fonte ON motivos_pontuacao(edital_id, fonte);`);
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_motivos_fonte ON motivos_pontuacao(fonte);`);
+    // Criar indices
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_status ON editais(status);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_data_limite ON editais(data_limite);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_orgao ON editais(orgao);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_score ON editais(score_relevancia);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_tecnologia ON editais(tecnologia_foco);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_editais_criado_em ON editais(criado_em);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_palavras_edital ON palavras_chave(edital_id);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_arquivos_edital ON arquivos_anexos(edital_id);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_edital_id ON projetos(edital_id);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_status ON projetos(status);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_criado_em ON projetos(criado_em);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_nivel ON logs_sistema(nivel);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_criado_em ON logs_sistema(criado_em);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_contexto ON logs_sistema(contexto);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_cenario ON logs_sistema(cenario_falha);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_acao ON logs_sistema(acao_tomada);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_iniciado_em ON jobs(iniciado_em);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_motivos_edital_fonte ON motivos_pontuacao(edital_id, fonte);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_motivos_fonte ON motivos_pontuacao(fonte);`);
 
-  // Setup FTS
-  setupFTS();
+    // Setup FTS
+    setupFTS();
   } catch (error) {
     console.warn('Erro ao criar tabelas do banco:', error);
   }
@@ -402,6 +437,41 @@ function migrateSchema() {
     if (!hasFontes) {
       sqlite.exec(`ALTER TABLE projetos ADD COLUMN fontes TEXT`);
       console.log('✅ Migração: coluna fontes adicionada à tabela projetos');
+    }
+
+    const hasSecoesDinamicas = projColumns.some((col: any) => col.name === 'secoes_dinamicas');
+    if (!hasSecoesDinamicas) {
+      sqlite.exec(`ALTER TABLE projetos ADD COLUMN secoes_dinamicas TEXT`);
+      console.log('✅ Migração: coluna secoes_dinamicas adicionada à tabela projetos');
+    }
+
+    // Migração: adicionar coluna logo_url na tabela projetos
+    const hasLogoUrl = projColumns.some((col: any) => col.name === 'logo_url');
+    if (!hasLogoUrl) {
+      sqlite.exec(`ALTER TABLE projetos ADD COLUMN logo_url TEXT`);
+      console.log('✅ Migração: coluna logo_url adicionada à tabela projetos');
+    }
+
+    // Migração: adicionar coluna logo_descricao na tabela projetos
+    const hasLogoDescricao = projColumns.some((col: any) => col.name === 'logo_descricao');
+    if (!hasLogoDescricao) {
+      sqlite.exec(`ALTER TABLE projetos ADD COLUMN logo_descricao TEXT`);
+      console.log('✅ Migração: coluna logo_descricao adicionada à tabela projetos');
+    }
+
+    // Migração: adicionar coluna dados_proponente na tabela projetos
+    const hasDadosProponente = projColumns.some((col: any) => col.name === 'dados_proponente');
+    if (!hasDadosProponente) {
+      sqlite.exec(`ALTER TABLE projetos ADD COLUMN dados_proponente TEXT`);
+      console.log('✅ Migração: coluna dados_proponente adicionada à tabela projetos');
+    }
+
+    // Migração: adicionar coluna secoes_requeridas na tabela analise_ia
+    const analiseIaColumns = sqlite.prepare("PRAGMA table_info(analise_ia)").all() as any[];
+    const hasSecoesRequeridas = analiseIaColumns.some((col: any) => col.name === 'secoes_requeridas');
+    if (!hasSecoesRequeridas) {
+      sqlite.exec(`ALTER TABLE analise_ia ADD COLUMN secoes_requeridas TEXT`);
+      console.log('✅ Migração: coluna secoes_requeridas adicionada à tabela analise_ia');
     }
 
     // Migração: adicionar colunas na tabela logs_sistema
@@ -488,6 +558,13 @@ function migrateSchema() {
       console.log('✅ Migração: coluna deleted_at adicionada à tabela editais');
     }
 
+    // Migração: adicionar coluna categoria_area na tabela editais
+    const hasCategoriaArea = columns.some((col: any) => col.name === 'categoria_area');
+    if (!hasCategoriaArea) {
+      sqlite.exec(`ALTER TABLE editais ADD COLUMN categoria_area TEXT NOT NULL DEFAULT 'Cultura'`);
+      console.log('✅ Migração: coluna categoria_area adicionada à tabela editais');
+    }
+
     // Migração: adicionar índices de motivos
     try {
       sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_motivos_edital_fonte ON motivos_pontuacao(edital_id, fonte)`);
@@ -518,6 +595,61 @@ function migrateSchema() {
       sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_portais_ativo ON portais(ativo)`);
       sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_portais_categoria ON portais(categoria)`);
       console.log('✅ Migração: tabela portais adicionada');
+    }
+
+    // Migração: adicionar tabelas de prompts de IA
+    const promptsSistemaTableInfo = sqlite.prepare("PRAGMA table_info(prompts_sistema)").all() as any[];
+    if (promptsSistemaTableInfo.length === 0) {
+      sqlite.exec(`
+        CREATE TABLE prompts_sistema (
+          id TEXT PRIMARY KEY,
+          modulo TEXT NOT NULL,
+          chave TEXT NOT NULL,
+          conteudo_padrao TEXT NOT NULL,
+          descricao TEXT,
+          criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_sistema_modulo ON prompts_sistema(modulo)`);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_sistema_chave ON prompts_sistema(chave)`);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_sistema_modulo_chave ON prompts_sistema(modulo, chave)`);
+      console.log('✅ Migração: tabela prompts_sistema adicionada');
+    }
+
+    const promptsCustomizadosTableInfo = sqlite.prepare("PRAGMA table_info(prompts_customizados)").all() as any[];
+    if (promptsCustomizadosTableInfo.length === 0) {
+      sqlite.exec(`
+        CREATE TABLE prompts_customizados (
+          id TEXT PRIMARY KEY,
+          prompt_sistema_id TEXT REFERENCES prompts_sistema(id),
+          conteudo TEXT NOT NULL,
+          ativo INTEGER DEFAULT 1,
+          criado_por TEXT REFERENCES usuarios(id),
+          criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+          atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_customizados_sistema_id ON prompts_customizados(prompt_sistema_id)`);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_customizados_ativo ON prompts_customizados(ativo)`);
+      console.log('✅ Migração: tabela prompts_customizados adicionada');
+    }
+
+    const promptsHistoricoTableInfo = sqlite.prepare("PRAGMA table_info(prompts_historico)").all() as any[];
+    if (promptsHistoricoTableInfo.length === 0) {
+      sqlite.exec(`
+        CREATE TABLE prompts_historico (
+          id TEXT PRIMARY KEY,
+          prompt_customizado_id TEXT REFERENCES prompts_customizados(id),
+          conteudo_anterior TEXT NOT NULL,
+          conteudo_novo TEXT NOT NULL,
+          alterado_por TEXT REFERENCES usuarios(id),
+          alterado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+          justificativa TEXT
+        )
+      `);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_historico_customizado_id ON prompts_historico(prompt_customizado_id)`);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_prompts_historico_alterado_em ON prompts_historico(alterado_em)`);
+      console.log('✅ Migração: tabela prompts_historico adicionada');
     }
 
     // Migração: normalizar datas limites antigas no formato DD/MM/YYYY para YYYY-MM-DD

@@ -77,6 +77,7 @@ export const AnaliseEditalSchema = z.object({
   contato: z.string().nullable().describe('Email, telefone ou canal de contato do edital'),
   consistencia: ConsistenciaSchema.describe('Verificação de consistência dos dados extraídos'),
   confiancas: ConfiancasSchema.describe('Scores de confiança (0-100) para cada grupo de campos'),
+  secoesRequeridas: z.array(z.string()).describe('Lista de seções/capítulos que o edital exige que a proposta contenha (ex: ["Justificativa", "Objetivos", "Metodologia", "Cronograma", "Orçamento", "Ficha Técnica/Equipe", "Acessibilidade"])'),
 });
 
 export type AnaliseEditalResult = z.infer<typeof AnaliseEditalSchema>;

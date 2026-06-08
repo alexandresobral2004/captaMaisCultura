@@ -25,6 +25,11 @@ const atualizarProjetoSchema = z.object({
   criteriosPendentes: z.array(z.string()).optional(),
   scoreCompliance: z.number().optional(),
   status: z.string().optional(),
+  secoesDinamicas: z.union([z.array(z.any()), z.string()]).optional(),
+  // Logo e Dados do Proponente
+  logoUrl: z.string().optional(),
+  logoDescricao: z.string().optional(),
+  dadosProponente: z.any().optional(),
 });
 
 export async function GET(request: NextRequest, { params }: RouteParams) {

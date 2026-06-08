@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get('search') || undefined,
       sortBy: searchParams.get('sortBy') || undefined,
       sortOrder: searchParams.get('sortOrder') || undefined,
+      categoriaArea: searchParams.get('categoriaArea') || undefined,
     });
 
     const result = await service.listar(query);

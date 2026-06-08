@@ -29,7 +29,14 @@ export async function POST(request: Request) {
     }
 
     // Processa bloqueando a request para dar feedback imediato
-    const sucesso = await processarEditalUnico(edital);
+    let sucesso = false;
+    if (edital.fonteConteudo === 'pdf_upload' || edital.id.startsWith('upload-')) {
+      const { EditalUploadService } = require('@/lib/database/services/edital-upload.service');
+      const uploadService = new EditalUploadService();
+      sucesso = await uploadService.reanalisarEditalUpload(id);
+    } else {
+      sucesso = await processarEditalUnico(edital);
+    }
 
     if (sucesso) {
       return NextResponse.json({ message: `Edital ${id} analisado com sucesso!` });

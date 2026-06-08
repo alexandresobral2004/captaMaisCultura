@@ -62,7 +62,10 @@ CONTATO:
 
 CONSISTÊNCIA:
 - Verifique se há contradições ou dados faltantes.
-- Liste alertas sobre possíveis problemas.`;
+- Liste alertas sobre possíveis problemas.
+
+SEÇÕES REQUERIDAS DA PROPOSTA:
+- Identifique as seções/capítulos obrigatórios que a proposta técnica do projeto deve conter de acordo com o edital (ex: "Justificativa", "Objetivos", "Metodologia", "Cronograma", "Orçamento", "Ficha Técnica/Equipe", "Acessibilidade", "Democratização de Acesso"). Listar como um array simples de strings em 'secoesRequeridas'.`;
 
 async function executarPromptJSON(openai: OpenAI, sistema: string, texto: string) {
   const response = await openai.chat.completions.create({
@@ -158,6 +161,7 @@ function mapearParaEdital(
       : resultado.consistencia.status === 'duvida'
         ? 60
         : 40,
+    secoesRequeridas: resultado.secoesRequeridas || [],
   };
 
   // Confiança por campo
@@ -192,13 +196,77 @@ export async function analisarEditalComIA(
       ? textoCompletoInput.texto
       : String(textoCompletoInput || '');
 
+  console.log(`\n🔍 [ANALYZER] === INÍCIO DA ANÁLISE ===`);
+  console.log(`   - Edital ID: ${editalId}`);
+  console.log(`   - Texto para análise: ${textoCompleto.length} caracteres`);
+  console.log(`   - Modo: ${options?.modo || 'completo'}`);
+
+  // Buscar todos os editais (incluindo fechados)
+  console.log(`\n📋 [ANALYZER] Buscando todos os editais no banco...`);
   const todos = await getAllEditais(true);
+  console.log(`   - Total de editais encontrados: ${todos.length}`);
+
+  // Log de todos os IDs para diagnóstico
+  if (todos.length > 0) {
+    console.log(`   - IDs disponíveis: ${todos.map(e => e.id).slice(0, 10).join(', ')}${todos.length > 10 ? ` ... (+${todos.length - 10} outros)` : ''}`);
+  }
+
+  // Buscar edital específico
+  console.log(`\n🔎 [ANALYZER] Procurando edital ${editalId}...`);
   const editalOriginal = todos.find((e: Edital) => e.id === editalId);
 
   if (!editalOriginal) {
-    console.warn(`⚠️  Edital ${editalId} não encontrado para análise.`);
+    console.error(`\n❌ [ANALYZER] Edital ${editalId} NÃO ENCONTRADO!`);
+
+    // Debug: verificar padrão do ID
+    const uploadIds = todos.filter(e => e.id?.startsWith('upload-'));
+    console.log(`   - Editais com prefixo 'upload-': ${uploadIds.length}`);
+    if (uploadIds.length > 0) {
+      console.log(`     IDs: ${uploadIds.map(e => e.id).join(', ')}`);
+    }
+
+    // Tentar buscar diretamente do serviço para diagnóstico
+    try {
+      console.log(`\n   🔍 Tentando busca direta via EditalService...`);
+      const { EditalService } = require('../database/services/edital.service');
+      const service = new EditalService();
+      const editalDireto = await service.buscarPorId(editalId);
+      if (editalDireto) {
+        console.log(`   ✅ Edital encontrado via EditalService!`);
+        console.log(`      - ID: ${editalDireto.id}`);
+        console.log(`      - fonteConteudo: ${editalDireto.fonteConteudo}`);
+        console.log(`      - conteudoCompleto: ${editalDireto.conteudoCompleto ? editalDireto.conteudoCompleto.length + ' chars' : 'ausente'}`);
+        console.log(`      - statusAnalise: ${editalDireto.statusAnalise}`);
+      } else {
+        console.error(`   ❌ Edital também não encontrado via EditalService`);
+      }
+    } catch (e: any) {
+      console.error(`   ❌ Erro ao buscar via EditalService: ${e.message}`);
+    }
+
+    // Tentar query direta no banco
+    try {
+      console.log(`\n   🔍 Tentando query direta no SQLite...`);
+      const { db } = require('../database/db');
+      const result = db.all(`SELECT id, titulo, fonte_conteudo, status_analise, length(conteudo_completo) as conteudo_len FROM editais WHERE id = ?`, [editalId]);
+      if (result && result.length > 0) {
+        console.log(`   ✅ Edital encontrado via query direta!`);
+        console.log(`      - Result: ${JSON.stringify(result[0])}`);
+      } else {
+        console.error(`   ❌ Edital não encontrado via query direta`);
+      }
+    } catch (e: any) {
+      console.error(`   ❌ Erro na query direta: ${e.message}`);
+    }
+
     return null;
   }
+
+  console.log(`\n✅ [ANALYZER] Edital ${editalId} ENCONTRADO!`);
+  console.log(`   - fonteConteudo: ${editalOriginal.fonteConteudo || 'não definido'}`);
+  console.log(`   - conteudoCompleto: ${editalOriginal.conteudoCompleto ? editalOriginal.conteudoCompleto.length + ' chars' : 'ausente'}`);
+  console.log(`   - statusAnalise: ${editalOriginal.statusAnalise || 'não definido'}`);
+  console.log(`   - link: ${editalOriginal.link}`);
 
   const modo: ModoAnalise = options?.modo ?? 'completo';
   console.log(`\n🤖 Analisando edital ${editalId} com IA (${textoCompleto.length} chars, modo=${modo})`);
@@ -233,7 +301,8 @@ export async function analisarEditalComIA(
           criteriosAvaliacao: editalOriginal.analiseIA?.criteriosAvaliacao || [],
           contatoEdital: editalOriginal.analiseIA?.contatoEdital,
           pontosFracos: Array.isArray(resultado.alertas) ? resultado.alertas : editalOriginal.analiseIA?.pontosFracos || [],
-          scoreAdequacao: editalOriginal.analiseIA?.scoreAdequacao
+          scoreAdequacao: editalOriginal.analiseIA?.scoreAdequacao,
+          secoesRequeridas: editalOriginal.analiseIA?.secoesRequeridas || []
         };
 
         editalOriginal.confiancaPorCampo = {
