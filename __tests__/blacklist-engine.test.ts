@@ -15,12 +15,12 @@ describe('Blacklist Engine', () => {
 
   it('deve identificar e penalizar termos indesejados (sem exceção)', () => {
     const result = analisarBlacklist(
-      'Edital de Desporto e Dança Contemporânea',
-      'Fomento a projetos culturais, dança, teatro e artes plásticas nas escolas públicas.'
+      'Edital de Advocacia e Zootecnia Geral',
+      'Fomento a projetos jurídicos, advocacia, contabilidade e assessoria jurídica.'
     );
     expect(result.scoreNegativo).toBeGreaterThan(0);
-    expect(result.termosEncontrados.some((t) => t.termo === 'dança')).toBe(true);
-    expect(result.termosEncontrados.some((t) => t.termo === 'teatro')).toBe(true);
+    expect(result.termosEncontrados.some((t) => t.termo === 'advocacia')).toBe(true);
+    expect(result.termosEncontrados.some((t) => t.termo === 'contabilidade')).toBe(true);
   });
 
   it('deve atenuar penalidade quando exceção que contém o termo é encontrada', () => {
@@ -74,8 +74,8 @@ describe('Blacklist Engine', () => {
 
   it('deve calcular severidade alta e recomendar bloquear se o score negativo for alto', () => {
     const result = analisarBlacklist(
-      'Edital de Artes Plásticas, Dança, Música, Cinema e Teatro',
-      'Fomento a produções culturais em cinema, artes plásticas, escultura, teatro, dança, marketing e publicidade.'
+      'Edital de Advocacia, Zootecnia, Contabilidade e Pecuária',
+      'Fomento a serviços jurídicos: advocacia, contabilidade, zootecnia, pecuária, marketing e publicidade.'
     );
     expect(result.scoreNegativo).toBeGreaterThan(45);
     expect(result.severidade).toBe('alta');
@@ -84,9 +84,9 @@ describe('Blacklist Engine', () => {
 
   it('deve ser case-insensitive e tolerar caracteres especiais de busca de regex', () => {
     const result = analisarBlacklist(
-      'EDITAL DE CULTURA: DANÇA E CINEMA',
-      'Este projeto apoia a dança (contemporânea).'
+      'EDITAL JURÍDICO: ADVOCACIA E CONTABILIDADE',
+      'Este projeto apoia a advocacia (privada).'
     );
-    expect(result.termosEncontrados.some((t) => t.termo === 'dança')).toBe(true);
+    expect(result.termosEncontrados.some((t) => t.termo === 'advocacia')).toBe(true);
   });
 });

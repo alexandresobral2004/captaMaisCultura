@@ -8,6 +8,7 @@ import { saveEdital, Edital, isEditalExcluido } from '../db/editais-store';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { pipelineLogger } from '../scraper/pipeline-logger';
 
 export class ConflictError extends Error {
   constructor(message: string) {
@@ -33,10 +34,41 @@ export class JobRunner {
       throw new ConflictError(`Já existe um job rodando (ID: ${jobAtivo.id}, Fase: ${jobAtivo.fase})`);
     }
 
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    // Redirecionar console para o pipelineLogger durante a execução do Job
+    console.log = (...args: any[]) => {
+      originalLog(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+      const clean = message.replace(/^\n+|\n+$/g, '').trim();
+      if (clean) {
+        pipelineLogger.logBusca(clean);
+      }
+    };
+
+    console.warn = (...args: any[]) => {
+      originalWarn(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+      const clean = message.replace(/^\n+|\n+$/g, '').trim();
+      if (clean) {
+        pipelineLogger.logBusca(`⚠️ ${clean}`);
+      }
+    };
+
+    console.error = (...args: any[]) => {
+      originalError(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+      const clean = message.replace(/^\n+|\n+$/g, '').trim();
+      if (clean) {
+        pipelineLogger.logErro('varredura', clean);
+      }
+    };
+
     // 2. Criar novo job
     const jobId = crypto.randomUUID();
     let job = await this.repository.criar(jobId);
-    console.log(`\n🚀 [JOB ${jobId}] Iniciando varredura semanal de editais...`);
 
     const progresso: JobProgresso = {
       totalEncontrados: 0,
@@ -47,32 +79,34 @@ export class JobRunner {
     };
 
     try {
+      console.log(`🚀 [JOB ${jobId}] Iniciando varredura semanal de editais...`);
+
       // ============================================
       // FASE 1: BUSCAR EDITAIS NOS PORTAIS E CLASSIFICAR
       // ============================================
       job = await this.atualizarFase(job.id, JobPhase.BUSCA);
-      console.log(`\n📥 [JOB ${jobId}] FASE 1: Buscando e Classificando...`);
+      console.log(`📥 [JOB ${jobId}] FASE 1: Buscando e Classificando...`);
       
       let editaisValidos: any[] = [];
       try {
         const itensEncontrados = await buscarEditaisPortais();
         progresso.totalEncontrados = itensEncontrados.length;
-        console.log(`   ✅ ${itensEncontrados.length} itens encontrados nos portais`);
+        console.log(`✅ ${itensEncontrados.length} itens encontrados nos portais`);
 
         editaisValidos = await filtrarComClassificador(itensEncontrados);
         progresso.totalValidados = editaisValidos.length;
-        console.log(`   ✅ ${editaisValidos.length} editais válidos após classificação`);
+        console.log(`✅ ${editaisValidos.length} editais válidos após classificação`);
         
         await this.atualizarProgresso(job.id, JobPhase.BUSCA, progresso);
       } catch (erro: any) {
         // Se a busca falhar totalmente, é um erro fatal para o pipeline
-        console.error(`   ❌ Falha fatal na fase de BUSCA: ${erro.message}`);
+        console.error(`Falha fatal na fase de BUSCA: ${erro.message}`);
         await this.repository.registrarErro(job.id, JobPhase.BUSCA, erro.message);
         throw erro;
       }
 
       if (editaisValidos.length === 0) {
-        console.log(`   ⚠️ Nenhum edital válido encontrado. Finalizando job.`);
+        console.log(`⚠️ Nenhum edital válido encontrado. Finalizando job.`);
         return await this.finalizarComSucesso(job.id, progresso);
       }
 
@@ -80,14 +114,15 @@ export class JobRunner {
       // FASE 2: BAIXAR E LER PDFs
       // ============================================
       job = await this.atualizarFase(job.id, JobPhase.DOWNLOAD);
-      console.log(`\n📄 [JOB ${jobId}] FASE 2: Baixando e lendo PDFs...`);
+      console.log(`📄 [JOB ${jobId}] FASE 2: Baixando e lendo PDFs...`);
 
       const editaisProcessar: Edital[] = [];
 
       for (const edital of editaisValidos) {
         try {
           if (await isEditalExcluido(edital.id, edital.link)) {
-            console.log(`   ⏭️ [JOB] Edital [${edital.id}] já está excluído no banco de dados. Pulando download.`);
+            console.log(`⏭️ [JOB] Edital [${edital.id}] já está excluído no banco de dados. Pulando download.`);
+            pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Edital excluído no banco de dados');
             continue;
           }
 
@@ -96,6 +131,8 @@ export class JobRunner {
             linkExterno: edital.link,
             descricaoHtml: edital.descricao
           };
+
+          console.log(`Baixando PDF para o edital: "${edital.titulo}"`);
 
           const resultadoExtracao = await baixarELerPDFEdital(
             edital.id,
@@ -112,55 +149,65 @@ export class JobRunner {
             edital.conteudoCompleto = resultadoExtracao.texto;
             edital.pdfSalvoEm = extrairRelativePath(resultadoExtracao.caminhoArquivo);
             editaisProcessar.push(edital);
+            pipelineLogger.logResultado(edital.id, edital.titulo, 'salvo', `PDF obtido com sucesso via ${resultadoExtracao.fonte}`);
           } else {
             edital.statusAnalise = 'sem_pdf';
             await saveEdital(edital);
+            pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Nenhum PDF ou texto extraído');
           }
         } catch (erro: any) {
-          console.warn(`   ⚠️ Erro ao baixar PDF [${edital.id}]:`, erro.message);
+          console.warn(`Erro ao baixar PDF [${edital.id}]:`, erro.message);
           edital.statusAnalise = 'erro';
           await saveEdital(edital);
           progresso.totalErros++;
           await this.repository.registrarErro(job.id, JobPhase.DOWNLOAD, `Erro no edital ${edital.id}: ${erro.message}`);
+          pipelineLogger.logResultado(edital.id, edital.titulo, 'erro', erro.message);
         }
       }
       
       await this.atualizarProgresso(job.id, JobPhase.DOWNLOAD, progresso);
-      console.log(`   ✅ ${progresso.totalDownloads} PDFs baixados com sucesso`);
+      console.log(`✅ ${progresso.totalDownloads} PDFs baixados com sucesso`);
 
       // ============================================
       // FASE 3: ANÁLISE COM IA
       // ============================================
       job = await this.atualizarFase(job.id, JobPhase.ANALISE);
-      console.log(`\n🧠 [JOB ${jobId}] FASE 3: Analisando editais com IA...`);
+      console.log(`🧠 [JOB ${jobId}] FASE 3: Analisando editais com IA...`);
 
       for (const edital of editaisProcessar) {
         try {
-          console.log(`   Analisando [${edital.id}]...`);
+          console.log(`Analisando [${edital.id}]...`);
+          console.log(`Enviando edital para IA: "${edital.titulo}"`);
           const editalAnalisado = await analisarEditalComIA(edital.id, edital.conteudoCompleto, { modo: 'completo' });
 
           if (editalAnalisado) {
             progresso.totalAnalisados++;
             editalAnalisado.statusRevisao = 'pendente';
             await saveEdital(editalAnalisado);
+            
+            const scoreIA = editalAnalisado.scorePontuacao || editalAnalisado.analiseIA?.scoreAdequacao || 50;
+            const tech = editalAnalisado.tecnologiaFoco || 'Outro';
+            pipelineLogger.logIA(editalAnalisado.id, editalAnalisado.titulo, true, tech, scoreIA);
+            pipelineLogger.logResultado(editalAnalisado.id, editalAnalisado.titulo, 'salvo', `Salvo como PENDENTE. Score: ${scoreIA}`);
           }
         } catch (erro: any) {
-          console.error(`   ❌ Erro ao analisar [${edital.id}]:`, erro.message);
+          console.error(`Erro ao analisar [${edital.id}]:`, erro.message);
           edital.statusAnalise = 'erro';
           await saveEdital(edital);
           progresso.totalErros++;
           await this.repository.registrarErro(job.id, JobPhase.ANALISE, `Erro no edital ${edital.id}: ${erro.message}`);
+          pipelineLogger.logResultado(edital.id, edital.titulo, 'erro', erro.message);
         }
       }
       
       await this.atualizarProgresso(job.id, JobPhase.ANALISE, progresso);
-      console.log(`   ✅ ${progresso.totalAnalisados} editais analisados`);
+      console.log(`✅ ${progresso.totalAnalisados} editais analisados`);
 
       // ============================================
       // FASE 4: CRIAR NOTIFICAÇÃO
       // ============================================
       job = await this.atualizarFase(job.id, JobPhase.NOTIFICACAO);
-      console.log(`\n🔔 [JOB ${jobId}] FASE 4: Criando notificação...`);
+      console.log(`🔔 [JOB ${jobId}] FASE 4: Criando notificação...`);
 
       if (progresso.totalAnalisados > 0) {
         try {
@@ -186,9 +233,9 @@ export class JobRunner {
 
           const filePath = path.join(NOTIFICACOES_DIR, `${notif.id}.json`);
           fs.writeFileSync(filePath, JSON.stringify(notif, null, 2), 'utf-8');
-          console.log(`   ✅ Notificação criada: ${notif.titulo}`);
+          console.log(`✅ Notificação criada: ${notif.titulo}`);
         } catch (erro: any) {
-          console.error(`   ❌ Erro ao criar notificação:`, erro.message);
+          console.error(`Erro ao criar notificação:`, erro.message);
           progresso.totalErros++;
           await this.repository.registrarErro(job.id, JobPhase.NOTIFICACAO, erro.message);
         }
@@ -201,11 +248,16 @@ export class JobRunner {
 
     } catch (erro: any) {
       // Falha fatal que abortou o pipeline
-      console.error(`\n🔥 [JOB ${jobId}] ERRO FATAL NO PIPELINE:`, erro.message);
+      console.error(`ERRO FATAL NO PIPELINE:`, erro.message);
       
       const jobFinal = await this.repository.finalizar(job.id, JobStatus.ERRO);
       
       return this.formatarResultado(jobFinal!, erro.message);
+    } finally {
+      // Restaurar o console original
+      console.log = originalLog;
+      console.warn = originalWarn;
+      console.error = originalError;
     }
   }
 
@@ -235,6 +287,8 @@ export class JobRunner {
     console.log(`      • Downloads:   ${progresso.totalDownloads}`);
     console.log(`      • Analisados:  ${progresso.totalAnalisados}`);
     console.log(`      • Erros Parc.: ${progresso.totalErros}`);
+    
+    pipelineLogger.logBusca(`Varredura concluída com sucesso. Estatísticas: Encontrados: ${progresso.totalEncontrados}, Validados: ${progresso.totalValidados}, Downloads: ${progresso.totalDownloads}, Analisados: ${progresso.totalAnalisados}, Erros: ${progresso.totalErros}`);
     
     return this.formatarResultado(jobFinal!);
   }

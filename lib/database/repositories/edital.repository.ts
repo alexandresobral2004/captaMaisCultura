@@ -7,6 +7,7 @@ export interface ListEditalQuery {
   page: number;
   limit: number;
   status?: string;
+  statusAnalise?: string;
   orgao?: string;
   tecnologia?: string;
   scoreMin?: number;
@@ -217,6 +218,7 @@ export class EditalRepository extends BaseRepository {
       dataResultado: data.dataResultado || null,
       status: (data.status || 'Aberto') as any,
       statusAnalise: (data.statusAnalise || 'pendente') as any,
+      erroAnalise: data.erroAnalise || null,
       modalidade: data.modalidade || null,
       abrangencia: data.abrangencia || null,
       tipoProponente: data.tipoProponente ? JSON.stringify(data.tipoProponente) : null,
@@ -265,6 +267,7 @@ export class EditalRepository extends BaseRepository {
     if (data.dataResultado !== undefined) updateData.dataResultado = data.dataResultado;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.statusAnalise !== undefined) updateData.statusAnalise = data.statusAnalise;
+    if (data.erroAnalise !== undefined) updateData.erroAnalise = data.erroAnalise;
     if (data.modalidade !== undefined) updateData.modalidade = data.modalidade;
     if (data.abrangencia !== undefined) updateData.abrangencia = data.abrangencia;
     if (data.descricao !== undefined) updateData.descricao = data.descricao;
@@ -389,6 +392,9 @@ export class EditalRepository extends BaseRepository {
 
     if (query.status) {
       conditions.push(eq(editais.status, query.status as any));
+    }
+    if (query.statusAnalise) {
+      conditions.push(eq(editais.statusAnalise, query.statusAnalise as any));
     }
     if (query.orgao) {
       conditions.push(like(editais.orgao, `%${query.orgao}%`));

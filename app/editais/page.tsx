@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, ArrowRight, RefreshCw, AlertTriangle, FileSpreadsheet, ListChecks, CheckCircle2, ChevronRight, X, AlertCircle, Trash2, FileUp, CheckCircle, XCircle } from "lucide-react";
 import { ProcessingOverlay } from "@/components/ui/processing-overlay";
+import { EditalReviewPanel } from "@/components/EditalReviewPanel";
 
 interface Edital {
   id: string;
@@ -76,6 +77,7 @@ function formatarValorBRL(valor: string | number | null | undefined): string {
 export default function EditaisPage() {
   const [editais, setEditais] = useState<Edital[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'explorar' | 'revisao'>('explorar');
   const [searching, setSearching] = useState(false);
   const [analyzing, setAnalyzing] = useState<string | null>(null);
   const [reanalyzing, setReanalyzing] = useState<string | null>(null);
@@ -467,7 +469,55 @@ export default function EditaisPage() {
           </div>
         </div>
 
-        {error && (
+        {/* Tabs de Navegação */}
+        <div style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid var(--color-border)', margin: '0 0.5rem -0.5rem 0.5rem' }}>
+          <button
+            onClick={() => setActiveTab('explorar')}
+            style={{
+              padding: '0.75rem 0.5rem',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 600,
+              color: activeTab === 'explorar' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'explorar' ? '2px solid var(--color-primary)' : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: '-1px',
+              transition: 'all 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem'
+            }}
+          >
+            <Search style={{ width: '0.875rem', height: '0.875rem' }} />
+            Explorar Editais
+          </button>
+          <button
+            onClick={() => setActiveTab('revisao')}
+            style={{
+              padding: '0.75rem 0.5rem',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 600,
+              color: activeTab === 'revisao' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'revisao' ? '2px solid var(--color-primary)' : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: '-1px',
+              transition: 'all 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem'
+            }}
+          >
+            <ListChecks style={{ width: '0.875rem', height: '0.875rem' }} />
+            Revisão Humana
+          </button>
+        </div>
+
+        {activeTab === 'explorar' ? (
+          <>
+            {error && (
           <div style={{ 
             backgroundColor: '#fef2f2', 
             border: '1px solid #fee2e2', 
@@ -663,7 +713,11 @@ export default function EditaisPage() {
                               ✨ IA ({score || 0}%)
                             </Badge>
                           ) : isErro ? (
-                            <Badge variant="danger" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Badge 
+                              variant="danger" 
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                              title={edital.erroAnalise || 'Falha na análise por IA'}
+                            >
                               <AlertCircle style={{ width: '0.75rem', height: '0.75rem' }} /> Falha IA
                             </Badge>
                           ) : isPendente ? (
@@ -842,6 +896,10 @@ export default function EditaisPage() {
           </div>
 
         </div>
+          </>
+        ) : (
+          <EditalReviewPanel />
+        )}
 
       </div>
 

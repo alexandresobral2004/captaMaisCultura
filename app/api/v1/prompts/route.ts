@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminCheck = verificarAdmin(request);
+    const adminCheck = await verificarAdmin(request);
     if (!adminCheck.ok) {
       return adminCheck.response;
     }

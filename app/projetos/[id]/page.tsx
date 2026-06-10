@@ -159,6 +159,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
   const [secoesDinamicas, setSecoesDinamicas] = useState<SecaoDinamica[]>([]);
   const [incluirEquipe, setIncluirEquipe] = useState(false);
   const [equipeData, setEquipeData] = useState<any[]>([]);
+  const [aprimorando, setAprimorando] = useState<string | null>(null);
 
   // States for tabs
   const [abaAtiva, setAbaAtiva] = useState<'proposta' | 'proponente'>('proposta');
@@ -307,6 +308,36 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
     } finally {
       setGerando(false);
       setSaving(false);
+    }
+  };
+
+  const handleAprimorarSecao = async (secaoId: string, secaoChave: string, secaoTitulo: string, conteudoAtual: string) => {
+    if (!projetoId) return;
+
+    setAprimorando(secaoId);
+    try {
+      const res = await fetch(`/api/v1/projetos/${projetoId}/aprimorar-secao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secaoChave, secaoTitulo, conteudoAtual }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Falha ao aprimorar seção');
+      }
+
+      const data = await res.json();
+      const conteudoNovo = data.conteudoNovo;
+
+      setSecoesDinamicas(prev => prev.map(s =>
+        s.id === secaoId ? { ...s, conteudo: conteudoNovo } : s
+      ));
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Erro ao aprimorar seção.');
+    } finally {
+      setAprimorando(null);
     }
   };
 
@@ -1095,6 +1126,27 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
                                   <span>Formatar</span>
                                 </Button>
                               )}
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAprimorarSecao(secao.id, secao.chave, secao.titulo, secao.conteudo)}
+                                disabled={aprimorando === secao.id}
+                                className="h-7 text-xs px-2 rounded-lg text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950/30"
+                                title="Reescrever seção com abordagem diferente"
+                              >
+                                {aprimorando === secao.id ? (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                    <span>Reescrevendo...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    <span>Aprimorar</span>
+                                  </>
+                                )}
+                              </Button>
 
                               <Button
                                 variant="ghost"

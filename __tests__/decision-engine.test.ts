@@ -234,8 +234,8 @@ describe('Decision Engine — Lógica de Decisão do Pipeline', () => {
   describe('Cenário: Blacklist alta → descartado', () => {
     it('deve descartar quando blacklist score > 45 (múltiplos termos indesejados)', () => {
       const decisao = simularDecisaoPipeline(
-        'Edital de Artes Plásticas, Dança, Cinema e Teatro',
-        'Fomento a produções culturais: dança contemporânea, teatro, cinema, música e artes plásticas.',
+        'Edital de Advocacia, Zootecnia, Contabilidade e Pecuária',
+        'Fomento a serviços: advocacia, contabilidade, zootecnia e pecuária.',
         IA_SUCESSO // a blacklist deve barrar antes da IA
       );
       expect(decisao.statusAnalise).toBe('descartado');

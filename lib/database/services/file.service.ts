@@ -5,11 +5,30 @@ import crypto from 'crypto';
 const BASE_PATH = path.join(process.cwd(), 'data', 'downloads');
 
 export class FileService {
+  /**
+   * Resolve e valida se o caminho relativo está estritamente dentro da pasta 'data'
+   * para prevenir ataques de Directory Traversal (ex: ../../etc/passwd)
+   */
+  private validarCaminho(relativePath: string): string {
+    const basePath = path.resolve(process.cwd(), 'data');
+    const fullPath = path.resolve(basePath, relativePath);
+
+    if (!fullPath.startsWith(basePath)) {
+      throw new Error('Acesso negado: Tentativa de Directory Traversal detectada.');
+    }
+
+    return fullPath;
+  }
+
   async salvarPDF(buffer: Buffer, editalId: string, originalName: string): Promise<string> {
-    // Gerar nome unico
+    // Garantir extensão PDF para evitar arquivos maliciosos executáveis
     const ext = path.extname(originalName) || '.pdf';
+    if (ext.toLowerCase() !== '.pdf') {
+      throw new Error('Apenas arquivos PDF são permitidos.');
+    }
+
     const fileName = `edital-${editalId}${ext}`;
-    const filePath = path.join(BASE_PATH, fileName);
+    const filePath = this.validarCaminho(`downloads/${fileName}`);
 
     // Garantir que o diretorio existe
     const dir = path.dirname(filePath);
@@ -35,7 +54,7 @@ export class FileService {
   }
 
   async deletarArquivo(relativePath: string): Promise<void> {
-    const fullPath = path.join(process.cwd(), 'data', relativePath);
+    const fullPath = this.validarCaminho(relativePath);
 
     try {
       await fs.unlink(fullPath);
@@ -55,8 +74,8 @@ export class FileService {
   }
 
   async arquivoExiste(relativePath: string): Promise<boolean> {
-    const fullPath = path.join(process.cwd(), 'data', relativePath);
     try {
+      const fullPath = this.validarCaminho(relativePath);
       await fs.access(fullPath);
       return true;
     } catch {
@@ -65,12 +84,12 @@ export class FileService {
   }
 
   async lerArquivo(relativePath: string): Promise<Buffer> {
-    const fullPath = path.join(process.cwd(), 'data', relativePath);
+    const fullPath = this.validarCaminho(relativePath);
     return fs.readFile(fullPath);
   }
 
   async calcularHash(filePath: string): Promise<string> {
-    const fullPath = path.join(process.cwd(), 'data', filePath);
+    const fullPath = this.validarCaminho(filePath);
     const buffer = await fs.readFile(fullPath);
     return crypto.createHash('sha256').update(buffer).digest('hex');
   }
@@ -78,6 +97,9 @@ export class FileService {
   async verificarIntegridade(): Promise<{ orfaos: string[]; faltando: string[] }> {
     const { EditalRepository } = await import('../repositories/edital.repository');
     const editalRepo = new EditalRepository();
+
+    // Garantir que a pasta downloads existe antes de listar
+    await fs.mkdir(BASE_PATH, { recursive: true });
 
     const arquivos = await fs.readdir(BASE_PATH);
     const pdfFiles = arquivos.filter((f) => f.endsWith('.pdf'));

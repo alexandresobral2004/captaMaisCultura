@@ -31,7 +31,16 @@ export const keywordMap = {
     "avaliação",
     "documentação",
     "anexo",
-    "anexos"
+    "anexos",
+    "chamamento público",
+    "chamamento",
+    "edital de credenciamento",
+    "request for proposals",
+    "rfp",
+    "expression of interest",
+    "manifestação de interesse",
+    "concurso de projetos",
+    "regulamento"
   ],
 
   // Termos prováveis (contexto típico de editais)
@@ -104,7 +113,31 @@ export const keywordMap = {
     "custeio",
     "capital",
     "contrapartida",
-    "repasse"
+    "repasse",
+    "subvenção econômica",
+    "subvenção",
+    "recurso não reembolsável",
+    "recursos não reembolsáveis",
+    "aporte",
+    "coinvestimento",
+    "patrocínio",
+    "investimento-anjo",
+    "capital semente",
+    "seed capital",
+    "aceleração",
+    "incentivo fiscal",
+    "lei de incentivo",
+    "lei rouanet",
+    "lei do bem",
+    "lei de informática",
+    "emenda parlamentar",
+    "crowdfunding",
+    "financiamento coletivo",
+    "match-funding",
+    "premiação",
+    "prêmio",
+    "prize",
+    "award"
   ],
 
   // Termos de elegibilidade (requisitos de participação)
@@ -231,8 +264,6 @@ export const keywordMap = {
     "termo de referência",
     "fornecedor",
     "registro de preços",
-    "dispensa de licitação",
-    "compra pública",
     "contratação de empresa"
   ]
 } as const;

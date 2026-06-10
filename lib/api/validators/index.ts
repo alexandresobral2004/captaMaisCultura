@@ -50,6 +50,7 @@ export const ListEditaisQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: z.string().optional(),
+  statusAnalise: z.string().optional(),
   orgao: z.string().optional(),
   tecnologia: z.string().optional(),
   scoreMin: z.coerce.number().min(0).max(100).optional(),
@@ -87,6 +88,29 @@ export const AnaliseIASchema = z.object({
   documentos: z.array(z.string()).optional(),
   criterios: z.array(z.string()).optional(),
   pontosFracos: z.array(z.string()).optional(),
+});
+
+// Schema para Cadastro de Usuários
+export const CadastroUsuarioSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(100, 'Nome muito longo'),
+  email: z.string().email('Email inválido'),
+  password: z
+    .string()
+    .min(8, 'Senha deve ter no mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Senha deve conter pelo menos uma letra maiúscula')
+    .regex(/[a-z]/, 'Senha deve conter pelo menos uma letra minúscula')
+    .regex(/[0-9]/, 'Senha deve conter pelo menos um número')
+    .regex(/[^A-Za-z0-9]/, 'Senha deve conter pelo menos um caractere especial'),
+  confirmarPassword: z.string(),
+}).refine((data) => data.password === data.confirmarPassword, {
+  message: 'As senhas não coincidem',
+  path: ['confirmarPassword'],
+});
+
+// Schema para Login de Usuários
+export const LoginUsuarioSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(1, 'Senha é obrigatória'),
 });
 
 // Funcao para validar query params

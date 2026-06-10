@@ -1,11 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   // Fire and forget via fetch to our own API
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = req.headers.get('x-forwarded-proto') || 'http';
+    const baseUrl = `${protocol}://${host}`;
     const token = process.env.SCAN_TOKEN || 'capta-mais-scan-token-secret-2026';
     
     // We use the existing weekly scan endpoint but run it asynchronously

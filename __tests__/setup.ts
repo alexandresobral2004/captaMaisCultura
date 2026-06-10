@@ -52,6 +52,7 @@ export function createTestDb() {
       cache_classificacao_usado INTEGER DEFAULT 0,
       confianca_por_campo TEXT,
       codigo TEXT UNIQUE,
+      categoria_area TEXT NOT NULL DEFAULT 'Cultura',
       deleted_at TEXT,
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
@@ -203,6 +204,9 @@ export function createTestDb() {
       prompt_original TEXT,
       fontes TEXT,
       secoes_dinamicas TEXT,
+      logo_url TEXT,
+      logo_descricao TEXT,
+      dados_proponente TEXT,
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (edital_id) REFERENCES editais(id) ON DELETE CASCADE

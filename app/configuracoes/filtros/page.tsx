@@ -343,15 +343,19 @@ export default function FiltrosPage() {
   // ─── Filtered lists ───────────────────────────────────────────────────────────
 
   const filteredWhitelistTerms = whitelist
-    ? whitelist[activeCategoria].filter((t) =>
-        whitelistSearch ? t.toLowerCase().includes(whitelistSearch.toLowerCase()) : true
-      )
+    ? Array.from(new Set(whitelist[activeCategoria]))
+        .filter((t) =>
+          whitelistSearch ? t.toLowerCase().includes(whitelistSearch.toLowerCase()) : true
+        )
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'))
     : [];
 
   const filteredBlacklistTerms = blacklist
-    ? blacklist.blacklist.filter((t) =>
-        blacklistSearch ? t.toLowerCase().includes(blacklistSearch.toLowerCase()) : true
-      )
+    ? Array.from(new Set(blacklist.blacklist))
+        .filter((t) =>
+          blacklistSearch ? t.toLowerCase().includes(blacklistSearch.toLowerCase()) : true
+        )
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'))
     : [];
 
   // ─── Pipeline steps config ────────────────────────────────────────────────────
@@ -428,14 +432,61 @@ export default function FiltrosPage() {
             </div>
 
             {/* Pipeline visual */}
-            <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', background: 'var(--color-background)' }}>
-              <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--color-text-primary)' }}>
-                Pipeline de Classificação
-              </p>
-              <PipelineVisualizer steps={getPipelineSteps()} />
-              <p style={{ marginTop: '0.75rem', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                Score blacklist: <strong>1–20 → penalizar (passa)</strong> · <strong>21–45 → revisar (passa)</strong> · <strong>&gt; 45 → bloquear ❌</strong>
-              </p>
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', background: 'var(--color-background)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--color-text-primary)' }}>
+                  Pipeline de Classificação
+                </p>
+                <PipelineVisualizer steps={getPipelineSteps()} />
+              </div>
+              
+              <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '1.25rem' }}>
+                <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+                  Regras de Ação por Pontuação da Blacklist
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  
+                  {/* Score 1 - 20 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', padding: '0.875rem', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', backgroundColor: '#eff6ff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', backgroundColor: '#3b82f6', color: 'white' }}>
+                        1 a 20 pts
+                      </span>
+                      <strong style={{ fontSize: 'var(--font-size-sm)', color: '#1e3a8a' }}>Penalização Leve</strong>
+                    </div>
+                    <p style={{ fontSize: 'var(--font-size-xs)', color: '#1e40af', lineHeight: 1.4, margin: 0 }}>
+                      O edital recebe uma penalidade sutil, mas <strong>segue normalmente</strong> para a etapa de análise com IA.
+                    </p>
+                  </div>
+
+                  {/* Score 21 - 45 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', padding: '0.875rem', border: '1px solid #fef08a', borderRadius: 'var(--radius-md)', backgroundColor: '#fefcbf' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', backgroundColor: '#eab308', color: 'white' }}>
+                        21 a 45 pts
+                      </span>
+                      <strong style={{ fontSize: 'var(--font-size-sm)', color: '#713f12' }}>Revisão Necessária</strong>
+                    </div>
+                    <p style={{ fontSize: 'var(--font-size-xs)', color: '#854d0e', lineHeight: 1.4, margin: 0 }}>
+                      O edital <strong>segue para a análise da IA</strong>, mas fica marcado para <strong>revisão humana obrigatória</strong> no painel de controle.
+                    </p>
+                  </div>
+
+                  {/* Score > 45 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', padding: '0.875rem', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', backgroundColor: '#fef2f2' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', backgroundColor: '#ef4444', color: 'white' }}>
+                        Acima de 45 pts
+                      </span>
+                      <strong style={{ fontSize: 'var(--font-size-sm)', color: '#7f1d1d' }}>Bloqueio Automático ❌</strong>
+                    </div>
+                    <p style={{ fontSize: 'var(--font-size-xs)', color: '#991b1b', lineHeight: 1.4, margin: 0 }}>
+                      O edital é classificado como totalmente fora de escopo e <strong>descartado de imediato</strong>, sem consumir créditos da API de IA.
+                    </p>
+                  </div>
+
+                </div>
+              </div>
             </div>
 
             {/* Tabs */}
@@ -559,11 +610,32 @@ export default function FiltrosPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                   {/* Scoring info */}
-                  <div style={{ padding: '0.75rem 1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-                    <strong style={{ color: 'var(--color-text-primary)' }}>Sistema de pontuação:</strong>{' '}
-                    cada termo tem <strong>15pts base + 5pts</strong> por ocorrência extra (máx 35pts/termo).{' '}
-                    Score <strong>&gt; 45 → bloqueia</strong> · 21–45 → só loga · 1–20 → só loga.{' '}
-                    Exceções neutralizam o termo no contexto certo.
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-primary)' }}>Como funciona o cálculo do Score:</strong>
+                      <ul style={{ listStyleType: 'disc', marginLeft: '1.25rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                        <li>Cada ocorrência de um termo da Blacklist no edital soma <strong>15 pontos (base) + 5 pontos para cada repetição</strong> desse mesmo termo (máximo de 35 pontos por termo).</li>
+                        <li><strong>Exceções</strong> configuradas para o termo neutralizam o bloqueio e anulam sua pontuação caso a exceção seja encontrada no texto.</li>
+                        <li>O score final do edital é a soma acumulada de todos os termos encontrados.</li>
+                      </ul>
+                    </div>
+                    <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                      <strong style={{ color: 'var(--color-text-primary)' }}>Ações tomadas com base no Score final:</strong>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.375rem' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></span>
+                          <strong>1 a 20 pts:</strong> Penalização Leve (Segue para IA)
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#eab308' }}></span>
+                          <strong>21 a 45 pts:</strong> Revisão Manual (Segue para IA, requer aprovação humana)
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }}></span>
+                          <strong>&gt; 45 pts:</strong> Bloqueio Automático ❌ (Descartado sem gastar IA)
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Search + Add */}
@@ -606,7 +678,7 @@ export default function FiltrosPage() {
                       </p>
                     ) : (
                       filteredBlacklistTerms.map((termo) => {
-                        const excecoes = blacklist.excecoes[termo] || [];
+                        const excecoes = Array.from(new Set(blacklist.excecoes[termo] || [])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
                         const isExpanded = expandedTermos.has(termo);
                         const temExcecoes = excecoes.length > 0;
 

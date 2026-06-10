@@ -31,7 +31,11 @@ const PROIBIDOS = [
   'mergulhe', 'jornada', 'desvendar', 'em resumo', 'em conclusao',
   'crucial', 'imperativo', 'notavel', 'tesouro', 'ademais',
   'primeiramente', 'eh importante ressaltar', 'no cenario atual',
-  'uma tapeçaria de', 'alavancar', 'multifacetado', 'sinergia', 'catalisador'
+  'uma tapeçaria de', 'alavancar', 'multifacetado', 'sinergia', 'catalisador',
+  'nesse contexto', 'é de fundamental importância', 'contribuindo assim para',
+  'a fim de que', 'no âmbito', 'em consonância', 'consoante', 'outrossim',
+  'haja vista', 'tendo em vista que', 'sobretudo', 'destarte', 'mormente',
+  'acerca de', 'denota-se', 'ressalta-se', 'evidencia-se', 'depreende-se'
 ].join('|');
 
 function formatarFontes(searchResults: SearchResult[]): string {
@@ -66,7 +70,7 @@ ${formatarContextoRAG(contextoRAG.chunks)}
 `
     : '';
 
-  return `ATUE COMO um especialista senior em formulacao de projetos tecnicos, captacao de recursos e escrita para editais publicos e privados.
+  return `ATUE COMO um Produtor Cultural Sênior com 15 anos de atuação em captação de recursos via PRONAC, Lei Rouanet, Fundo Nacional de Cultura, Programa Aldir Blanc, editais da Secult-CE e FAR-CE. Sua escrita deve ser técnica, precisa e adaptada à realidade das bancas avaliadoras brasileiras.
 
 A TAREFA:
 Desenvolva a estrutura narrativa de um projeto executivo focado nos seguintes parametros:
@@ -267,7 +271,7 @@ ${formatarContextoRAG(contextoRAG.chunks)}
     contextoAdicional = `\n\n## SECOES ANTERIORES (para coerencia)\nTitulo do projeto: ${tituloProj}\nArea: ${areaProj}\n${secoesAnteriores.resumoExecutivo ? `Resumo Executivo ja gerado:\n${secoesAnteriores.resumoExecutivo}\n` : ''}${secoesAnteriores.justificativa ? `Justificativa ja gerada:\n${secoesAnteriores.justificativa}\n` : ''}${secoesAnteriores.objetivos ? `Objetivos ja definidos:\n${secoesAnteriores.objetivos}\n` : ''}`;
   }
 
-  return `ATUE COMO um especialista senior em formulacao de projetos tecnicos, captação de recursos e escrita para editais publicos e privados.
+  return `ATUE COMO um Produtor Cultural Sênior com 15 anos de atuação em captação de recursos via PRONAC, Lei Rouanet, Fundo Nacional de Cultura, Programa Aldir Blanc, editais da Secult-CE e FAR-CE. Sua escrita deve ser técnica, precisa e adaptada à realidade das bancas avaliadoras brasileiras.
 
 A TAREFA:
 Desenvolva a secao "${secao}" de um projeto executivo focado nos seguintes parametros:
@@ -352,7 +356,7 @@ ${formatarContextoRAG(contextoRAG.chunks)}
     return `* **${s.titulo}** (chave: "${s.chave}")${rascunhoDesc}`;
   }).join('\n');
 
-  return `ATUE COMO um especialista senior em formulacao de projetos tecnicos, captacao de recursos e escrita para editais publicos e privados.
+  return `ATUE COMO um Produtor Cultural Sênior com 15 anos de atuação em captação de recursos via PRONAC, Lei Rouanet, Fundo Nacional de Cultura, Programa Aldir Blanc, editais da Secult-CE e FAR-CE. Sua escrita deve ser técnica, precisa e adaptada à realidade das bancas avaliadoras brasileiras.
 
 A TAREFA:
 Desenvolva o conteúdo narrativo e completo da proposta de projeto para captação de recursos. O edital exige que a proposta contenha exatamente as seguintes seções personalizadas:

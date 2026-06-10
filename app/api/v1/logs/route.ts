@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger, LogFilters, LogNivel } from '@/lib/logger';
-import { obterUsuarioLogado } from '@/lib/api/auth';
+import { verificarAdmin } from '@/lib/api/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = verificarAdmin(request);
+    const auth = await verificarAdmin(request);
     if (!auth.ok) {
       return auth.response;
     }
@@ -73,30 +73,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function verificarAdmin(request: NextRequest) {
-  const usuario = obterUsuarioLogado(request);
-
-  if (!usuario) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: 'Não autenticado' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  if (usuario.role !== 'admin') {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: 'Acesso restrito a administradores' },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { ok: true, usuario };
 }

@@ -82,24 +82,7 @@ execute_search() {
     log INFO "Iniciando JobRunner no backend..."
     if [ "$DRY_RUN" = true ]; then return 0; fi
     
-    local endpoint="$API_URL/api/jobs/run-weekly-scan"
-    local payload="{\"token\":\"$SCAN_TOKEN\"}"
-    
-    local response=$(curl -s -X POST "$endpoint" \
-        -H "Content-Type: application/json" \
-        -d "$payload")
-    
-    if [ "$VERBOSE" = true ]; then
-        echo "$response" | jq . || echo "$response"
-    fi
-    
-    local success=$(echo "$response" | jq -r '.success // false')
-    if [ "$success" = "true" ]; then
-        log SUCCESS "✅ Busca concluída com sucesso no backend!"
-    else
-        log ERROR "❌ Falha na execução do JobRunner."
-        echo "$response" | jq . || echo "$response"
-    fi
+    node "$SCRIPT_DIR/run-scan.js" "$API_URL" "$SCAN_TOKEN"
 }
 
 main() {

@@ -12,7 +12,7 @@ import {
   FlaskConical
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 type ColorScheme = 'emerald' | 'amber' | 'sky' | 'violet' | 'slate';
 
@@ -59,10 +59,9 @@ const menuItems: MenuItem[] = [
     colorScheme: 'slate',
     submenu: [
       { href: "/configuracoes", label: "Geral", colorScheme: 'slate' },
-      { href: "/configuracoes/usuarios", label: "Usuários", colorScheme: 'slate' },
+      { href: "/usuarios", label: "Usuários", colorScheme: 'slate' },
       { href: "/configuracoes/logs", label: "Logs de Erro", colorScheme: 'slate' },
       { href: "/configuracoes/filtros", label: "Filtros de Editais", colorScheme: 'slate' },
-      { href: "/configuracoes/scraper-logs", label: "Logs do Scraper", colorScheme: 'slate' },
       { href: "/configuracoes/portais", label: "Portais de Editais", colorScheme: 'slate' },
       { href: "/configuracoes/prompts", label: "Prompts de IA", colorScheme: 'slate' },
     ]
@@ -75,6 +74,22 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOnClose }: SidebarProps) {
   const pathname = usePathname()
+  const [userRole, setUserRole] = useState<'admin' | 'editor' | 'leitor' | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch('/api/v1/usuarios/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUserRole(data.role);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar perfil do usuário:', err);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleNavClick = () => {
     if (mobileOnClose) {
@@ -127,7 +142,14 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="sidebar-nav">
-        {menuItems.map((item) => {
+        {menuItems
+          .filter((item) => {
+            if (item.href === '/configuracoes') {
+              return userRole === 'admin';
+            }
+            return true;
+          })
+          .map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           const hasSubMenu = item.submenu && item.submenu.length > 0;

@@ -30,10 +30,10 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
     });
 
     it('score entre 1-19 → severidade baixa, recomendação penalizar', () => {
-      // "dança" encontrado 1x = peso 15
+      // "advocacia" encontrado 1x = peso 15
       const result = analisarBlacklist(
-        'Festival de dança na escola de computação',
-        'Projeto de tecnologia educacional.'
+        'Serviço de advocacia na escola de computação',
+        'Projeto de tecnologia jurídica.'
       );
       if (result.scoreNegativo > 0 && result.scoreNegativo <= 19) {
         expect(result.severidade).toBe('baixa');
@@ -44,8 +44,8 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
     it('score entre 20-45 → severidade media, recomendação revisar', () => {
       // Múltiplos termos com score acumulado entre 20-45
       const result = analisarBlacklist(
-        'Projeto de Dança e Teatro Contemporâneo',
-        'Apoio a produções artísticas de teatro e dança.'
+        'Projeto de Advocacia e Contabilidade',
+        'Apoio a serviços de advocacia e contabilidade.'
       );
       if (result.scoreNegativo > 20 && result.scoreNegativo <= 45) {
         expect(result.severidade).toBe('media');
@@ -55,8 +55,8 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
 
     it('score acima de 45 → severidade alta, recomendação bloquear', () => {
       const result = analisarBlacklist(
-        'Edital de Cinema, Teatro, Dança e Artes Plásticas',
-        'Fomento completo a produções artísticas: cinema, teatro, dança, artes plásticas, música e publicidade.'
+        'Edital de Advocacia, Zootecnia, Contabilidade e Pecuária',
+        'Fomento completo a serviços: advocacia, zootecnia, contabilidade, pecuária, marketing e publicidade.'
       );
       expect(result.scoreNegativo).toBeGreaterThan(45);
       expect(result.severidade).toBe('alta');
@@ -67,8 +67,8 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
   describe('Legibilidade dos Motivos', () => {
     it('motivos são strings não-vazias legíveis por humanos', () => {
       const result = analisarBlacklist(
-        'Edital de Teatro e Cinema',
-        'Apoio a produções artísticas de cinema e teatro.'
+        'Edital de Advocacia e Zootecnia',
+        'Apoio a serviços de zootecnia e advocacia.'
       );
       expect(result.motivos.length).toBeGreaterThan(0);
       for (const motivo of result.motivos) {
@@ -81,8 +81,8 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
 
     it('cada TermMatch tem peso e ocorrências documentados', () => {
       const result = analisarBlacklist(
-        'Edital de Teatro',
-        'Fomento a projetos de teatro popular.'
+        'Edital de Advocacia',
+        'Fomento a projetos de advocacia.'
       );
       for (const match of result.termosEncontrados) {
         expect(match.termo).toBeTruthy();
@@ -108,36 +108,36 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
 
   describe('Cálculo de Frequência e Peso Máximo', () => {
     it('peso de um único termo é limitado a 35 pontos', () => {
-      // Mesmo que "teatro" apareça muitas vezes, peso máximo por termo é 35
+      // Mesmo que "advocacia" apareça muitas vezes, peso máximo por termo é 35
       const resultado = analisarBlacklist(
-        'Teatro Teatro Teatro Teatro Teatro Teatro',
-        'Teatro teatro teatro teatro teatro teatro teatro teatro.'
+        'Advocacia Advocacia Advocacia Advocacia Advocacia Advocacia',
+        'Advocacia advocacia advocacia advocacia advocacia advocacia advocacia advocacia.'
       );
-      const teatroMatch = resultado.termosEncontrados.find((t) => t.termo === 'teatro');
-      if (teatroMatch) {
-        expect(teatroMatch.peso).toBeLessThanOrEqual(35);
+      const advocaciaMatch = resultado.termosEncontrados.find((t) => t.termo === 'advocacia');
+      if (advocaciaMatch) {
+        expect(advocaciaMatch.peso).toBeLessThanOrEqual(35);
       }
     });
 
     it('1ª ocorrência de um termo vale 15 pontos base', () => {
       const result = analisarBlacklist(
-        'Festival de Teatro',
-        'Apoio a produções de teatro.'
+        'Serviço de Advocacia',
+        'Apoio a serviços de advocacia.'
       );
-      const teatroMatch = result.termosEncontrados.find((t) => t.termo === 'teatro');
-      if (teatroMatch && teatroMatch.ocorrencias === 1) {
-        expect(teatroMatch.peso).toBe(15);
+      const advocaciaMatch = result.termosEncontrados.find((t) => t.termo === 'advocacia');
+      if (advocaciaMatch && advocaciaMatch.ocorrencias === 1) {
+        expect(advocaciaMatch.peso).toBe(15);
       }
     });
 
     it('2ª ocorrência adiciona 5 pontos (total 20)', () => {
       const result = analisarBlacklist(
-        'Teatro e mais Teatro',
-        'Projeto de teatro e teatro comunitário.'
+        'Advocacia e mais Advocacia',
+        'Projeto de advocacia e advocacia integrada.'
       );
-      const teatroMatch = result.termosEncontrados.find((t) => t.termo === 'teatro');
-      if (teatroMatch && teatroMatch.ocorrencias === 2) {
-        expect(teatroMatch.peso).toBe(20);
+      const advocaciaMatch = result.termosEncontrados.find((t) => t.termo === 'advocacia');
+      if (advocaciaMatch && advocaciaMatch.ocorrencias === 2) {
+        expect(advocaciaMatch.peso).toBe(20);
       }
     });
   });
@@ -154,8 +154,8 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
 
     it('não adiciona duplicatas ao array de termos', () => {
       const result = analisarBlacklist(
-        'Edital de Teatro e Mais Teatro',
-        'Apoio ao teatro popular em teatro comunitário.'
+        'Edital de Advocacia e Mais Advocacia',
+        'Apoio à advocacia popular em advocacia comunitária.'
       );
       const nomesTermos = result.termosEncontrados.map((t) => t.termo);
       const nomesUnicos = Array.from(new Set(nomesTermos));
@@ -177,11 +177,11 @@ describe('Blacklist Engine — Fronteiras e Legibilidade', () => {
 
     it('é case-insensitive para termos com acentuação', () => {
       const result = analisarBlacklist(
-        'DANÇA CONTEMPORÂNEA',
-        'Projeto de DANÇA folclórica.'
+        'AGROPECUÁRIA TRADICIONAL',
+        'Projeto de AGROPECUÁRIA familiar.'
       );
-      const dancaMatch = result.termosEncontrados.find((t) => t.termo === 'dança');
-      expect(dancaMatch).toBeDefined();
+      const agropecuariaMatch = result.termosEncontrados.find((t) => t.termo === 'agropecuária');
+      expect(agropecuariaMatch).toBeDefined();
     });
   });
 });
@@ -205,12 +205,12 @@ describe('Blacklist Engine — Teste de Não Bloqueio Excessivo', () => {
     expect(saudeMatch).toBeUndefined(); // Totalmente neutralizado pelas exceções
   });
 
-  it('não bloqueia edital de educação digital (excepção de ensino)', () => {
+  it('não bloqueia edital com agricultura de precisão (exceção de agricultura)', () => {
     const result = analisarBlacklist(
-      'Edital de Ensino Digital e Plataformas Educacionais Online',
-      'Apoio a ferramentas de ensino digital, plataformas EAD e tecnologia educacional.'
+      'Edital de Agricultura de Precisão e Sensores',
+      'Apoio a ferramentas de agricultura de precisão, inteligência no campo e agrotech.'
     );
-    // "ensino" pode ser blacklist, mas "ensino digital" é exceção
+    // "agricultura" é blacklist, mas "agricultura de precisão" é exceção
     if (result.termosEncontrados.length > 0) {
       // Se ainda tiver termos, não deve ser bloquear
       expect(result.recomendacao).not.toBe('bloquear');

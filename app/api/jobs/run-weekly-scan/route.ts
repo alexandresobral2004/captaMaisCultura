@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarAdmin } from '@/lib/api/auth';
 import { JobRunner, ConflictError } from '@/lib/jobs/job-runner';
+import { JobRepository } from '@/lib/jobs/job-repository';
 
 /**
  * Verifica autenticação: aceita token de script OU cookie de admin
@@ -33,7 +34,7 @@ async function verificarAutenticacao(request: NextRequest): Promise<{ ok: boolea
   }
 
   // 3. Verificar cookie de admin (para acesso via UI)
-  const auth = verificarAdmin(request);
+  const auth = await verificarAdmin(request);
   if (!auth.ok) {
     return { ok: false, response: auth.response };
   }
@@ -63,32 +64,29 @@ export async function POST(request: NextRequest) {
  * Executa a varredura semanal completa usando o novo JobRunner
  */
 async function executarVarreduraSemanal() {
-  const runner = new JobRunner();
+  const repository = new JobRepository();
 
   try {
-    const resultado = await runner.executar();
-    
-    const statusCode = resultado.status === 'ERRO' ? 500 : 200;
-    
-    return NextResponse.json({
-      success: resultado.status !== 'ERRO',
-      mensagem: resultado.status !== 'ERRO' ? 'Varredura completada com sucesso' : 'Varredura completada com erro fatal',
-      estatisticas: {
-        totalEditaisValidos: resultado.totalValidados,
-        quantidade: resultado.totalDownloads, // Mantendo compatibilidade com old response
-        ...resultado
-      },
-      timestamp: new Date().toISOString()
-    }, { status: statusCode });
-
-  } catch (erro: any) {
-    if (erro instanceof ConflictError) {
+    const jobAtivo = await repository.buscarRodando();
+    if (jobAtivo) {
       return NextResponse.json({
         success: false,
-        error: erro.message,
+        error: `Já existe um job rodando (ID: ${jobAtivo.id}, Fase: ${jobAtivo.fase})`,
       }, { status: 409 });
     }
 
+    const runner = new JobRunner();
+    runner.executar().catch(erro => {
+      console.error('❌ Erro na execução do Job em background:', erro);
+    });
+
+    return NextResponse.json({
+      success: true,
+      mensagem: 'Varredura semanal iniciada em background',
+      timestamp: new Date().toISOString()
+    }, { status: 202 });
+
+  } catch (erro: any) {
     return NextResponse.json({
       success: false,
       error: erro.message,

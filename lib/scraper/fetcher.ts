@@ -42,15 +42,14 @@ export async function buscarEditaisPortais(): Promise<Edital[]> {
 
   const statusPortais: StatusPortal[] = [];
 
-  // ✨ BUSCA RESTRITA: Apenas Prosas (prosas.com.br)
+  // 1. Prosas (sessão autenticada)
   console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
   console.log('║    🚀 INICIANDO BUSCA NO PORTAL PROSAS (prosas.com.br) 🚀       ║');
   console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
 
-  // 1. Prosas (sessão autenticada) - ÚNICO PORTAL
   let tempoProsa = Date.now();
   try {
-    console.log('  📥 [1/1] Consultando Portal Prosas...');
+    console.log('  📥 [1/6] Consultando Portal Prosas...');
     const editaisProsas = await buscarEditaisProsas();
     const tempoProasDecorrido = ((Date.now() - tempoProsa) / 1000).toFixed(2);
     
@@ -92,7 +91,7 @@ export async function buscarEditaisPortais(): Promise<Edital[]> {
 
   let tempoCapta = Date.now();
   try {
-    console.log('  📥 [2/2] Consultando Portal Capta...');
+    console.log('  📥 [2/6] Consultando Portal Capta...');
     const editaisCapta = await buscarEditaisCapta();
     const tempoCaptaDecorrido = ((Date.now() - tempoCapta) / 1000).toFixed(2);
 
@@ -125,6 +124,174 @@ export async function buscarEditaisPortais(): Promise<Edital[]> {
       erro: err.message
     });
     console.warn(`      ❌ ERRO | ${err.message} | ${tempoCaptaDecorrido}s\n`);
+  }
+
+  // 3. FINEP
+  console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
+  console.log('║    🚀 INICIANDO BUSCA NO PORTAL FINEP 🚀                          ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+
+  let tempoFinep = Date.now();
+  try {
+    console.log('  📥 [3/6] Consultando Portal FINEP...');
+    const editaisFinep = await buscarEditaisFinep();
+    const tempoFinepDecorrido = ((Date.now() - tempoFinep) / 1000).toFixed(2);
+
+    for (const ed of editaisFinep) {
+      const salvo = await saveEdital(ed);
+      if (salvo.deletedAt) {
+        console.log(`  ⏭️ [FINEP] Edital ${ed.id} já está excluído no banco de dados. Ignorando no download.`);
+        continue;
+      }
+      novosEditais.push(salvo);
+    }
+
+    statusPortais.push({
+      nome: 'FINEP',
+      numero: 3,
+      sucesso: true,
+      editaisRetornados: editaisFinep.length,
+      tempo: parseFloat(tempoFinepDecorrido)
+    });
+
+    console.log(`      ✅ SUCESSO | ${editaisFinep.length} editais retornados | ${tempoFinepDecorrido}s\n`);
+  } catch (err: any) {
+    const tempoFinepDecorrido = ((Date.now() - tempoFinep) / 1000).toFixed(2);
+    statusPortais.push({
+      nome: 'FINEP',
+      numero: 3,
+      sucesso: false,
+      editaisRetornados: 0,
+      tempo: parseFloat(tempoFinepDecorrido),
+      erro: err.message
+    });
+    console.warn(`      ❌ ERRO | ${err.message} | ${tempoFinepDecorrido}s\n`);
+  }
+
+  // 4. CNPq
+  console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
+  console.log('║    🚀 INICIANDO BUSCA NO PORTAL CNPQ 🚀                           ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+
+  let tempoCNPq = Date.now();
+  try {
+    console.log('  📥 [4/6] Consultando Portal CNPq...');
+    const editaisCNPq = await buscarEditaisCNPq();
+    const tempoCNPqDecorrido = ((Date.now() - tempoCNPq) / 1000).toFixed(2);
+
+    for (const ed of editaisCNPq) {
+      const salvo = await saveEdital(ed);
+      if (salvo.deletedAt) {
+        console.log(`  ⏭️ [CNPQ] Edital ${ed.id} já está excluído no banco de dados. Ignorando no download.`);
+        continue;
+      }
+      novosEditais.push(salvo);
+    }
+
+    statusPortais.push({
+      nome: 'CNPq',
+      numero: 4,
+      sucesso: true,
+      editaisRetornados: editaisCNPq.length,
+      tempo: parseFloat(tempoCNPqDecorrido)
+    });
+
+    console.log(`      ✅ SUCESSO | ${editaisCNPq.length} editais retornados | ${tempoCNPqDecorrido}s\n`);
+  } catch (err: any) {
+    const tempoCNPqDecorrido = ((Date.now() - tempoCNPq) / 1000).toFixed(2);
+    statusPortais.push({
+      nome: 'CNPq',
+      numero: 4,
+      sucesso: false,
+      editaisRetornados: 0,
+      tempo: parseFloat(tempoCNPqDecorrido),
+      erro: err.message
+    });
+    console.warn(`      ❌ ERRO | ${err.message} | ${tempoCNPqDecorrido}s\n`);
+  }
+
+  // 5. CAPES
+  console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
+  console.log('║    🚀 INICIANDO BUSCA NO PORTAL CAPES 🚀                          ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+
+  let tempoCapes = Date.now();
+  try {
+    console.log('  📥 [5/6] Consultando Portal CAPES...');
+    const editaisCapes = await buscarEditaisCapes();
+    const tempoCapesDecorrido = ((Date.now() - tempoCapes) / 1000).toFixed(2);
+
+    for (const ed of editaisCapes) {
+      const salvo = await saveEdital(ed);
+      if (salvo.deletedAt) {
+        console.log(`  ⏭️ [CAPES] Edital ${ed.id} já está excluído no banco de dados. Ignorando no download.`);
+        continue;
+      }
+      novosEditais.push(salvo);
+    }
+
+    statusPortais.push({
+      nome: 'CAPES',
+      numero: 5,
+      sucesso: true,
+      editaisRetornados: editaisCapes.length,
+      tempo: parseFloat(tempoCapesDecorrido)
+    });
+
+    console.log(`      ✅ SUCESSO | ${editaisCapes.length} editais retornados | ${tempoCapesDecorrido}s\n`);
+  } catch (err: any) {
+    const tempoCapesDecorrido = ((Date.now() - tempoCapes) / 1000).toFixed(2);
+    statusPortais.push({
+      nome: 'CAPES',
+      numero: 5,
+      sucesso: false,
+      editaisRetornados: 0,
+      tempo: parseFloat(tempoCapesDecorrido),
+      erro: err.message
+    });
+    console.warn(`      ❌ ERRO | ${err.message} | ${tempoCapesDecorrido}s\n`);
+  }
+
+  // 6. Ministério da Ciência (MCTI)
+  console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
+  console.log('║    🚀 INICIANDO BUSCA NO MINISTÉRIO DA CIÊNCIA 🚀                 ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+
+  let tempoMcti = Date.now();
+  try {
+    console.log('  📥 [6/6] Consultando Portal Ministério da Ciência...');
+    const editaisMcti = await buscarEditaisMinisterioCiencia();
+    const tempoMctiDecorrido = ((Date.now() - tempoMcti) / 1000).toFixed(2);
+
+    for (const ed of editaisMcti) {
+      const salvo = await saveEdital(ed);
+      if (salvo.deletedAt) {
+        console.log(`  ⏭️ [MIN. CIÊNCIA] Edital ${ed.id} já está excluído no banco de dados. Ignorando no download.`);
+        continue;
+      }
+      novosEditais.push(salvo);
+    }
+
+    statusPortais.push({
+      nome: 'Min. Ciência',
+      numero: 6,
+      sucesso: true,
+      editaisRetornados: editaisMcti.length,
+      tempo: parseFloat(tempoMctiDecorrido)
+    });
+
+    console.log(`      ✅ SUCESSO | ${editaisMcti.length} editais retornados | ${tempoMctiDecorrido}s\n`);
+  } catch (err: any) {
+    const tempoMctiDecorrido = ((Date.now() - tempoMcti) / 1000).toFixed(2);
+    statusPortais.push({
+      nome: 'Min. Ciência',
+      numero: 6,
+      sucesso: false,
+      editaisRetornados: 0,
+      tempo: parseFloat(tempoMctiDecorrido),
+      erro: err.message
+    });
+    console.warn(`      ❌ ERRO | ${err.message} | ${tempoMctiDecorrido}s\n`);
   }
 
   // ✨ RESUMO FINAL

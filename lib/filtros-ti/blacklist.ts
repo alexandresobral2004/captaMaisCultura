@@ -78,14 +78,10 @@ export const EXCECOES_BLACKLIST = {
 
 // Se algum código fizer indexação direta ou usar como objeto simples:
 Object.defineProperty(EXCECOES_BLACKLIST, 'saúde', { get: () => loadBlacklist().excecoes['saúde'] });
-Object.defineProperty(EXCECOES_BLACKLIST, 'educação', { get: () => loadBlacklist().excecoes['educação'] });
-Object.defineProperty(EXCECOES_BLACKLIST, 'ensino', { get: () => loadBlacklist().excecoes['ensino'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'arquitetura', { get: () => loadBlacklist().excecoes['arquitetura'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'gestão', { get: () => loadBlacklist().excecoes['gestão'] });
-Object.defineProperty(EXCECOES_BLACKLIST, 'design', { get: () => loadBlacklist().excecoes['design'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'comunicação', { get: () => loadBlacklist().excecoes['comunicação'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'administração', { get: () => loadBlacklist().excecoes['administração'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'direito', { get: () => loadBlacklist().excecoes['direito'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'agricultura', { get: () => loadBlacklist().excecoes['agricultura'] });
 Object.defineProperty(EXCECOES_BLACKLIST, 'agropecuária', { get: () => loadBlacklist().excecoes['agropecuária'] });
-Object.defineProperty(EXCECOES_BLACKLIST, 'arte', { get: () => loadBlacklist().excecoes['arte'] });

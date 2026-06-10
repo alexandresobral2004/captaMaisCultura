@@ -3,6 +3,8 @@ import { EditalService } from '@/lib/database/services/edital.service';
 import { successResponse, errorResponse, paginatedResponse, handleApiError } from '@/lib/api/responses';
 import { ListEditaisQuerySchema } from '@/lib/api/validators';
 
+export const dynamic = 'force-dynamic';
+
 const service = new EditalService();
 
 export async function GET(request: NextRequest) {
@@ -13,6 +15,7 @@ export async function GET(request: NextRequest) {
       page: searchParams.get('page') || '1',
       limit: searchParams.get('limit') || '20',
       status: searchParams.get('status') || undefined,
+      statusAnalise: searchParams.get('statusAnalise') || undefined,
       orgao: searchParams.get('orgao') || undefined,
       tecnologia: searchParams.get('tecnologia') || undefined,
       scoreMin: searchParams.get('scoreMin') || undefined,

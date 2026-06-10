@@ -8,6 +8,7 @@ import { analisarBlacklist } from '@/lib/scraper/filtros-ti';
 import { baixarELerPDFEdital, OpcoesDownload } from '@/lib/scraper/pdf-downloader';
 import { saveEdital, Edital } from '@/lib/db/editais-store';
 import { verificarAdmin } from '@/lib/api/auth';
+import { pipelineLogger } from '@/lib/scraper/pipeline-logger';
 
 function slugify(input: string): string {
   return input
@@ -53,7 +54,7 @@ function updateManifest(nomeArquivo: string, data: Record<string, any>) {
 
 export async function POST(request: NextRequest) {
   // Verificar se é admin
-  const auth = verificarAdmin(request);
+  const auth = await verificarAdmin(request);
   if (!auth.ok) {
     return auth.response;
   }
@@ -61,18 +62,23 @@ export async function POST(request: NextRequest) {
   try {
     const tempoInicio = Date.now();
     console.log('🚀 API: Iniciando busca consolidada de editais TI em 4 portais...');
+    pipelineLogger.logBusca('Iniciando busca consolidada de editais...');
     const novosEditais = await buscarEditaisPortais();
     
     console.log(`\n📊 API: ${novosEditais.length} editais válidos em TI localizados. Iniciando download de PDFs e análise IA...`);
+    pipelineLogger.logBusca(`Encontrados ${novosEditais.length} editais válidos nos portais. Iniciando processamento...`);
     const editaisAnalisados = [];
     let sucessoCount = 0;
     let erroCount = 0;
 
     for (const edital of novosEditais) {
       try {
+        pipelineLogger.logBusca(`Processando edital: "${edital.titulo}"`);
+        
         // ✨ NOVO: Skip se edital está fora do escopo
         if (edital.foraDoEscopo === true) {
           console.log(`⏭️ [${edital.id}] Fora do escopo TI. Pulando.`);
+          pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Fora do escopo TI');
           erroCount++;
           continue;
         }
@@ -187,10 +193,13 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(`✅ [${edital.id}] Salvo com status PENDENTE - aguardando análise manual do usuário`);
+        pipelineLogger.logResultado(edital.id, edital.titulo, 'salvo', `Salvo como PENDENTE (Score: ${scoreFinalCalculado}) | Fonte: ${resultadoExtracao.fonte}`);
         editaisAnalisados.push(editalSalvo);
         sucessoCount++;
       } catch (err) {
         console.error(`❌ Erro ao processar edital [${edital.id}]:`, err);
+        pipelineLogger.logErro(edital.id, `Erro de processamento: ${(err as Error).message}`);
+        pipelineLogger.logResultado(edital.id, edital.titulo, 'erro', (err as Error).message);
         edital.statusAnalise = 'erro';
         edital.erroAnalise = (err as Error).message;
         await saveEdital(edital);
@@ -200,6 +209,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tempoTotal = ((Date.now() - tempoInicio) / 60000).toFixed(2);
+    pipelineLogger.logBusca(`Busca concluída. Sucessos: ${sucessoCount}, Falhas: ${erroCount} em ${tempoTotal} minutos.`);
     
     // ✨ NOVO: Estatísticas consolidadas
     const estatisticas = {

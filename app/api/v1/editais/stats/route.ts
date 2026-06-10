@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EditalService } from '@/lib/database/services/edital.service';
 import { successResponse, handleApiError } from '@/lib/api/responses';
 
+export const dynamic = 'force-dynamic';
+
 const service = new EditalService();
 
 export async function GET(request: NextRequest) {
