@@ -18,3 +18,14 @@ describe('restritoAOutraRegiao', () => {
     expect(r({ titulo: 'Chamada FUNCAP 2026', orgao: 'FUNCAP' }).restrito).toBe(false);
   });
 });
+
+import { classificarAbrangencia } from '@/lib/triagem/regiao';
+describe('classificarAbrangencia', () => {
+  it('Ceará, Nordeste ou Brasil', () => {
+    expect(classificarAbrangencia({ titulo: 'Chamada FUNCAP 2026', orgao: 'FUNCAP' })).toBe('Ceará');
+    expect(classificarAbrangencia({ titulo: 'CEARÁ - FOMENTO - CULTURA' })).toBe('Ceará');
+    expect(classificarAbrangencia({ titulo: 'Programa Nordeste Digital' })).toBe('Nordeste');
+    expect(classificarAbrangencia({ titulo: 'Chamada CNPq Nº 30/2026', orgao: 'CNPq' })).toBe('Brasil');
+    expect(classificarAbrangencia({ titulo: 'X', abrangencia: 'Nordeste' })).toBe('Nordeste');
+  });
+});

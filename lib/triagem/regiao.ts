@@ -79,3 +79,15 @@ export function restritoAOutraRegiao(entrada: { titulo: string; orgao?: string; 
 
   return { restrito: false };
 }
+
+export type Abrangencia = 'Ceará' | 'Nordeste' | 'Brasil';
+export const ABRANGENCIAS: Abrangencia[] = ['Brasil', 'Nordeste', 'Ceará'];
+
+/** Abrangência de um edital já aceito: Ceará, Nordeste ou Brasil (padrão). */
+export function classificarAbrangencia(entrada: { titulo: string; orgao?: string; abrangencia?: string | null }): Abrangencia {
+  if (entrada.abrangencia && (ABRANGENCIAS as string[]).includes(entrada.abrangencia)) return entrada.abrangencia as Abrangencia;
+  const texto = `${entrada.titulo} ${entrada.orgao ?? ''}`;
+  if (new RegExp('(?<![\\p{L}])(Cear[áa]|CEAR[ÁA]|FUNCAP|cearense)(?![\\p{L}])', 'u').test(texto) || siglaCitada(cabeca(entrada.titulo)) === 'CE') return 'Ceará';
+  if (/nordeste/i.test(texto)) return 'Nordeste';
+  return 'Brasil';
+}

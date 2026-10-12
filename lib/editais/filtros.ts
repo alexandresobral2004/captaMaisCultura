@@ -1,4 +1,5 @@
 import type { Edital } from '@/components/editais/tipos';
+import { classificarAbrangencia } from '@/lib/triagem/regiao';
 
 export type EixoFiltro = 'todos' | 'Cultura' | 'Pesquisa';
 
@@ -8,6 +9,7 @@ export interface FiltrosEditais {
   areas: string[];
   tipos: string[];
   tiposEdital: string[];
+  abrangencias: string[];
   ordenacao: 'recentes' | 'antigos';
 }
 
@@ -17,6 +19,7 @@ export const FILTROS_INICIAIS: FiltrosEditais = {
   areas: [],
   tipos: [],
   tiposEdital: [],
+  abrangencias: [],
   ordenacao: 'recentes',
 };
 
@@ -55,6 +58,8 @@ return editais.filter(edital => {
     return true;
   });
 
+  const matchAbrangencia = filtros.abrangencias.length === 0 || filtros.abrangencias.includes(classificarAbrangencia(edital));
+
   // Filtro por tipo de edital (Evento, TI, etc)
   const matchTipoEdital = filtros.tiposEdital.length === 0 || filtros.tiposEdital.some(tipoFiltro => {
     if (tipoFiltro === "Evento") {
@@ -88,7 +93,7 @@ return editais.filter(edital => {
   // Eixo gravado na triagem; editais antigos sem eixo contam como Cultura (padrão do banco)
   const matchEixo = filtros.eixo === 'todos' || (edital.categoriaArea || 'Cultura') === filtros.eixo;
 
-  return matchEixo && matchSearch && matchArea && matchTipo && matchTipoEdital;
+  return matchEixo && matchSearch && matchArea && matchTipo && matchTipoEdital && matchAbrangencia;
 }).sort((a, b) => {
   // Ordenar por data de lançamento
   const dataA = new Date(a.criadoEm || a.dataLimite || 0).getTime();

@@ -4,6 +4,7 @@ import { AnaliseRepository, CreateAnaliseDTO } from '../database/repositories/an
 import { db } from '../database/db';
 import { eq, or, gte, and, sql } from 'drizzle-orm';
 import { editais as editaisTable } from '../database/schema';
+import { classificarAbrangencia } from '../triagem/regiao';
 
 // ============================================================
 // INICIALIZAÇÃO DO DAEMON (DESABILITADA v3.0)
@@ -303,7 +304,7 @@ function editalToDb(edital: Partial<Edital>): CreateEditalDTO {
     statusAnalise: edital.statusAnalise,
     erroAnalise: edital.erroAnalise,
     modalidade: edital.modalidade,
-    abrangencia: edital.abrangencia,
+    abrangencia: classificarAbrangencia({ titulo: edital.titulo || '', orgao: edital.orgao, abrangencia: edital.abrangencia }),
     tipoProponente: edital.tipoProponente,
     areasTematicas: edital.areasTematicas,
     tipoEdital: edital.tipoEdital,

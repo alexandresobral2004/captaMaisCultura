@@ -11,7 +11,7 @@ interface FiltrosEditaisSidebarProps {
   onChange: (filtros: FiltrosEditais) => void;
 }
 
-type ListaFiltro = 'areas' | 'tipos' | 'tiposEdital';
+type ListaFiltro = 'areas' | 'tipos' | 'tiposEdital' | 'abrangencias';
 
 export function FiltrosEditaisSidebar({ filtros, onChange }: FiltrosEditaisSidebarProps) {
   const atualizar = (parcial: Partial<FiltrosEditais>) => onChange({ ...filtros, ...parcial });
@@ -68,6 +68,22 @@ export function FiltrosEditaisSidebar({ filtros, onChange }: FiltrosEditaisSideb
                     name="eixo-editais"
                     checked={filtros.eixo === valor}
                     onChange={() => atualizar({ eixo: valor })}
+                  />
+                  {rotulo}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="filters-section">
+            <label className="filters-section-title">Abrangência</label>
+            <div className="checkbox-group">
+              {([['Ceará', 'Ceará'], ['Nordeste', 'Nordeste'], ['Brasil', 'Brasil (todo o país)']] as const).map(([valor, rotulo]) => (
+                <label key={valor} className="checkbox-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={filtros.abrangencias.includes(valor)}
+                    onChange={() => alternar('abrangencias', valor)}
                   />
                   {rotulo}
                 </label>
@@ -151,7 +167,7 @@ export function FiltrosEditaisSidebar({ filtros, onChange }: FiltrosEditaisSideb
              <Button 
                variant="ghost" 
                size="sm" 
-               onClick={() => atualizar({ busca: '', areas: [], tipos: [], tiposEdital: [] })}
+               onClick={() => atualizar({ busca: '', areas: [], tipos: [], tiposEdital: [], abrangencias: [] })}
                style={{ color: 'var(--color-danger)' }}
              >
                Limpar Filtros
