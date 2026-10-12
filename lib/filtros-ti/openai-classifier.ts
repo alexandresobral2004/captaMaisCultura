@@ -4,6 +4,7 @@ import { cacheValidacao, gerarChaveCache, CACHE_TTL } from './cache';
 import { loadCategorias } from '../scraper/filtros/loaders';
 
 import { lerApiKey, obterModelo } from '../ai/client';
+import { validarComJev } from './jev-classifier';
 export type AiClassificationResult =
   | {
       ok: true;
@@ -44,6 +45,29 @@ export async function validarComOpenAI(
     if (cacheEntry && Date.now() - cacheEntry.timestamp < CACHE_TTL) {
       console.log(`   Cache hit: ${titulo.substring(0, 40)}...`);
       return { ...cacheEntry.data, ok: true, usouCache: true, modelo };
+    }
+
+    // Triagem rápida e barata com o Jev; só escala para a OpenAI quando ele fica incerto/indisponível
+    const jev = await validarComJev(titulo, descricao, valor, orgao, termosBranco, tipoEdital, {
+      aceitarIncerto: !lerApiKey(),
+    });
+    if (jev && jev.ok) {
+      cacheValidacao.set(chaveCache, {
+        data: {
+          válido: jev.válido,
+          tecnologia: jev.tecnologia,
+          categoria: jev.categoria,
+          tipo: jev.tipo,
+          tipoFerramenta: jev.tipoFerramenta,
+          score: jev.score,
+          razão: jev.razão,
+          confiança: jev.confiança,
+          confianca: jev.confianca,
+          usouCache: false,
+        },
+        timestamp: Date.now(),
+      });
+      return jev;
     }
 
     const apiKey = lerApiKey();
