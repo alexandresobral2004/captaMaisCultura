@@ -21,68 +21,29 @@ import {
   XCircle
 } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm-context';
-
-interface LogEntry {
-  id: number;
-  nivel: 'error' | 'warning' | 'info';
-  mensagem: string;
-  contexto: string | null;
-  caminho: string | null;
-  detalhes: any;
-  cenarioFalha: string | null;
-  acaoTomada: string | null;
-  repeticoes: number | null;
-  usuarioId: string | null;
-  ip: string | null;
-  userAgent: string | null;
-  criadoEm: string;
-}
-
-interface LogStats {
-  total: number;
-  erros: number;
-  warnings: number;
-  infos: number;
-  ultimoErro: string | null;
-}
-
-interface LogsResponse {
-  success: boolean;
-  data: LogEntry[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
-
-const nivelConfig = {
-  error: { label: 'Erro', variant: 'danger' as const, icon: XCircle },
-  warning: { label: 'Aviso', variant: 'warning' as const, icon: AlertTriangle },
-  info: { label: 'Info', variant: 'default' as const, icon: Info },
-};
+import { LogEntry, LogStats, LogsResponse, nivelConfig, formatDate, getBadgeVariant } from '@/components/logs/tipos';
+import { LogDetalheDrawer } from '@/components/logs/LogDetalheDrawer';
 
 const nivelOptions = [
   { value: 'todos', label: 'Todos' },
   { value: 'error', label: 'Erros' },
   { value: 'warning', label: 'Avisos' },
-  { value: 'info', label: 'Info' },
+  { value: 'info', label: 'Informação' },
 ];
 
 const cenarioOptions = [
   { value: 'todos', label: 'Todos' },
   { value: 'login', label: 'Login' },
   { value: 'session_expired', label: 'Sessão Expirada' },
-  { value: 'token_acquisition', label: 'Token' },
-  { value: 'scrape_editais', label: 'Scrape' },
-  { value: 'download_pdf', label: 'Download PDF' },
-  { value: 'network_error', label: 'Rede' },
-  { value: 'timeout', label: 'Timeout' },
-  { value: 'busca_portal', label: 'Busca Portal' },
+  { value: 'token_acquisition', label: 'Acesso ao portal' },
+  { value: 'scrape_editais', label: 'Busca de editais' },
+  { value: 'download_pdf', label: 'Baixar PDF' },
+  { value: 'network_error', label: 'Falha de internet' },
+  { value: 'timeout', label: 'Demorou demais' },
+  { value: 'busca_portal', label: 'Busca em portal' },
   { value: 'analise_ia', label: 'Análise IA' },
-  { value: 'api_openai', label: 'OpenAI API' },
-  { value: 'rate_limit', label: 'Rate Limit' },
+  { value: 'api_openai', label: 'Serviço de IA' },
+  { value: 'rate_limit', label: 'Limite de uso' },
   { value: 'validation_error', label: 'Validação' },
   { value: 'database_error', label: 'Banco de Dados' },
   { value: 'unknown', label: 'Desconhecido' },
@@ -90,11 +51,11 @@ const cenarioOptions = [
 
 const acaoOptions = [
   { value: 'todos', label: 'Todas' },
-  { value: 'retry', label: 'Retry' },
-  { value: 'mark_error', label: 'Marcar Erro' },
+  { value: 'retry', label: 'Tentar de novo' },
+  { value: 'mark_error', label: 'Marcado com erro' },
   { value: 'human_review', label: 'Revisão Humana' },
   { value: 'skip', label: 'Pular' },
-  { value: 'fallback', label: 'Fallback' },
+  { value: 'fallback', label: 'Plano alternativo' },
   { value: 'ignore', label: 'Ignorar' },
 ];
 
@@ -214,30 +175,10 @@ export default function LogsPage() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const formatDateInput = (dateStr: string | null) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
     return date.toISOString().split('T')[0];
-  };
-
-  const getBadgeVariant = (nivel: string) => {
-    switch (nivel) {
-      case 'error': return 'danger';
-      case 'warning': return 'warning';
-      case 'info': return 'default';
-      default: return 'default';
-    }
   };
 
   return (
@@ -516,100 +457,7 @@ export default function LogsPage() {
         </Card>
       </div>
 
-      {/* Detail Drawer */}
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelectedLog(null)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className="relative w-full max-w-lg bg-white dark:bg-slate-900 shadow-xl overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between">
-              <h3 className="font-semibold text-lg">Detalhes do Log</h3>
-              <button
-                onClick={() => setSelectedLog(null)}
-                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              <div className="flex items-center gap-3">
-                <Badge variant={getBadgeVariant(selectedLog.nivel)}>
-                  {nivelConfig[selectedLog.nivel as keyof typeof nivelConfig]?.label || selectedLog.nivel}
-                </Badge>
-                <span className="text-sm text-slate-500">{formatDate(selectedLog.criadoEm)}</span>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-slate-500 mb-1">Mensagem</h4>
-                <p className="text-slate-900 dark:text-slate-100">{selectedLog.mensagem}</p>
-              </div>
-
-              {selectedLog.contexto && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">Contexto</h4>
-                  <p className="text-slate-700 dark:text-slate-300">{selectedLog.contexto}</p>
-                </div>
-              )}
-
-              {selectedLog.caminho && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">Caminho</h4>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm font-mono">{selectedLog.caminho}</p>
-                </div>
-              )}
-
-              {selectedLog.cenarioFalha && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">Cenário de Falha</h4>
-                  <p className="text-slate-700 dark:text-slate-300">{selectedLog.cenarioFalha}</p>
-                </div>
-              )}
-
-              {selectedLog.acaoTomada && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">Ação Tomada</h4>
-                  <p className="text-slate-700 dark:text-slate-300">{selectedLog.acaoTomada}</p>
-                </div>
-              )}
-
-              {selectedLog.repeticoes !== null && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">Repetições</h4>
-                  <p className="text-slate-700 dark:text-slate-300">{selectedLog.repeticoes}</p>
-                </div>
-              )}
-
-              {selectedLog.detalhes && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">Detalhes</h4>
-                  <pre className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg text-xs overflow-x-auto">
-                    {typeof selectedLog.detalhes === 'string'
-                      ? selectedLog.detalhes
-                      : JSON.stringify(selectedLog.detalhes, null, 2)}
-                  </pre>
-                </div>
-              )}
-
-              {selectedLog.ip && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">IP</h4>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm font-mono">{selectedLog.ip}</p>
-                </div>
-              )}
-
-              {selectedLog.userAgent && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 mb-1">User Agent</h4>
-                  <p className="text-slate-700 dark:text-slate-300 text-xs">{selectedLog.userAgent}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedLog && <LogDetalheDrawer log={selectedLog} onFechar={() => setSelectedLog(null)} />}
     </MainLayout>
   );
 }
