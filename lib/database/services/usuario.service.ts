@@ -28,8 +28,8 @@ export class UsuarioService {
       throw new Error('Senhas nao coincidem');
     }
 
-    if (data.password.length < 6) {
-      throw new Error('Senha deve ter no minimo 6 caracteres');
+    if (data.password.length < 8) {
+      throw new Error('Senha deve ter no minimo 8 caracteres');
     }
 
     if (!data.email || !data.email.includes('@')) {
@@ -145,8 +145,8 @@ export class UsuarioService {
       throw new Error('Usuario nao encontrado');
     }
 
-    if (novaSenha.length < 6) {
-      throw new Error('Senha deve ter no minimo 6 caracteres');
+    if (novaSenha.length < 8) {
+      throw new Error('Senha deve ter no minimo 8 caracteres');
     }
 
     const hashedPassword = await bcrypt.hash(novaSenha, SALT_ROUNDS);

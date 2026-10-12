@@ -182,3 +182,15 @@ describe('sanitizarHtml - XSS', () => {
     expect(sanitizarHtml(undefined)).toBe('');
   });
 });
+
+describe('Rate limit por chave', () => {
+  it('bloqueia a 6ª tentativa para o mesmo e-mail, independente do IP', async () => {
+    const { rateLimitPorChave } = await import('../lib/api/middleware/rate-limit');
+    const opcoes = { limit: 5, windowMs: 60_000 };
+    for (let i = 0; i < 5; i++) {
+      expect(rateLimitPorChave('Vitima@Teste.com', 'teste-login', opcoes).success).toBe(true);
+    }
+    expect(rateLimitPorChave('vitima@teste.com', 'teste-login', opcoes).success).toBe(false);
+    expect(rateLimitPorChave('outro@teste.com', 'teste-login', opcoes).success).toBe(true);
+  });
+});

@@ -28,19 +28,30 @@ export interface RateLimitOptions {
 }
 
 /**
- * Executa o controle de taxa (Rate Limit) baseado no IP do cliente
+ * Controle de taxa por chave arbitrária (ex.: e-mail). Não depende de headers do cliente.
+ */
+export function rateLimitPorChave(chave: string, keyPrefix: string, options: RateLimitOptions) {
+  return contar(`${keyPrefix}:${chave.toLowerCase()}`, options);
+}
+
+/**
+ * Executa o controle de taxa (Rate Limit) baseado no IP do cliente.
+ * Atenção: x-forwarded-for é controlado pelo cliente; só é confiável atrás de um proxy
+ * que o reescreva. Combine com rateLimitPorChave em rotas sensíveis (ex.: login).
  */
 export function rateLimit(request: NextRequest, keyPrefix: string, options: RateLimitOptions) {
-  // Obter o IP real do cliente
-  const ipHeader = request.headers.get('x-forwarded-for') || 
-                   request.headers.get('x-real-ip') || 
+  const ipHeader = request.headers.get('x-forwarded-for') ||
+                   request.headers.get('x-real-ip') ||
                    '127.0.0.1';
-  
+
   // Pegar apenas o primeiro IP caso venha uma lista (proxies)
   const clientIp = ipHeader.split(',')[0].trim();
-  const key = `${keyPrefix}:${clientIp}`;
+  return contar(`${keyPrefix}:${clientIp}`, options);
+}
+
+function contar(key: string, options: RateLimitOptions) {
   const now = Date.now();
-  
+
   let record = cache.get(key);
   
   if (!record) {

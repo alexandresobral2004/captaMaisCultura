@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { UsuarioService } from '@/lib/database/services/usuario.service';
 import { assinarToken } from '@/lib/api/auth';
 import { LoginUsuarioSchema } from '@/lib/api/validators';
-import { rateLimit, handleRateLimitResponse } from '@/lib/api/middleware/rate-limit';
+import { rateLimit, rateLimitPorChave, handleRateLimitResponse } from '@/lib/api/middleware/rate-limit';
 import { ZodError } from 'zod';
 
 const service = new UsuarioService();
@@ -24,6 +24,12 @@ export async function POST(request: NextRequest) {
     // Validar input usando schema Zod
     console.log('📝 [LOGIN] Validando dados de entrada com Zod...');
     const validatedData = LoginUsuarioSchema.parse(body);
+
+    // Limite por e-mail: não pode ser contornado trocando o IP/headers
+    const limiterEmail = rateLimitPorChave(validatedData.email, 'login-email', { limit: 5, windowMs: 15 * 60 * 1000 });
+    if (!limiterEmail.success) {
+      return handleRateLimitResponse(limiterEmail.resetTime);
+    }
 
     console.log('💾 [LOGIN] Autenticando credenciais no banco de dados...');
     const usuario = await service.login(validatedData);
@@ -54,8 +60,9 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error(`❌ [LOGIN] Falha no login para o e-mail "${requestEmail}":`, error.message || error);
+    // Mensagem genérica: não revela se o e-mail existe ou se a conta está desativada
     return NextResponse.json(
-      { error: error.message || 'Erro ao fazer login' },
+      { error: 'Email ou senha invalidos' },
       { status: 401 }
     );
   }
