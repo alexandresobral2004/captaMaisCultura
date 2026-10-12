@@ -47,44 +47,45 @@ export default function AnaliseCientificaDashboard() {
   const [projetosRecentes, setProjetosRecentes] = useState<ProjetoRecente[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [erro, setErro] = useState<string | null>(null);
+
   useEffect(() => {
-    // Simular carregamento de dados
-    // Em produção, isso viria de uma API real
-    const timer = setTimeout(() => {
-      setStats({
-        total: 12,
-        rascunho: 5,
-        emAnalise: 3,
-        submetido: 2,
-        aprovado: 1,
-        reprovado: 1,
-      });
-      setProjetosRecentes([
-        {
-          id: '1',
-          titulo: 'Desenvolvimento de Sistema de Monitoramento Ambiental com IA',
-          status: 'rascunho',
-          areaTematica: 'Ciências Biológicas',
-          dataAtualizacao: '2026-06-07T10:30:00Z',
-        },
-        {
-          id: '2',
-          titulo: 'Análise de Impacto Socioeconômico de Políticas Públicas',
-          status: 'em_analise',
-          areaTematica: 'Ciências Humanas',
-          dataAtualizacao: '2026-06-06T14:20:00Z',
-        },
-        {
-          id: '3',
-          titulo: 'Modelagem Computacional de Materiais Nanocompósitos',
-          status: 'submetido',
-          areaTematica: 'Ciências Exatas e da Terra',
-          dataAtualizacao: '2026-06-05T09:15:00Z',
-        },
-      ]);
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    let cancelado = false;
+
+    async function carregar() {
+      try {
+        const res = await fetch('/api/analise-cientifica/projetos');
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'Erro ao carregar projetos');
+
+        const lista: ProjetoRecente[] = json.data;
+        if (cancelado) return;
+
+        const contar = (status: string) => lista.filter((p) => p.status === status).length;
+        setStats({
+          total: lista.length,
+          rascunho: contar('rascunho'),
+          emAnalise: contar('em_analise'),
+          submetido: contar('submetido'),
+          aprovado: contar('aprovado'),
+          reprovado: contar('reprovado'),
+        });
+        setProjetosRecentes(
+          [...lista]
+            .sort((a, b) => (b.dataAtualizacao || '').localeCompare(a.dataAtualizacao || ''))
+            .slice(0, 5)
+        );
+      } catch (e: any) {
+        if (!cancelado) setErro(e.message || 'Erro ao carregar projetos');
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
+    }
+
+    carregar();
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -123,6 +124,12 @@ export default function AnaliseCientificaDashboard() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {erro && (
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {erro}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

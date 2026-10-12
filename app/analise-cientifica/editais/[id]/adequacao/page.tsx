@@ -28,8 +28,12 @@ interface Edital {
   valor: string;
   dataLimite: string;
   areasTematicas: string[];
-  nivel: string[];
   link: string;
+}
+
+interface ProjetoOpcao {
+  id: string;
+  titulo: string;
 }
 
 interface AnaliseAdequacao {
@@ -40,50 +44,113 @@ interface AnaliseAdequacao {
   recomendacao: string;
 }
 
+// areasTematicas pode vir como array ou como JSON serializado
+function lerLista(valor: unknown): string[] {
+  if (Array.isArray(valor)) return valor;
+  if (typeof valor === 'string') {
+    try {
+      const parsed = JSON.parse(valor);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export default function AnaliseAdequacaoPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [analisando, setAnalisando] = useState(false);
   const [edital, setEdital] = useState<Edital | null>(null);
   const [analise, setAnalise] = useState<AnaliseAdequacao | null>(null);
+  const [projetosLista, setProjetosLista] = useState<ProjetoOpcao[]>([]);
+  const [projetoId, setProjetoId] = useState('');
+  const [erro, setErro] = useState<string | null>(null);
+  const [projetosCompletos, setProjetosCompletos] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    // Simular carregamento de dados do edital
-    const timer = setTimeout(() => {
-      setEdital({
-        id: params.id,
-        titulo: 'Edital de Produtividade em Pesquisa - PQ 2026',
-        orgao: 'CNPq',
-        valor: 'R$ 1.200,00 - R$ 9.600,00/mês',
-        dataLimite: '2026-07-15',
-        areasTematicas: ['Ciências Exatas e da Terra', 'Ciências Biológicas', 'Ciências Humanas'],
-        nivel: ['pesquisador'],
-        link: 'https://www.gov.br/cnpq/2026/pq',
-      });
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    let cancelado = false;
+
+    async function carregar() {
+      try {
+        const [resEdital, resProjetos] = await Promise.all([
+          fetch(`/api/v1/editais/${params.id}`),
+          fetch('/api/analise-cientifica/projetos'),
+        ]);
+        const jsonEdital = await resEdital.json();
+        const jsonProjetos = await resProjetos.json();
+        if (!resEdital.ok || !jsonEdital.success) {
+          throw new Error(jsonEdital.error?.message || 'Edital não encontrado');
+        }
+        if (cancelado) return;
+
+        const e = jsonEdital.data;
+        setEdital({
+          id: e.id,
+          titulo: e.titulo,
+          orgao: e.orgao || '',
+          valor: e.valor || 'Valor não informado',
+          dataLimite: e.dataLimite || '',
+          areasTematicas: lerLista(e.areasTematicas),
+          link: e.link,
+        });
+
+        const lista: any[] = jsonProjetos.data ?? [];
+        setProjetosLista(lista.map((p) => ({ id: p.id, titulo: p.titulo })));
+        setProjetosCompletos(Object.fromEntries(lista.map((p) => [p.id, p])));
+      } catch (e: any) {
+        if (!cancelado) setErro(e.message || 'Erro ao carregar dados');
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
+    }
+
+    carregar();
+    return () => {
+      cancelado = true;
+    };
   }, [params.id]);
 
   const handleAnalisar = async () => {
+    if (!projetoId || !edital) return;
     setAnalisando(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setAnalise({
-      adequado: true,
-      scoreAdequacao: 75,
-      pontosAlinhamento: [
-        'Área temática "Ciências Biológicas" está dentro do escopo do edital',
-        'Nível "Pesquisador" atende aos requisitos de elegibilidade',
-        'Projeto propõe desenvolvimento de sistema com IA, alinhado com área de tecnologia',
-        'Metodologia proposta é adequada para pesquisa de produtividade',
-      ],
-      pontosDesencontro: [
-        'Falta detalhamento sobre impacto na produção científica do grupo de pesquisa',
-        'Não ficou claro o vínculo institucional do pesquisador',
-      ],
-      recomendacao: 'O projeto é adequado para submissão a este edital, mas recomenda-se ajustar a descrição do impacto na produção científica e esclarecer o vínculo institucional antes da submissão final.',
-    });
-    setAnalisando(false);
+    setErro(null);
+    setAnalise(null);
+    try {
+      const res = await fetch(`/api/analise-cientifica/projetos/${projetoId}/analisar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projeto: projetosCompletos[projetoId],
+          edital: {
+            titulo: edital.titulo,
+            orgao: edital.orgao,
+            valor: edital.valor,
+            areasTematicas: edital.areasTematicas,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Erro ao analisar adequação');
+
+      const r = json.data;
+      const atendidos = (r.criteriosAvaliados || []).filter((c: any) => c.atendido);
+      const naoAtendidos = (r.criteriosAvaliados || []).filter((c: any) => !c.atendido);
+      setAnalise({
+        adequado: r.scoreGeral >= 70,
+        scoreAdequacao: Math.round(r.scoreGeral),
+        pontosAlinhamento: atendidos.map((c: any) => `${c.criterio}: ${c.comentario}`),
+        pontosDesencontro: naoAtendidos.map(
+          (c: any) => `${c.criterio}: ${c.comentario}${c.sugestao ? ` (${c.sugestao})` : ''}`
+        ),
+        recomendacao: (r.recomendacoes || []).join(' '),
+      });
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao analisar adequação');
+    } finally {
+      setAnalisando(false);
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -130,7 +197,7 @@ export default function AnaliseAdequacaoPage({ params }: { params: { id: string 
           </div>
           <Button
             onClick={handleAnalisar}
-            disabled={analisando}
+            disabled={analisando || !projetoId}
             className="gap-2"
           >
             {analisando ? (
@@ -147,6 +214,42 @@ export default function AnaliseAdequacaoPage({ params }: { params: { id: string 
           </Button>
         </div>
 
+        {erro && (
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {erro}
+          </div>
+        )}
+
+        {/* Projeto a analisar */}
+        <Card>
+          <CardContent className="pt-6">
+            <label htmlFor="projeto-analise" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Projeto a ser analisado
+            </label>
+            <select
+              id="projeto-analise"
+              value={projetoId}
+              onChange={(e) => setProjetoId(e.target.value)}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700"
+            >
+              <option value="">Selecione um projeto…</option>
+              {projetosLista.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.titulo}
+                </option>
+              ))}
+            </select>
+            {projetosLista.length === 0 && (
+              <p className="mt-2 text-sm text-slate-500">
+                Nenhum projeto científico cadastrado.{' '}
+                <Link href="/analise-cientifica/projetos/novo" className="text-blue-600 underline">
+                  Criar projeto
+                </Link>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Edital Selecionado */}
         <Card>
           <CardHeader>
@@ -157,7 +260,6 @@ export default function AnaliseAdequacaoPage({ params }: { params: { id: string 
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="default">{edital?.orgao}</Badge>
-                  <Badge variant="default">{edital?.nivel.join(', ')}</Badge>
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">
                   {edital?.titulo}

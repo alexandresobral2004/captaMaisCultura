@@ -25,9 +25,22 @@ interface EditalCientifico {
   valor: string;
   dataLimite: string;
   areasTematicas: string[];
-  nivel: string[];
   link: string;
   destaque?: boolean;
+}
+
+// areasTematicas pode vir como array ou como JSON serializado
+function lerLista(valor: unknown): string[] {
+  if (Array.isArray(valor)) return valor;
+  if (typeof valor === 'string') {
+    try {
+      const parsed = JSON.parse(valor);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export default function EditaisCientificosPage() {
@@ -36,65 +49,43 @@ export default function EditaisCientificosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [areaFilter, setAreaFilter] = useState<string>('todas');
 
+  const [erro, setErro] = useState<string | null>(null);
+
   useEffect(() => {
-    // Simular carregamento de dados
-    const timer = setTimeout(() => {
-      setEditais([
-        {
-          id: '1',
-          titulo: 'Edital de Produtividade em Pesquisa - PQ',
-          orgao: 'CNPq',
-          valor: 'R$ 1.200,00 - R$ 9.600,00/mês',
-          dataLimite: '2026-07-15',
-          areasTematicas: ['Ciências Exatas e da Terra', 'Ciências Biológicas', 'Ciências Humanas'],
-          nivel: ['pesquisador'],
-          link: 'https://www.gov.br/cnpq/2026/pq',
-          destaque: true,
-        },
-        {
-          id: '2',
-          titulo: 'Programa de Bolsas de Mestrado e Doutorado',
-          orgao: 'CAPES',
-          valor: 'R$ 1.850,00 - R$ 3.500,00/mês',
-          dataLimite: '2026-08-30',
-          areasTematicas: ['Todas as áreas'],
-          nivel: ['mestrado', 'doutorado'],
-          link: 'https://www.gov.br/capes',
-        },
-        {
-          id: '3',
-          titulo: 'Edital de Auxílio à Pesquisa - Regular',
-          orgao: 'FAPESP',
-          valor: 'Até R$ 500.000,00',
-          dataLimite: '2026-09-30',
-          areasTematicas: ['Ciências Exatas e da Terra', 'Engenharias', 'Ciências Biológicas'],
-          nivel: ['pesquisador', 'pos-doutorado'],
-          link: 'https://www.fapesp.br auxilios',
-        },
-        {
-          id: '4',
-          titulo: 'Iniciação Científica - PIBIC',
-          orgao: 'CNPq',
-          valor: 'R$ 700,00/mês',
-          dataLimite: '2026-06-30',
-          areasTematicas: ['Todas as áreas'],
-          nivel: ['iniciacao'],
-          link: 'https://www.gov.br/cnpq/pibic',
-        },
-        {
-          id: '5',
-          titulo: 'Edital de Subvenção Econômica para Inovação',
-          orgao: 'FINEP',
-          valor: 'R$ 500.000,00 - R$ 10.000.000,00',
-          dataLimite: '2026-10-15',
-          areasTematicas: ['Engenharias', 'Ciências Exatas e da Terra', 'Ciências Agrárias'],
-          nivel: ['pesquisador'],
-          link: 'https://www.finep.gov.br/subvencao',
-        },
-      ]);
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    let cancelado = false;
+
+    async function carregar() {
+      try {
+        const res = await fetch('/api/v1/editais?categoriaArea=Pesquisa&limit=100');
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error?.message || 'Erro ao carregar editais');
+
+        const itens: any[] = json.data ?? [];
+        if (cancelado) return;
+
+        setEditais(
+          itens.map((e) => ({
+            id: e.id,
+            titulo: e.titulo,
+            orgao: e.orgao || '',
+            valor: e.valor || 'Valor não informado',
+            dataLimite: e.dataLimite || '',
+            areasTematicas: lerLista(e.areasTematicas),
+            link: e.link,
+            destaque: e.nivelPontuacao === 'alto',
+          }))
+        );
+      } catch (e: any) {
+        if (!cancelado) setErro(e.message || 'Erro ao carregar editais');
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
+    }
+
+    carregar();
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -138,6 +129,12 @@ export default function EditaisCientificosPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {erro && (
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {erro}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
