@@ -1,3 +1,4 @@
+import { personaDoRedator } from '../persona-edital';
 /**
  * Engine de Geração de Propostas com Restrições Rígidas
  * 
@@ -201,12 +202,13 @@ export class ProposalWithRigidConstraintsEngine {
     sectionName: 'Justificativa' | 'Metodologia' | 'Objetivos',
     edictContext: string,
     institutionContext: string,
-    targetMetrics: string
+    targetMetrics: string,
+    persona: string = personaDoRedator({})
   ): Promise<SectionOutput> {
 
     const promptConfig = this.getSectionConfig(sectionName);
 
-    const systemPrompt = `Você é um Produtor Cultural Sênior com 15 anos de atuação em captação de recursos via PRONAC, Lei Rouanet, Fundo Nacional de Cultura, Programa Aldir Blanc, editais da Secult-CE e FAR-CE. 
+    const systemPrompt = `${persona} 
 Sua escrita deve ser rigorosamente formal, culta, direta, técnica e adaptada à realidade das bancas avaliadoras brasileiras.
 Sempre evite tom amadorístico ou clichês de inteligência artificial.
 
@@ -430,11 +432,12 @@ Não agrupe todos os objetivos específicos no mesmo parágrafo, retorne cada um
     const edictText = this.formatEdictContext(edictContext);
     const institutionText = this.formatInstitutionContext(institutionContext);
     const metricsText = this.formatTargetMetrics(targetMetrics);
+    const persona = personaDoRedator(edictContext);
 
     const [justificativa, metodologia, objetivos] = await Promise.all([
-      this.generateSection('Justificativa', edictText, institutionText, metricsText),
-      this.generateSection('Metodologia', edictText, institutionText, metricsText),
-      this.generateSection('Objetivos', edictText, institutionText, metricsText),
+      this.generateSection('Justificativa', edictText, institutionText, metricsText, persona),
+      this.generateSection('Metodologia', edictText, institutionText, metricsText, persona),
+      this.generateSection('Objetivos', edictText, institutionText, metricsText, persona),
     ]);
 
     return { justificativa, metodologia, objetivos };
