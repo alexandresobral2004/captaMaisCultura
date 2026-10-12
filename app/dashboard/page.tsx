@@ -11,6 +11,7 @@ import { count } from "drizzle-orm"
 
 // Força renderização dinâmica pois usa SQLite (módulo nativo Node.js)
 export const dynamic = 'force-dynamic';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 function formatarValorBRL(valor: string | number | null | undefined): string {
   if (valor === null || valor === undefined) return 'Não informado';
@@ -218,7 +219,7 @@ export default async function DashboardPage() {
                         <td className="p-3 font-medium text-slate-900 dark:text-slate-100">{edital.titulo}</td>
                         <td className="p-3 text-slate-600 dark:text-slate-400">{edital.orgao}</td>
                         <td className="p-3 text-slate-900 dark:text-slate-100">{formatarValorBRL(edital.valor)}</td>
-                        <td className="p-3 font-medium text-amber-600 dark:text-amber-400">{edital.dataLimite}</td>
+                        <td className="p-3 font-medium text-amber-600 dark:text-amber-400">{formatarDataBr(edital.dataLimite)}</td>
                         <td className="p-3">{renderAreaBadge(edital.categoriaArea || 'Cultura')}</td>
                         <td className="p-3"><Badge variant="success">{edital.status}</Badge></td>
                       </tr>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, FileText, Trash2, Eye, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useConfirm } from '@/contexts/confirm-context';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 interface Projeto {
   id: string;
@@ -274,7 +275,7 @@ export default function ProjetosPage() {
                     <option value="">Selecione um edital...</option>
 {editaisDisponiveis.map((edital) => {
                       const valor = edital.valor ? `R$ ${Number(edital.valor).toLocaleString('pt-BR')}` : '';
-                      const prazo = edital.dataLimite ? `${new Date(edital.dataLimite).toLocaleDateString('pt-BR')}` : '';
+                      const prazo = edital.dataLimite ? formatarDataBr(edital.dataLimite) : '';
                       const codigo = edital.codigo ? `[${edital.codigo}]` : '';
                       const partes = [codigo, edital.titulo, edital.orgao, valor, prazo].filter(Boolean);
                       return (

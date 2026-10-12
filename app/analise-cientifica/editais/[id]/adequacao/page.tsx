@@ -20,6 +20,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 interface Edital {
   id: string;
@@ -271,7 +272,7 @@ export default function AnaliseAdequacaoPage({ params }: { params: { id: string 
                   </div>
                   <div className="flex items-center gap-1">
                     <FileText className="h-4 w-4" />
-                    Prazo: {new Date(edital?.dataLimite || '').toLocaleDateString('pt-BR')}
+                    Prazo: {formatarDataBr(edital?.dataLimite)}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">

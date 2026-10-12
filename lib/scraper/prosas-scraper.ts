@@ -146,17 +146,19 @@ async function realizarLoginProsas(): Promise<string[]> {
  * Busca os editais usando a sessão ativa.
  */
 export async function buscarEditaisProsas(): Promise<Edital[]> {
+  // A busca usa a API pública (OAuth2 client credentials); o login por formulário é opcional.
+  const temCredenciais = Boolean(process.env.PROSAS_EMAIL && process.env.PROSAS_PASSWORD);
   let cookies = carregarSessaoSalva();
 
-  if (!cookies) {
+  if (!cookies && temCredenciais) {
     cookies = await realizarLoginProsas();
   }
 
   try {
     return await tentarBuscaComSessao(cookies);
   } catch (error: any) {
+    if (!temCredenciais) throw error;
     console.warn(`[PROSAS] Falha na busca com sessão atual (${error.message}). Tentando re-autenticar...`);
-    // Se falhar (ex: 401 Unauthorized), a sessão pode ter expirado. Tenta logar de novo.
     cookies = await realizarLoginProsas();
     return await tentarBuscaComSessao(cookies);
   }

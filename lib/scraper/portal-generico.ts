@@ -12,6 +12,14 @@ export const PORTAIS_COM_COLETOR_PROPRIO = ['prosas', 'capta', 'finep', 'cnpq', 
 const PALAVRAS_EDITAL = /edital|editais|chamada|chamamento|sele[cç][aã]o|bolsa|oportunidade|concurso|pr[eê]mio/i;
 const LIXO_NAVEGACAO = /^(editais|chamadas|saiba mais|leia mais|ver mais|clique aqui|voltar|início|home|todos os editais|mais informações)$|compartilhe|copiar para|^anexo|^busca de chamadas|oportunidades (abertas|encerradas)|^(chamadas|editais) (abertas|encerradas|em andamento)/i;
 
+const NAO_E_EDITAL = /adendo|errata|retifica[cç]|resultado|homologa|prorroga|novo prazo|gabarito|recurso|ata d[aeo]|not[ií]cia|participa de|divulga|anunci/i;
+
+/** Título que cita só anos já passados (ex.: "Chamada FAPESP/MCTIC – 2018") é edital antigo. */
+export function tituloDeAnoPassado(titulo: string, agora = new Date()): boolean {
+  const anos = Array.from(titulo.matchAll(/\b(20\d{2})\b/g)).map(m => Number(m[1]));
+  return anos.length > 0 && Math.max(...anos) < agora.getFullYear();
+}
+
 export interface ItemColetado {
   titulo: string;
   link: string;
@@ -47,6 +55,7 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
     } catch {
       return;
     }
+    if (NAO_E_EDITAL.test(titulo) || tituloDeAnoPassado(titulo, agora)) return;
     if (vistos.has(link)) return;
     vistos.add(link);
 
@@ -60,6 +69,23 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
   });
 
   return itens;
+}
+
+/** Abre a página do edital e procura o prazo. 'encerrado' quando só há datas passadas. */
+async function descobrirPrazo(link: string, agora = new Date()): Promise<string | 'encerrado' | null> {
+  if (/\.(pdf|docx?|xlsx?|zip)(\?|$)/i.test(link)) return null;
+  try {
+    const resp = await axios.get(link, { timeout: 12000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' } });
+    const $ = cheerio.load(String(resp.data));
+    $('script, style, nav, header, footer').remove();
+    const texto = $('body').text().replace(/\s+/g, ' ');
+    const ancoras = Array.from(texto.matchAll(/(prazo|inscri[cç][õo]es?|submiss[ãa]o|encerr\w+|at[ée]|limite)[^.]{0,80}?(\d{1,2}\/\d{1,2}\/\d{4})/gi)).map(m => m[2]);
+    if (ancoras.length === 0) return null;
+    const futura = ancoras.find(d => { const p = parseDateString(d); return p && p >= agora; });
+    return futura ?? 'encerrado';
+  } catch {
+    return null;
+  }
 }
 
 function gerarId(portalId: string, link: string): string {
@@ -103,6 +129,15 @@ export async function buscarEditaisPortalGenerico(portal: PortalConfig): Promise
   for (const item of itens) {
     const id = gerarId(portal.id, item.link);
     if (await isEditalExcluido(id, item.link)) continue;
+
+    if (item.dataLimite === 'A consultar') {
+      const prazo = await descobrirPrazo(item.link);
+      if (prazo === 'encerrado') {
+        pipelineLogger.logResultado(id, item.titulo, 'rejeitado', 'Prazo encerrado');
+        continue;
+      }
+      if (prazo) item.dataLimite = prazo;
+    }
 
     const triagem = await triarEditalDoPortal(portal.id, { titulo: item.titulo, descricao: '', orgao: portal.nome });
     if (!triagem.aceito) {

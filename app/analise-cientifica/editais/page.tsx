@@ -17,6 +17,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 interface EditalCientifico {
   id: string;
@@ -89,11 +90,7 @@ export default function EditaisCientificosPage() {
   }, []);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    return formatarDataBr(dateString);
   };
 
   const getDiasRestantes = (dateString: string) => {

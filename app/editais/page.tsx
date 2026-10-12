@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AnaliseEditalDrawer } from "@/components/editais/AnaliseEditalDrawer";
 import type { Edital } from "@/components/editais/tipos";
 import { UploadPdfModal } from "@/components/editais/UploadPdfModal";
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 function stripHtmlTags(html: string): string {
   if (!html) return '';
@@ -440,7 +441,7 @@ export default function EditaisPage() {
                           </div>
                           <div className="flex items-center justify-between text-sm" style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span className="text-gray-600">Data de Fechamento:</span>
-                            <span className="font-semibold text-gray-900" style={{ color: 'var(--color-warning)' }}>{edital.dataLimite}</span>
+                            <span className="font-semibold text-gray-900" style={{ color: 'var(--color-warning)' }}>{formatarDataBr(edital.dataLimite)}</span>
                           </div>
                         </div>
 

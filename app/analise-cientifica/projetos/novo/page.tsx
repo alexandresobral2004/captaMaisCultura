@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { AREAS_TEMATICAS, NIVEIS_PROJETO } from '@/lib/analise-cientifica/prompts';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 export default function NovoProjetoCientificoPage() {
   const router = useRouter();
@@ -150,7 +151,7 @@ export default function NovoProjetoCientificoPage() {
                     <option value="">Selecione um edital...</option>
                     {editaisDisponiveis.map((edital) => {
                       const valor = edital.valor ? `R$ ${Number(edital.valor).toLocaleString('pt-BR')}` : '';
-                      const prazo = edital.dataLimite ? `${new Date(edital.dataLimite).toLocaleDateString('pt-BR')}` : '';
+                      const prazo = edital.dataLimite ? formatarDataBr(edital.dataLimite) : '';
                       const codigo = edital.codigo ? `[${edital.codigo}]` : '';
                       const partes = [codigo, edital.titulo, edital.orgao, valor, prazo].filter(Boolean);
                       return (

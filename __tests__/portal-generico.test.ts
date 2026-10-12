@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extrairItensDePagina } from '@/lib/scraper/portal-generico';
+import { extrairItensDePagina, tituloDeAnoPassado } from '@/lib/scraper/portal-generico';
 
 const agora = new Date(2026, 9, 12);
 
@@ -21,5 +21,19 @@ describe('extrairItensDePagina', () => {
     ]);
     expect(itens[0].dataLimite).toBe('30/11/2026');
     expect(itens[1].dataLimite).toBe('A consultar');
+  });
+});
+
+describe('filtros de título', () => {
+  it('descarta adendo, errata, resultado e anos passados', () => {
+    const html = `<ul>
+      <li><a href="/a">Adendo nº 01/2026 ao Edital nº 30/2026 de pesquisa</a></li>
+      <li><a href="/b">Resultado preliminar do Edital de bolsas 2026</a></li>
+      <li><a href="/c">Chamada de Propostas FAPESP / MCTIC – 2018</a></li>
+      <li><a href="/d">Edital nº 28/2026 – Apoio a projetos de pesquisa</a></li>
+    </ul>`;
+    expect(extrairItensDePagina(html, 'https://x.org/', agora).map(i => i.link)).toEqual(['https://x.org/d']);
+    expect(tituloDeAnoPassado('Chamada 2018', agora)).toBe(true);
+    expect(tituloDeAnoPassado('Edital 12/2026', agora)).toBe(false);
   });
 });

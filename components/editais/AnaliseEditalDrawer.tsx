@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { sanitizarHtml } from '@/lib/sanitize-html';
 import { X, AlertTriangle, CheckCircle2, ListChecks, ChevronRight, Trash2 } from 'lucide-react';
 import type { Edital } from './tipos';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 
 interface AnaliseEditalDrawerProps {
   edital: Edital | null;
@@ -67,7 +68,7 @@ export function AnaliseEditalDrawer({ edital, excluindo, onFechar, onExcluir }: 
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     <Badge variant="success">{edital.status}</Badge>
                     <Badge variant="default" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)', border: 'none' }}>
-                      Data Limite: {edital.dataLimite}
+                      Data limite: {formatarDataBr(edital.dataLimite)}
                     </Badge>
                     {edital.modalidade && (
                        <Badge variant="default" style={{ backgroundColor: 'transparent', color: 'var(--color-gray-700)', border: '1px solid var(--color-gray-300)' }}>{edital.modalidade}</Badge>
