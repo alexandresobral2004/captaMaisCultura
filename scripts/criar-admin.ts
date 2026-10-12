@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import bcrypt from 'bcrypt';
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from 'crypto';
 import { join } from 'path';
 
 const dbPath = join(process.cwd(), 'data', 'db', 'editais.db');

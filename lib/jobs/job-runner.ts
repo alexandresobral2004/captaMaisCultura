@@ -211,7 +211,7 @@ export class JobRunner {
 
       if (progresso.totalAnalisados > 0) {
         try {
-          const { v4: uuidv4 } = await import('uuid');
+          const { randomUUID: uuidv4 } = await import('crypto');
           const notificacaoId = uuidv4();
           const NOTIFICACOES_DIR = path.join(process.cwd(), 'data', 'notificacoes');
           

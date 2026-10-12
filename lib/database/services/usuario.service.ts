@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from 'crypto';
 import { UsuarioRepository, CreateUsuarioDTO } from '../repositories/usuario.repository';
 
 export interface CadastroDTO {
