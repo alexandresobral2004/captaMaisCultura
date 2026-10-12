@@ -7,10 +7,11 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Filter, ArrowRight, RefreshCw, AlertTriangle, FileSpreadsheet, ListChecks, AlertCircle, Trash2, FileUp } from "lucide-react";
+import { Search, ArrowRight, RefreshCw, AlertTriangle, FileSpreadsheet, ListChecks, AlertCircle, Trash2, FileUp } from "lucide-react";
 import { ProcessingOverlay } from "@/components/ui/processing-overlay";
 import { EditalReviewPanel } from "@/components/EditalReviewPanel";
+import { FiltrosEditaisSidebar } from "@/components/editais/FiltrosEditaisSidebar";
+import { filtrarEOrdenarEditais, FILTROS_INICIAIS, type FiltrosEditais } from "@/lib/editais/filtros";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AnaliseEditalDrawer } from "@/components/editais/AnaliseEditalDrawer";
 import type { Edital } from "@/components/editais/tipos";
@@ -54,15 +55,7 @@ export default function EditaisPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [paraExcluir, setParaExcluir] = useState<{ id: string; titulo: string } | null>(null);
   
-  // Estados de Filtros
-  const [searchTerm, setSearchTerm] = useState('');
-  const [eixoFiltro, setEixoFiltro] = useState<'todos' | 'Cultura' | 'Pesquisa'>('todos');
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
-  const [selectedTiposEdital, setSelectedTiposEdital] = useState<string[]>([]);
-  
-  // Estado para ordenação
-  const [ordenacao, setOrdenacao] = useState<'recentes' | 'antigos'>('recentes');
+  const [filtros, setFiltros] = useState<FiltrosEditais>(FILTROS_INICIAIS);
 
   // Estado para Edital Selecionado na IA
   const [editalSelecionado, setEditalSelecionado] = useState<Edital | null>(null);
@@ -214,104 +207,7 @@ export default function EditaisPage() {
     }
   };
 
-  // Lógica de manipulação de filtros de checkbox
-  const handleAreaChange = (area: string) => {
-    setSelectedAreas(prev => 
-      prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]
-    );
-  };
-
-  const handleTipoChange = (tipo: string) => {
-    setSelectedTipos(prev => 
-      prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]
-    );
-  };
-
-  const handleTipoEditalChange = (tipo: string) => {
-    setSelectedTiposEdital(prev =>
-      prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]
-    );
-  };
-
-  // Filtra localmente os editais
-  const editaisFiltrados = editais.filter(edital => {
-    if (edital.statusAnalise === 'descartado') return false; // Esconde os descartados
-
-    const matchSearch = 
-      edital.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      edital.orgao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      edital.descricao.toLowerCase().includes(searchTerm.toLowerCase());
-      
-    // Áreas do IA se existirem, senão fallback simples
-    const matchArea = selectedAreas.length === 0 || selectedAreas.some(area => {
-      if (edital.areasTematicas && edital.areasTematicas.length > 0) {
-         return edital.areasTematicas.some(a => a.toLowerCase().includes(area.toLowerCase()));
-      }
-      const t = edital.titulo.toLowerCase() + ' ' + edital.descricao.toLowerCase();
-      if (area === "Saúde") return t.includes('saúde') || t.includes('médico') || t.includes('hospital');
-      if (area === "Educação") return t.includes('escola') || t.includes('educação') || t.includes('ensino') || t.includes('universidade');
-      if (area === "Cultura") return t.includes('cultura') || t.includes('biblioteca') || t.includes('museu') || t.includes('patrimônio');
-      if (area === "Infraestrutura") return t.includes('via') || t.includes('pavimentação') || t.includes('infraestrutura') || t.includes('construção');
-      if (area === "Esporte") return t.includes('esporte') || t.includes('quadra') || t.includes('poliesportiva');
-      return false;
-    });
-
-    const matchTipo = selectedTipos.length === 0 || selectedTipos.some(tipo => {
-      if (edital.tipoProponente && edital.tipoProponente.length > 0) {
-        return edital.tipoProponente.some(t => t.toLowerCase().includes(tipo.toLowerCase()));
-      }
-      const o = edital.orgao.toLowerCase();
-      if (tipo === "Federal") return o.includes('ministério') || o.includes('finep') || o.includes('cnpq');
-      if (tipo === "Estadual") return o.includes('secretaria') || o.includes('fapesp') || o.includes('estadual');
-      if (tipo === "ONG") return edital.descricao.toLowerCase().includes('ong') || edital.descricao.toLowerCase().includes('terceiro setor');
-      return true;
-    });
-
-    // Filtro por tipo de edital (Evento, TI, etc)
-    const matchTipoEdital = selectedTiposEdital.length === 0 || selectedTiposEdital.some(tipoFiltro => {
-      if (tipoFiltro === "Evento") {
-        return edital.tipoEdital === 'evento_cientifico' || 
-               edital.titulo.toLowerCase().includes('congresso') ||
-               edital.titulo.toLowerCase().includes('seminário') ||
-               edital.titulo.toLowerCase().includes('conferência') ||
-               edital.titulo.toLowerCase().includes('workshop');
-      }
-      if (tipoFiltro === "TI") {
-        return edital.tecnologiaFoco && (
-          edital.tecnologiaFoco.includes('Software') ||
-          edital.tecnologiaFoco.includes('Cloud') ||
-          edital.tecnologiaFoco.includes('Machine Learning') ||
-          edital.tecnologiaFoco.includes('Desenvolvimento')
-        ) ||
-        edital.titulo.toLowerCase().includes('software') ||
-        edital.titulo.toLowerCase().includes('tecnologia') ||
-        edital.titulo.toLowerCase().includes('programação') ||
-        edital.titulo.toLowerCase().includes('sistema');
-      }
-      if (tipoFiltro === "Pesquisa") {
-        return edital.tipoEdital === 'chamada_publica' ||
-               edital.titulo.toLowerCase().includes('pesquisa') ||
-               edital.titulo.toLowerCase().includes('bolsa') ||
-               edital.titulo.toLowerCase().includes('investigação');
-      }
-      return true;
-    });
-
-    // Eixo gravado na triagem; editais antigos sem eixo contam como Cultura (padrão do banco)
-    const matchEixo = eixoFiltro === 'todos' || (edital.categoriaArea || 'Cultura') === eixoFiltro;
-
-    return matchEixo && matchSearch && matchArea && matchTipo && matchTipoEdital;
-  }).sort((a, b) => {
-    // Ordenar por data de lançamento
-    const dataA = new Date(a.criadoEm || a.dataLimite || 0).getTime();
-    const dataB = new Date(b.criadoEm || b.dataLimite || 0).getTime();
-    
-    if (ordenacao === 'recentes') {
-      return dataB - dataA; // Mais recentes primeiro
-    } else {
-      return dataA - dataB; // Mais antigos primeiro
-    }
-  });
+  const editaisFiltrados = filtrarEOrdenarEditais(editais, filtros);
 
   return (
     <MainLayout>
@@ -432,150 +328,7 @@ export default function EditaisPage() {
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           
-          {/* Sidebar de Filtros */}
-          <div className="filters-sidebar" style={{ width: '280px', flexShrink: 0 }}>
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-sm">
-                  <Filter style={{ width: '1rem', height: '1rem' }} />
-                  <CardTitle style={{ fontSize: 'var(--font-size-lg)' }}>Filtros</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
-                <div className="filters-section">
-                  <label className="filters-section-title">Busca Rápida</label>
-                  <div style={{ position: 'relative' }}>
-                    <Search style={{
-                      position: 'absolute',
-                      left: '0.75rem',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: '0.875rem',
-                      height: '0.875rem',
-                      color: 'var(--color-gray-400)'
-                    }} />
-                    <Input
-                      type="text"
-                      placeholder="Palavra-chave..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={{ paddingLeft: '2.25rem' }}
-                    />
-                  </div>
-                </div>
-
-                <div className="filters-section">
-                  <label className="filters-section-title">Eixo</label>
-                  <div className="checkbox-group" role="radiogroup" aria-label="Eixo dos editais">
-                    {([
-                      ['todos', 'Todos'],
-                      ['Cultura', '🎭 Cultura'],
-                      ['Pesquisa', '🔬 TI e Pesquisa'],
-                    ] as const).map(([valor, rotulo]) => (
-                      <label key={valor} className="checkbox-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="eixo-editais"
-                          checked={eixoFiltro === valor}
-                          onChange={() => setEixoFiltro(valor)}
-                        />
-                        {rotulo}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="filters-section">
-                  <label className="filters-section-title">Área de Interesse</label>
-                  <div className="checkbox-group">
-                    {["Saúde", "Educação", "Cultura", "Infraestrutura", "Esporte"].map(
-                      (area) => (
-                        <label key={area} className="checkbox-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedAreas.includes(area)}
-                            onChange={() => handleAreaChange(area)}
-                          />
-                          {area}
-                        </label>
-                      )
-                    )}
-                  </div>
-                </div>
-
-                <div className="filters-section">
-                   <label className="filters-section-title">Tipo de Instituição</label>
-                   <div className="checkbox-group">
-                     {["Federal", "Estadual", "ONG", "Universidade"].map((tipo) => (
-                       <label key={tipo} className="checkbox-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', cursor: 'pointer' }}>
-                         <input 
-                           type="checkbox" 
-                           checked={selectedTipos.includes(tipo)}
-                           onChange={() => handleTipoChange(tipo)}
-                         />
-                         {tipo}
-                       </label>
-                     ))}
-                   </div>
-                 </div>
-
-                 <div className="filters-section">
-                   <label className="filters-section-title">Tipo de Edital</label>
-                   <div className="checkbox-group">
-                     {["Evento", "TI", "Pesquisa"].map((tipo) => (
-                       <label key={tipo} className="checkbox-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', cursor: 'pointer' }}>
-                         <input 
-                           type="checkbox" 
-                           checked={selectedTiposEdital.includes(tipo)}
-                           onChange={() => handleTipoEditalChange(tipo)}
-                         />
-                         {tipo}
-                       </label>
-                     ))}
-                   </div>
-                 </div>
-
-                 <div className="filters-section">
-                   <label className="filters-section-title">Ordenação</label>
-                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                     <Button 
-                       variant={ordenacao === 'recentes' ? 'default' : 'outline'}
-                       size="sm"
-                       onClick={() => setOrdenacao('recentes')}
-                       style={{ flex: 1 }}
-                     >
-                       Recentes
-                     </Button>
-                     <Button 
-                       variant={ordenacao === 'antigos' ? 'default' : 'outline'}
-                       size="sm"
-                       onClick={() => setOrdenacao('antigos')}
-                       style={{ flex: 1 }}
-                     >
-                       Antigos
-                     </Button>
-                   </div>
-                 </div>
-                 
-                 {(searchTerm || selectedAreas.length > 0 || selectedTipos.length > 0 || selectedTiposEdital.length > 0) && (
-                   <Button 
-                     variant="ghost" 
-                     size="sm" 
-                     onClick={() => {
-                       setSearchTerm('');
-                       setSelectedAreas([]);
-                       setSelectedTipos([]);
-                       setSelectedTiposEdital([]);
-                     }}
-                     style={{ color: 'var(--color-danger)' }}
-                   >
-                     Limpar Filtros
-                   </Button>
-                 )}
-              </CardContent>
-            </Card>
-          </div>
+          <FiltrosEditaisSidebar filtros={filtros} onChange={setFiltros} />
 
           {/* Grid de Editais Encontrados */}
           <div style={{ flex: 1, minWidth: '320px' }}>
