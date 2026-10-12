@@ -20,6 +20,8 @@ export interface PontuacaoParametros {
   pdfReal: boolean;
   textoExtraido?: string;
   pdfUrlEncontrada?: string;
+  /** Eixo do edital; em 'Cultura' os termos de TI (whitelist/blacklist) não pontuam nem penalizam. */
+  eixo?: 'Cultura' | 'Pesquisa';
 }
 
 export interface PontuacaoResultado {
@@ -47,9 +49,13 @@ export async function calcularPontuacaoEdital(params: PontuacaoParametros): Prom
   const motivos: string[] = [];
   let score = 0;
 
+  const ehCultura = params.eixo === 'Cultura';
   const whitelist = validarWhitelistTI(params.titulo, params.descricao);
 
-  if (whitelist.válido) {
+  if (ehCultura) {
+    score += 30;
+    motivos.push('Eixo Cultura: termos de TI não se aplicam');
+  } else if (whitelist.válido) {
     const base = whitelist.confidence === 'alta'
       ? 30
       : whitelist.confidence === 'média'
@@ -68,7 +74,7 @@ export async function calcularPontuacaoEdital(params: PontuacaoParametros): Prom
     motivos.push('Whitelist TI: nenhum termo relevante encontrado');
   }
 
-  const passouBlacklist = validarBlacklist(params.titulo, params.descricao);
+  const passouBlacklist = ehCultura || validarBlacklist(params.titulo, params.descricao);
   if (!passouBlacklist) {
     score -= 35;
     motivos.push('Termo bloqueado identificado (blacklist)');

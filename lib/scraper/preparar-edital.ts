@@ -1,0 +1,159 @@
+import fs from 'fs';
+import path from 'path';
+import type { Edital } from '../db/editais-store';
+import { calcularPontuacaoEdital } from '../ai/scoring';
+import { analisarBlacklist } from '../filtros-ti';
+import { baixarELerPDFEdital } from './pdf-downloader';
+
+type ResultadoExtracao = Awaited<ReturnType<typeof baixarELerPDFEdital>>;
+
+export interface EditalPreparado {
+  /** Campos a mesclar no edital antes de salvar (fonte, PDF, score, motivos, status). */
+  campos: Partial<Edital>;
+  /** Texto extraído do PDF/HTML; vazio quando não há conteúdo. */
+  texto: string;
+  /** Há conteúdo suficiente para seguir para a análise por IA. */
+  pdfEncontrado: boolean;
+  scoreFinal: number;
+}
+
+function slugify(input: string): string {
+  return input
+    .normalize('NFD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+}
+
+const DIR_DOWNLOADS = () => path.join(process.cwd(), 'data', 'downloads');
+
+function lerManifest(manifestPath: string): Record<string, unknown> {
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf-8');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function atualizarManifest(nomeArquivo: string, dados: Record<string, unknown>) {
+  const dir = DIR_DOWNLOADS();
+  fs.mkdirSync(dir, { recursive: true });
+  const manifestPath = path.join(dir, 'manifest.json');
+  const manifest = lerManifest(manifestPath);
+  manifest[nomeArquivo] = dados;
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+}
+
+/** Renomeia o PDF baixado para `data-orgao-score.pdf` e devolve o caminho relativo final. */
+function organizarArquivo(
+  resultado: ResultadoExtracao,
+  pdfEncontrado: boolean,
+  edital: Edital,
+  score: number
+): { relativo: string; absoluto: string } {
+  const prefixo = new Date().toISOString().slice(0, 10);
+  const nomeArquivo = `${prefixo}-${slugify(edital.orgao || 'orgao')}-${score}.pdf`;
+  const destinoRelativo = path.join('data', 'downloads', nomeArquivo);
+  const destinoAbsoluto = path.join(process.cwd(), destinoRelativo);
+
+  let finalAbsoluto = resultado.caminhoArquivo;
+  if (pdfEncontrado && fs.existsSync(resultado.caminhoArquivo) && resultado.caminhoArquivo !== destinoAbsoluto) {
+    try {
+      fs.renameSync(resultado.caminhoArquivo, destinoAbsoluto);
+      finalAbsoluto = destinoAbsoluto;
+    } catch (erro) {
+      console.warn(`⚠️  Falha ao renomear PDF do edital ${edital.id}:`, erro);
+    }
+  }
+  if (fs.existsSync(destinoAbsoluto)) finalAbsoluto = destinoAbsoluto;
+
+  const relativo = finalAbsoluto.startsWith(process.cwd()) ? path.relative(process.cwd(), finalAbsoluto) : '';
+  return {
+    absoluto: finalAbsoluto,
+    relativo: relativo && !relativo.startsWith('..') ? relativo : destinoRelativo,
+  };
+}
+
+/**
+ * Passo único do scan para um edital já triado: baixa o PDF (S3 > link > HTML),
+ * pontua respeitando o eixo e organiza o arquivo. Não salva nem chama a IA;
+ * quem chama decide (rota de busca salva como pendente, job semanal segue para a IA).
+ */
+export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
+  const resultado = await baixarELerPDFEdital(
+    edital.id,
+    { pdfUrlS3: edital.pdfUrl, linkExterno: edital.link, descricaoHtml: edital.descricao },
+    edital.orgao,
+    edital.titulo,
+    edital.dataLimite
+  );
+
+  const pdfEncontrado = resultado.fonte !== 'sem_pdf' && !!resultado.texto;
+  const pdfReal =
+    ['pdf_s3', 'pdf_link'].includes(resultado.fonte) ||
+    (resultado.fonte === 'html_link' && !!resultado.pdfUrlEncontrada);
+  const eixo = edital.categoriaArea === 'Cultura' || edital.categoriaArea === 'Pesquisa' ? edital.categoriaArea : undefined;
+
+  const pontuacao = await calcularPontuacaoEdital({
+    titulo: edital.titulo,
+    descricao: edital.descricao,
+    url: edital.link,
+    orgao: edital.orgao,
+    portalOrigem: edital.orgao,
+    fonteConteudo: resultado.fonte,
+    pdfEncontrado,
+    pdfReal,
+    textoExtraido: resultado.texto,
+    pdfUrlEncontrada: resultado.pdfUrlEncontrada,
+    eixo,
+  });
+
+  // A blacklist de TI só vale para o eixo Pesquisa; em Cultura ela seria um falso positivo.
+  const blacklist = eixo === 'Cultura' ? null : analisarBlacklist(edital.titulo, edital.descricao);
+  const penalidade = blacklist?.scoreNegativo ?? 0;
+  const scoreFinal = Math.max(0, pontuacao.scoreFinal - penalidade);
+  const nivel = scoreFinal >= 80 ? 'alto' : scoreFinal >= 60 ? 'medio' : 'baixo';
+
+  const motivos = [...(pontuacao.motivos || [])];
+  if (blacklist && penalidade > 0) motivos.push(...blacklist.motivos);
+  if (blacklist && pontuacao.whitelist.válido && (blacklist.recomendacao === 'revisar' || blacklist.recomendacao === 'bloquear')) {
+    motivos.push(
+      `[CONFLITO] Whitelist casou termos de TI, mas Blacklist penalizou com peso -${penalidade} (${blacklist.recomendacao}). Encaminhado para revisão humana.`
+    );
+  }
+
+  const arquivo = organizarArquivo(resultado, pdfEncontrado, edital, scoreFinal);
+  if (fs.existsSync(arquivo.absoluto)) {
+    atualizarManifest(path.basename(arquivo.absoluto), {
+      id: edital.id,
+      titulo: edital.titulo,
+      orgao: edital.orgao,
+      dataDownload: new Date().toISOString(),
+      scorePontuacao: scoreFinal,
+      nivelPontuacao: nivel,
+      fonteConteudo: resultado.fonte,
+      pdfUrlOriginal: resultado.pdfUrlEncontrada || edital.link,
+      tamanhoBytes: resultado.tamanhoBytes || null,
+      modoAnalise: pontuacao.modoAnalise,
+    });
+  }
+
+  return {
+    pdfEncontrado,
+    scoreFinal,
+    texto: resultado.texto || '',
+    campos: {
+      fonteConteudo: resultado.fonte,
+      pdfSalvoEm: arquivo.relativo,
+      scorePontuacao: scoreFinal,
+      nivelPontuacao: nivel,
+      motivosPontuacao: motivos,
+      modoAnaliseIA: 'completo',
+      hashPontuacao: pontuacao.hashConteudo,
+      cacheClassificacaoUsado: pontuacao.cacheUsado,
+      statusAnalise: pdfEncontrado ? 'pendente' : 'sem_pdf',
+    },
+  };
+}

@@ -2,8 +2,7 @@ import { JobRepository } from './job-repository';
 import { JobStatus, JobPhase, JobProgresso, JobResultado, JobRecord, ErroFase } from './job-types';
 import { buscarEditaisPortais, filtrarComClassificador } from '../scraper/fetcher';
 import { analisarEditalComIA } from '../ai/analyzer';
-import { baixarELerPDFEdital, OpcoesDownload } from '../scraper/pdf-downloader';
-import { extrairRelativePath } from '../scraper/utils/path-utils';
+import { prepararEdital } from '../scraper/preparar-edital';
 import { saveEdital, Edital, isEditalExcluido } from '../db/editais-store';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -126,32 +125,16 @@ export class JobRunner {
             continue;
           }
 
-          const opcoesDownload: OpcoesDownload = {
-            pdfUrlS3: edital.pdfUrl,
-            linkExterno: edital.link,
-            descricaoHtml: edital.descricao
-          };
-
           console.log(`Baixando PDF para o edital: "${edital.titulo}"`);
+          const preparado = await prepararEdital(edital);
+          Object.assign(edital, preparado.campos);
 
-          const resultadoExtracao = await baixarELerPDFEdital(
-            edital.id,
-            opcoesDownload,
-            edital.orgao,
-            edital.titulo,
-            edital.dataLimite
-          );
-
-          edital.fonteConteudo = resultadoExtracao.fonte;
-
-          if (resultadoExtracao.fonte !== 'sem_pdf' && resultadoExtracao.texto) {
+          if (preparado.pdfEncontrado) {
             progresso.totalDownloads++;
-            edital.conteudoCompleto = resultadoExtracao.texto;
-            edital.pdfSalvoEm = extrairRelativePath(resultadoExtracao.caminhoArquivo);
+            edital.conteudoCompleto = preparado.texto;
             editaisProcessar.push(edital);
-            pipelineLogger.logResultado(edital.id, edital.titulo, 'salvo', `PDF obtido com sucesso via ${resultadoExtracao.fonte}`);
+            pipelineLogger.logResultado(edital.id, edital.titulo, 'salvo', `PDF obtido com sucesso via ${edital.fonteConteudo}`);
           } else {
-            edital.statusAnalise = 'sem_pdf';
             await saveEdital(edital);
             pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Nenhum PDF ou texto extraído');
           }
