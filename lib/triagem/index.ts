@@ -144,6 +144,12 @@ export async function triarEdital(entrada: EntradaTriagem): Promise<ResultadoTri
   const eixoPortal = entrada.eixoPortal ?? 'auto';
   const respostas = await julgarEditalComJev(entrada);
 
+  // Segunda camada (Jev): restrição territorial que as palavras do título não revelam
+  const pRestrito = respostas?.restrito_a_outra_regiao?.noul;
+  if (pRestrito !== undefined && pRestrito >= 0.8) {
+    return rejeitar('regiao', `Jev: restrito a outra região (${Math.round(pRestrito * 100)}%)`, null);
+  }
+
   let eixo: Eixo | null = eixoPortal === 'auto' ? null : eixoPortal;
 
   if (!eixo) {

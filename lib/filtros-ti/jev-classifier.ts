@@ -67,6 +67,15 @@ const PERGUNTAS = {
       'Foco central e específico em pesquisa/TI para universidades ou institutos',
     ],
   },
+  restrito_a_outra_regiao: {
+    type: 'noul',
+    instructions:
+      'Quem mora ou atua no estado do Ceará fica impedido de participar porque a oportunidade é restrita a um município ou a outro estado?',
+    criteria: {
+      true: 'Só aceita proponentes, moradores ou projetos de um município específico ou de um estado diferente do Ceará (ex.: edital municipal de outra cidade, fundação estadual de outro estado)',
+      false: 'Aberta a todo o Brasil, ao Nordeste, ao Ceará, ou a qualquer proponente brasileiro; ou sem restrição territorial indicada',
+    },
+  },
   tecnologia: {
     type: 'choice',
     instructions: 'Em qual área tecnológica ou temática a oportunidade se enquadra melhor?',
