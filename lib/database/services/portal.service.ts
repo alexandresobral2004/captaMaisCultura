@@ -9,6 +9,7 @@ export interface PortalDTO {
   urlsFallback?: string[];
   tipo: 'rss' | 'html' | 'api' | 'session';
   categoria: string;
+  eixo?: 'auto' | 'Cultura' | 'Pesquisa';
   ativo?: boolean;
   scraperModule?: string;
   intervaloMinutos?: number;
@@ -56,6 +57,7 @@ export class PortalService {
       urlsFallback: data.urlsFallback ? JSON.stringify(data.urlsFallback) : null,
       tipo: data.tipo,
       categoria: data.categoria,
+      eixo: data.eixo ?? 'auto',
       ativo: data.ativo ?? true,
       scraperModule: data.scraperModule ?? null,
       intervaloMinutos: data.intervaloMinutos ?? 60,
@@ -84,6 +86,7 @@ export class PortalService {
     if (data.urlsFallback !== undefined) updates.urlsFallback = JSON.stringify(data.urlsFallback);
     if (data.tipo !== undefined) updates.tipo = data.tipo;
     if (data.categoria !== undefined) updates.categoria = data.categoria;
+    if (data.eixo !== undefined) updates.eixo = data.eixo;
     if (data.ativo !== undefined) updates.ativo = data.ativo;
     if (data.scraperModule !== undefined) updates.scraperModule = data.scraperModule ?? null;
     if (data.intervaloMinutos !== undefined) updates.intervaloMinutos = data.intervaloMinutos;
@@ -152,6 +155,7 @@ export class PortalService {
       urlsFallback: urlsFallbackStr ? JSON.parse(urlsFallbackStr) : [],
       tipo: row.tipo ?? 'html',
       categoria: row.categoria ?? '',
+      eixo: row.eixo ?? 'auto',
       ativo,
       scraperModule,
       intervaloMinutos,

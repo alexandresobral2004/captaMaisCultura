@@ -12,6 +12,7 @@ interface PortalFormData {
   urlsFallback?: string | string[];
   tipo?: 'rss' | 'html' | 'api' | 'session';
   categoria?: string;
+  eixo?: 'auto' | 'Cultura' | 'Pesquisa';
   ativo?: boolean;
   scraperModule?: string;
   intervaloMinutos?: number;
@@ -24,6 +25,7 @@ interface PortalSubmitData {
   urlsFallback: string[];
   tipo: 'rss' | 'html' | 'api' | 'session';
   categoria: string;
+  eixo: 'auto' | 'Cultura' | 'Pesquisa';
   ativo: boolean;
   scraperModule?: string;
   intervaloMinutos: number;
@@ -62,6 +64,7 @@ export function PortalForm({ portal, onSubmit, onCancel }: PortalFormProps) {
       : (portal?.urlsFallback as string) || '',
     tipo: portal?.tipo || 'html',
     categoria: portal?.categoria || 'Geral',
+    eixo: portal?.eixo || 'auto',
     ativo: portal?.ativo ?? true,
     scraperModule: portal?.scraperModule || '',
     intervaloMinutos: portal?.intervaloMinutos || 60,
@@ -123,6 +126,7 @@ export function PortalForm({ portal, onSubmit, onCancel }: PortalFormProps) {
       urlsFallback: urlsFallbackArray,
       tipo: formData.tipo || 'html',
       categoria: formData.categoria || 'Geral',
+      eixo: formData.eixo || 'auto',
       ativo: formData.ativo ?? true,
       scraperModule: formData.scraperModule,
       intervaloMinutos: formData.intervaloMinutos || 60,
@@ -219,6 +223,25 @@ export function PortalForm({ portal, onSubmit, onCancel }: PortalFormProps) {
               </select>
               {errors.categoria && <p className="text-xs text-red-400 mt-1">{errors.categoria}</p>}
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="portal-eixo" className="block text-sm font-medium text-slate-300 mb-1">
+              Eixo dos editais
+            </label>
+            <select
+              id="portal-eixo"
+              value={formData.eixo}
+              onChange={(e) => setFormData({ ...formData, eixo: e.target.value as PortalFormData['eixo'] })}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="auto">Automático: o Jev decide edital a edital</option>
+              <option value="Cultura">Sempre Cultura</option>
+              <option value="Pesquisa">Sempre TI e Pesquisa</option>
+            </select>
+            <p className="text-xs text-slate-400 mt-1">
+              Use um eixo fixo quando o portal só publica um tema. No automático, cada edital é separado em Cultura ou TI e Pesquisa.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

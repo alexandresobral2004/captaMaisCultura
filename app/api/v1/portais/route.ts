@@ -13,6 +13,7 @@ const CreatePortalSchema = z.object({
   urlsFallback: z.array(z.string().url()).optional(),
   tipo: z.enum(['rss', 'html', 'api', 'session']),
   categoria: z.string().min(1, 'Categoria é obrigatória'),
+  eixo: z.enum(['auto', 'Cultura', 'Pesquisa']).default('auto'),
   ativo: z.boolean().default(true),
   scraperModule: z.string().optional(),
   intervaloMinutos: z.number().min(15).default(60),

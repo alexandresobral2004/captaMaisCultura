@@ -368,6 +368,7 @@ export function createTables() {
       urls_fallback TEXT,
       tipo TEXT NOT NULL CHECK(tipo IN ('rss', 'html', 'api', 'session')),
       categoria TEXT NOT NULL,
+      eixo TEXT NOT NULL DEFAULT 'auto',
       ativo INTEGER DEFAULT 1,
       scraper_module TEXT,
       intervalo_minutos INTEGER DEFAULT 60,
@@ -592,6 +593,7 @@ function migrateSchema() {
           urls_fallback TEXT,
           tipo TEXT NOT NULL CHECK(tipo IN ('rss', 'html', 'api', 'session')),
           categoria TEXT NOT NULL,
+          eixo TEXT NOT NULL DEFAULT 'auto',
           ativo INTEGER DEFAULT 1,
           scraper_module TEXT,
           intervalo_minutos INTEGER DEFAULT 60,
@@ -607,6 +609,13 @@ function migrateSchema() {
     }
 
     // Migração: adicionar tabelas de prompts de IA
+    // Migração: eixo do portal (auto = Jev decide edital a edital; Cultura/Pesquisa = fixo)
+    const portaisColunas = sqlite.prepare("PRAGMA table_info(portais)").all() as any[];
+    if (portaisColunas.length > 0 && !portaisColunas.some((col: any) => col.name === 'eixo')) {
+      sqlite.exec(`ALTER TABLE portais ADD COLUMN eixo TEXT NOT NULL DEFAULT 'auto'`);
+      console.log('✅ Migração: coluna eixo adicionada à tabela portais');
+    }
+
     const promptsSistemaTableInfo = sqlite.prepare("PRAGMA table_info(prompts_sistema)").all() as any[];
     if (promptsSistemaTableInfo.length === 0) {
       sqlite.exec(`

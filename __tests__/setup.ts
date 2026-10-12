@@ -247,6 +247,7 @@ export function createTestDb() {
       urls_fallback TEXT,
       tipo TEXT NOT NULL CHECK(tipo IN ('rss', 'html', 'api', 'session')),
       categoria TEXT NOT NULL,
+      eixo TEXT NOT NULL DEFAULT 'auto',
       ativo INTEGER DEFAULT 1,
       scraper_module TEXT,
       intervalo_minutos INTEGER DEFAULT 60,

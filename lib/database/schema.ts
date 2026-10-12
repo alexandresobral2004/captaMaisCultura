@@ -481,6 +481,7 @@ export const portais = sqliteTable('portais', {
     enum: ['rss', 'html', 'api', 'session']
   }).notNull(),                                   // Tipo de scraper
   categoria: text('categoria').notNull(),         // ex: "Inovação e Tecnologia"
+  eixo: text('eixo', { enum: ['auto', 'Cultura', 'Pesquisa'] }).notNull().default('auto'), // auto = Jev decide edital a edital
   ativo: integer('ativo', { mode: 'boolean' }).default(true),  // Ativo/inativo
   scraperModule: text('scraper_module'),          // ex: "finep", "cnpq", "capes", "prosas"
   intervaloMinutos: integer('intervalo_minutos').default(60),

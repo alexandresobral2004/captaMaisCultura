@@ -1,7 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { validarComJev } from '../lib/filtros-ti/jev-classifier';
+import {
+  validarComJev,
+  julgarEditalComJev,
+  eixoDasRespostas,
+  julgamentoCulturaDasRespostas,
+} from '../lib/filtros-ti/jev-classifier';
 
-function respostaJev(p: { chamada: number; relevante: number; score?: number; tecnologia?: string; tipo?: string }) {
+function respostaJev(p: {
+  chamada: number;
+  relevante: number;
+  cultura?: number;
+  eixo?: string;
+  eixoProb?: number;
+  score?: number;
+  tecnologia?: string;
+  tipo?: string;
+}) {
   return {
     ok: true,
     status: 200,
@@ -10,7 +24,14 @@ function respostaJev(p: { chamada: number; relevante: number; score?: number; te
       usage: { input_tokens: 10, output_tokens: 5 },
       answers: {
         eh_chamada: { type: 'noul', noul: p.chamada },
-        relevante: { type: 'noul', noul: p.relevante },
+        relevante_ti: { type: 'noul', noul: p.relevante },
+        relevante_cultura: { type: 'noul', noul: p.cultura ?? 0.05 },
+        eixo: {
+          type: 'choice',
+          choice: p.eixo ?? 'Pesquisa',
+          probabilities: { [p.eixo ?? 'Pesquisa']: p.eixoProb ?? 0.95 },
+          confidence: p.eixoProb ?? 0.95,
+        },
         grau_relevancia: {
           type: 'score',
           score: p.score ?? 3,
@@ -54,7 +75,7 @@ describe('validarComJev', () => {
     expect(url).toBe('https://api.typesafe.ai/v1/systemone');
     expect(init.headers.Authorization).toBe('Bearer tsk-teste');
     expect(Object.keys(JSON.parse(init.body).questions)).toEqual(
-      expect.arrayContaining(['eh_chamada', 'relevante', 'grau_relevancia', 'tecnologia', 'tipo'])
+      expect.arrayContaining(['eixo', 'eh_chamada', 'relevante_ti', 'relevante_cultura', 'grau_relevancia', 'tecnologia', 'tipo'])
     );
   });
 
@@ -80,6 +101,37 @@ describe('validarComJev', () => {
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('rede')));
     expect(await validarComJev('Edital', 'Descrição')).toBeNull();
+  });
+});
+
+describe('julgamento por eixo (uma única consulta)', () => {
+  beforeEach(() => {
+    process.env.TYPESAFE_API_KEY = 'tsk-teste';
+  });
+  afterEach(() => {
+    process.env.TYPESAFE_API_KEY = '';
+    vi.unstubAllGlobals();
+  });
+
+  it('edital de cultura: eixo Cultura e julgamento cultural válido, com uma só requisição', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(respostaJev({ chamada: 0.97, relevante: 0.04, cultura: 0.93, eixo: 'Cultura', eixoProb: 0.9 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const r = await julgarEditalComJev({ titulo: 'Edital de apoio a festas juninas', descricao: 'Lei Aldir Blanc' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(eixoDasRespostas(r!)).toEqual({ eixo: 'Cultura', certeza: 90 });
+    expect(julgamentoCulturaDasRespostas(r!)).toMatchObject({ valido: true, confianca: 93 });
+  });
+
+  it('fora do escopo e Jev indisponível', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.9, relevante: 0.1, eixo: 'Fora' })));
+    expect(eixoDasRespostas((await julgarEditalComJev({ titulo: 'Campeonato', descricao: 'Esporte' }))!).eixo).toBe('Fora');
+
+    process.env.TYPESAFE_API_KEY = '';
+    expect(await julgarEditalComJev({ titulo: 'x', descricao: 'y' })).toBeNull();
   });
 });
 

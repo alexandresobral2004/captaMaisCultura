@@ -10,6 +10,7 @@ const UpdatePortalSchema = z.object({
   urlsFallback: z.array(z.string().url()).optional(),
   tipo: z.enum(['rss', 'html', 'api', 'session']).optional(),
   categoria: z.string().min(1).optional(),
+  eixo: z.enum(['auto', 'Cultura', 'Pesquisa']).optional(),
   ativo: z.boolean().optional(),
   scraperModule: z.string().optional(),
   intervaloMinutos: z.number().min(15).optional(),
