@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { obterUsuarioLogado } from '@/lib/api/auth';
+import { scanTokenValido, extrairScanTokenDosHeaders } from '@/lib/api/scan-token';
 
 const ROTAS_PUBLICAS = [
   '/',
@@ -25,37 +26,7 @@ const ROTAS_AUTENTICACAO_TOKEN = [
  * Verifica se a requisição tem um token válido para rotas de script
  */
 function verificarTokenScript(request: NextRequest): boolean {
-  const tokenEsperado = process.env.SCAN_TOKEN;
-  if (!tokenEsperado) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('❌ ERRO DE CONFIGURAÇÃO: SCAN_TOKEN não definido no ambiente em produção.');
-      return false;
-    }
-    // Fallback apenas para desenvolvimento
-    const fallback = 'capta-mais-scan-token-secret-2026';
-    return (
-      request.headers.get('Authorization') === `Bearer ${fallback}` ||
-      request.headers.get('X-Scan-Token') === fallback ||
-      new URL(request.url).searchParams.get('token') === fallback
-    );
-  }
-
-  // 1. Verificar Authorization Header (Bearer Token)
-  const authHeader = request.headers.get('Authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    if (token === tokenEsperado) return true;
-  }
-
-  // 2. Verificar X-Scan-Token Header
-  const xScanToken = request.headers.get('X-Scan-Token');
-  if (xScanToken && xScanToken === tokenEsperado) return true;
-
-  // 3. Verificar token no query string (fallback)
-  const tokenQuery = new URL(request.url).searchParams.get('token');
-  if (tokenQuery && tokenQuery === tokenEsperado) return true;
-
-  return false;
+  return scanTokenValido(extrairScanTokenDosHeaders(request.headers));
 }
 
 export async function middleware(request: NextRequest) {

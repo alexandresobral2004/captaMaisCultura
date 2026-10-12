@@ -1,22 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { obterScanToken } from '@/lib/api/scan-token';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   // Fire and forget via fetch to our own API
   try {
-    const host = req.headers.get('host') || 'localhost:3000';
-    const protocol = req.headers.get('x-forwarded-proto') || 'http';
-    const baseUrl = `${protocol}://${host}`;
-    const token = process.env.SCAN_TOKEN || 'capta-mais-scan-token-secret-2026';
+    // URL vem da configuração, nunca de headers da requisição (evita vazar o token via Host forjado)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const token = obterScanToken();
+    if (!token) {
+      return NextResponse.json({ started: false, error: 'SCAN_TOKEN não configurado' }, { status: 500 });
+    }
     
     // We use the existing weekly scan endpoint but run it asynchronously
     fetch(`${baseUrl}/api/jobs/run-weekly-scan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Scan-Token': token,
       },
-      body: JSON.stringify({ token }),
     }).catch(err => {
       console.error('Failed to trigger background scan:', err);
     });

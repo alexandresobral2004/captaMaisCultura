@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { comparacaoSegura } from './scan-token';
 
 export interface UsuarioLogado {
   id: string;
@@ -9,7 +10,15 @@ export interface UsuarioLogado {
 }
 
 // Chave para assinatura
-const SESSION_SECRET = process.env.SESSION_SECRET || 'capta-mais-cultura-secret-fallback-key-2026-development-only';
+// Em produção o segredo é obrigatório; o valor de desenvolvimento nunca vale lá
+const SESSION_SECRET = (() => {
+  const configurado = process.env.SESSION_SECRET;
+  if (configurado) return configurado;
+  if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+    throw new Error('SESSION_SECRET não definido: obrigatório em produção.');
+  }
+  return 'capta-mais-cultura-dev-only-secret';
+})();
 
 /**
  * Converte string para ArrayBuffer
@@ -85,7 +94,7 @@ export async function verificarToken(token: string): Promise<string | null> {
     );
     const assinaturaEsperada = bufferToBase64Url(assinaturaEsperadaBuffer);
 
-    if (assinaturaFornecida !== assinaturaEsperada) {
+    if (!comparacaoSegura(assinaturaFornecida, assinaturaEsperada)) {
       return null;
     }
 

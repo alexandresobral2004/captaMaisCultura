@@ -2,35 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarAdmin } from '@/lib/api/auth';
 import { JobRunner, ConflictError } from '@/lib/jobs/job-runner';
 import { JobRepository } from '@/lib/jobs/job-repository';
+import { scanTokenValido, extrairScanTokenDosHeaders } from '@/lib/api/scan-token';
 
 /**
  * Verifica autenticação: aceita token de script OU cookie de admin
  */
 async function verificarAutenticacao(request: NextRequest): Promise<{ ok: boolean; response?: NextResponse }> {
-  // 1. Verificar token no query string (para scripts)
-  const url = new URL(request.url);
-  const tokenQuery = url.searchParams.get('token');
-  
-  if (tokenQuery) {
-    if (tokenQuery !== (process.env.SCAN_TOKEN || 'capta-mais-scan-token-secret-2026')) {
-      return { ok: false, response: NextResponse.json({ error: 'Token inválido' }, { status: 401 }) };
-    }
-    return { ok: true };
+  // 1. Token de script via header (Authorization: Bearer ou X-Scan-Token)
+  const tokenHeader = extrairScanTokenDosHeaders(request.headers);
+  if (tokenHeader) {
+    return scanTokenValido(tokenHeader)
+      ? { ok: true }
+      : { ok: false, response: NextResponse.json({ error: 'Token inválido' }, { status: 401 }) };
   }
 
-  // 2. Verificar token no body (para POST de scripts)
-  try {
-    const body = await request.clone().json().catch(() => ({}));
-    const tokenBody = body.token;
-    
-    if (tokenBody) {
-      if (tokenBody !== (process.env.SCAN_TOKEN || 'capta-mais-scan-token-secret-2026')) {
-        return { ok: false, response: NextResponse.json({ error: 'Token inválido' }, { status: 401 }) };
-      }
-      return { ok: true };
-    }
-  } catch {
-    // Ignorar erro ao parsear body
+  // 2. Token no body (POST de scripts)
+  const body = await request.clone().json().catch(() => ({}));
+  if (body?.token) {
+    return scanTokenValido(body.token)
+      ? { ok: true }
+      : { ok: false, response: NextResponse.json({ error: 'Token inválido' }, { status: 401 }) };
   }
 
   // 3. Verificar cookie de admin (para acesso via UI)

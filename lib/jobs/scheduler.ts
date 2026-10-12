@@ -24,14 +24,15 @@ export function iniciarScheduler() {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
       const token = process.env.SCAN_TOKEN || '';
 
-      const url = `${baseUrl}/api/jobs/run-weekly-scan${token ? `?token=${token}` : ''}`;
+      const url = `${baseUrl}/api/jobs/run-weekly-scan`;
 
       console.log(`📡 Chamando: ${url}`);
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { 'X-Scan-Token': token } : {})
         }
       });
 
