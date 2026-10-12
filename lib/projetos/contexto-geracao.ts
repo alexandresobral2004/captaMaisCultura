@@ -211,7 +211,7 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
     buscarContextoRAG(edital.titulo, edital.objetivo, edital.areasTematicas || [])
       .then(r => (r.chunks.length ? formatarContextoRAG(r.chunks) : ''))
       .catch(() => ''),
-    new PromptRepository().getAtivo('projetos_cultura', 'geracao_dinamica').catch(() => null),
+    new PromptRepository().getAtivo('projetos_cultura', 'instrucoes_adicionais').catch(() => null),
   ]);
 
   return {

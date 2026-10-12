@@ -20,10 +20,8 @@ db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
 // Extrair prompts dos arquivos
-const promptsProjetoPath = path.join(process.cwd(), 'lib/ai/prompts-projeto.ts');
 const promptsPesquisaPath = path.join(process.cwd(), 'lib/analise-cientifica/prompts.ts');
 
-const promptsProjetoContent = fs.readFileSync(promptsProjetoPath, 'utf-8');
 const promptsPesquisaContent = fs.readFileSync(promptsPesquisaPath, 'utf-8');
 
 // Função para extrair o corpo de uma função exportada
@@ -37,27 +35,13 @@ function extractFunctionBody(content: string, functionName: string): string {
 }
 
 const prompts = [
-  // Projetos de Cultura
+  // Projetos (geração unificada): instruções que a instituição quer acrescentar a todas as seções
   {
-    id: 'prompt_cultura_geracao_completa',
+    id: 'prompt_projetos_instrucoes_adicionais',
     modulo: 'projetos_cultura',
-    chave: 'geracao_completa',
-    descricao: 'Gera proposta completa de projeto cultural com todas as seções',
-    conteudo: extractFunctionBody(promptsProjetoContent, 'gerarPromptCompleto'),
-  },
-  {
-    id: 'prompt_cultura_geracao_secao',
-    modulo: 'projetos_cultura',
-    chave: 'geracao_secao',
-    descricao: 'Gera seções específicas de projeto cultural',
-    conteudo: extractFunctionBody(promptsProjetoContent, 'gerarPromptSecao'),
-  },
-  {
-    id: 'prompt_cultura_geracao_dinamica',
-    modulo: 'projetos_cultura',
-    chave: 'geracao_dinamica',
-    descricao: 'Gera proposta com seções dinâmicas customizadas',
-    conteudo: extractFunctionBody(promptsProjetoContent, 'gerarPromptDinamico'),
+    chave: 'instrucoes_adicionais',
+    descricao: 'Instruções extras (tom, termos, regras da casa) acrescentadas ao pedido de escrita de cada seção',
+    conteudo: '',
   },
   // Projetos de Pesquisa
   {
