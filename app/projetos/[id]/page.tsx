@@ -12,13 +12,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ProcessingOverlay } from "@/components/ui/processing-overlay";
 import {
-  ArrowLeft, Save, Sparkles, Download, FileText, RefreshCw,
+  ArrowLeft, Save, Sparkles, ClipboardCheck, Download, FileText, RefreshCw,
   CheckCircle2, AlertCircle, Copy, ArrowUp, ArrowDown, Plus, Trash2,
   Building2
 } from "lucide-react";
 import { EquipeProjeto } from '@/components/projetos/EquipeProjeto';
 import { DadosProponenteForm } from '@/components/projetos/DadosProponenteForm';
 import { defaultDadosProponente, type DadosProponente } from '@/components/projetos/dados-proponente';
+import { ConferenciaProjeto, type ResultadoConferencia } from '@/components/projetos/ConferenciaProjeto';
 import { useConfirm } from '@/contexts/confirm-context';
 import { useToast } from '@/contexts/toast-context';
 
@@ -121,6 +122,8 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [gerando, setGerando] = useState(false);
+  const [conferindo, setConferindo] = useState(false);
+  const [conferencia, setConferencia] = useState<ResultadoConferencia | null>(null);
 
   const [propostaUsuario, setPropostaUsuario] = useState('');
   const [secoesDinamicas, setSecoesDinamicas] = useState<SecaoDinamica[]>([]);
@@ -233,6 +236,27 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
       toast.showError('Erro ao salvar projeto.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConferir = async () => {
+    if (!projetoId) return;
+    setConferindo(true);
+    try {
+      const saveRes = await fetch(`/api/v1/projetos/${projetoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propostaUsuario, secoesDinamicas, equipe: incluirEquipe ? equipeData : [] }),
+      });
+      if (!saveRes.ok) throw new Error('Não foi possível salvar o rascunho antes de conferir.');
+      const res = await fetch(`/api/v1/projetos/${projetoId}/conferir`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Não foi possível conferir o projeto.');
+      setConferencia(json.data);
+    } catch (e: any) {
+      toast.showError(e.message || 'Não foi possível conferir o projeto.');
+    } finally {
+      setConferindo(false);
     }
   };
 
@@ -505,6 +529,10 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
               <Save className="w-4 h-4 mr-2" />
               <span>{saving ? 'Salvando...' : 'Salvar'}</span>
             </Button>
+            <Button variant="outline" onClick={handleConferir} disabled={conferindo || gerando} className="touch-target">
+              {conferindo ? <Spinner className="w-4 h-4 mr-2" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
+              <span>{conferindo ? 'Conferindo...' : 'Conferir projeto'}</span>
+            </Button>
             <Button onClick={handleGerarCompleto} disabled={gerando} className="touch-target">
               {gerando ? (
                 <>
@@ -520,6 +548,8 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
             </Button>
           </div>
         </div>
+
+        {conferencia && <ConferenciaProjeto resultado={conferencia} onFechar={() => setConferencia(null)} />}
 
         {/* Tabs */}
         {renderTabs()}
