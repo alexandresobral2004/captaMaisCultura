@@ -10,9 +10,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, ArrowRight, RefreshCw, AlertTriangle, FileSpreadsheet, ListChecks, CheckCircle2, ChevronRight, X, AlertCircle, Trash2, FileUp, CheckCircle, XCircle } from "lucide-react";
+import { Search, Filter, ArrowRight, RefreshCw, AlertTriangle, FileSpreadsheet, ListChecks, CheckCircle2, ChevronRight, X, AlertCircle, Trash2, FileUp } from "lucide-react";
 import { ProcessingOverlay } from "@/components/ui/processing-overlay";
 import { EditalReviewPanel } from "@/components/EditalReviewPanel";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { UploadPdfModal } from "@/components/editais/UploadPdfModal";
 
 interface Edital {
   id: string;
@@ -85,6 +87,7 @@ export default function EditaisPage() {
   const [reanalyzing, setReanalyzing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [paraExcluir, setParaExcluir] = useState<{ id: string; titulo: string } | null>(null);
   
   // Estados de Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -105,9 +108,6 @@ export default function EditaisPage() {
 
   // Estados para Upload de PDF
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Carrega os editais do banco local
   const fetchEditais = async () => {
@@ -211,13 +211,14 @@ export default function EditaisPage() {
   };
 
   // Deleta um edital do banco e remove PDFs
-  const handleDeletarEdital = async (id: string, titulo: string, e: React.MouseEvent) => {
+  const pedirExclusao = (id: string, titulo: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    if (!confirm(`Tem certeza que deseja deletar "${titulo}"? Isso também removerá o PDF.`)) {
-      return;
-    }
+    setParaExcluir({ id, titulo });
+  };
 
+  const confirmarExclusao = async () => {
+    if (!paraExcluir) return;
+    const { id } = paraExcluir;
     setDeleting(id);
     try {
       const res = await fetch(`/api/v1/editais/${id}`, {
@@ -238,6 +239,7 @@ export default function EditaisPage() {
       setError((err as Error).message);
     } finally {
       setDeleting(null);
+      setParaExcluir(null);
     }
   };
 
@@ -276,70 +278,6 @@ export default function EditaisPage() {
     setSelectedTiposEdital(prev =>
       prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]
     );
-  };
-
-  // Handlers para Upload de PDF
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setSelectedFile(file);
-  };
-
-  const handleUploadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile) return;
-
-    setUploading(true);
-    setUploadProgress(10);
-
-    try {
-      const formData = new FormData();
-      formData.append('pdf', selectedFile);
-
-      const tituloInput = document.getElementById('upload-titulo') as HTMLInputElement;
-      const orgaoInput = document.getElementById('upload-orgao') as HTMLInputElement;
-      const categoriaInput = document.getElementById('upload-categoria') as HTMLSelectElement;
-
-      if (tituloInput?.value) {
-        formData.append('titulo', tituloInput.value);
-      }
-      if (orgaoInput?.value) {
-        formData.append('orgao', orgaoInput.value);
-      }
-      if (categoriaInput?.value) {
-        formData.append('categoriaArea', categoriaInput.value);
-      }
-
-      setUploadProgress(30);
-
-      const res = await fetch('/api/v1/editais/upload-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-
-      setUploadProgress(80);
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error?.message || 'Erro ao processar upload');
-      }
-
-      setUploadProgress(100);
-      setUploadResult(data.data);
-      fetchEditais(); // Atualizar a lista após upload com sucesso
-    } catch (error: any) {
-      setUploadResult({
-        erros: [error.message || 'Erro desconhecido'],
-        titulo: selectedFile.name,
-        tecnologiaFoco: 'N/A',
-        scoreRelevancia: 0,
-        confiancaIA: 0
-      });
-    } finally {
-      setUploading(false);
-    }
   };
 
   // Filtra localmente os editais
@@ -842,7 +780,7 @@ export default function EditaisPage() {
                               </Button>
                               <Button 
                                 variant="outline"
-                                onClick={(e) => handleDeletarEdital(edital.id, edital.titulo, e)}
+                                onClick={(e) => pedirExclusao(edital.id, edital.titulo, e)}
                                 disabled={deleting === edital.id}
                                 style={{ 
                                   flex: 0,
@@ -899,7 +837,7 @@ export default function EditaisPage() {
                               </Button>
                               <Button 
                                 variant="outline"
-                                onClick={(e) => handleDeletarEdital(edital.id, edital.titulo, e)}
+                                onClick={(e) => pedirExclusao(edital.id, edital.titulo, e)}
                                 disabled={deleting === edital.id}
                                 style={{ 
                                   flex: 0,
@@ -1266,7 +1204,7 @@ export default function EditaisPage() {
                 variant="outline" 
                 onClick={(e) => {
                   if (editalSelecionado) {
-                    handleDeletarEdital(editalSelecionado.id, editalSelecionado.titulo, e as any);
+                    pedirExclusao(editalSelecionado.id, editalSelecionado.titulo, e as any);
                     setEditalSelecionado(null);
                   }
                 }}
@@ -1303,248 +1241,17 @@ export default function EditaisPage() {
         </div>
       )}
 
-      {/* Modal de Upload de PDF */}
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md mx-4 shadow-2xl shadow-black/50">
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <FileUp className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-100">Upload de Edital</h3>
-                  <p className="text-xs text-slate-400">Envie um PDF para análise automática</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowUploadModal(false);
-                  setUploadResult(null);
-                  setUploadProgress(0);
-                }}
-                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-5">
-              {!uploadResult ? (
-                <form onSubmit={handleUploadSubmit} className="space-y-4">
-                  {/* Drop zone */}
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleFileSelect}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-                    <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${selectedFile ? 'border-green-500/50 bg-green-500/10' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/50'}`}>
-                      <FileUp className={`w-12 h-12 mx-auto mb-3 ${selectedFile ? 'text-green-400' : 'text-slate-500'}`} />
-                      {selectedFile ? (
-                        <>
-                          <p className="text-green-400 font-medium">{selectedFile.name}</p>
-                          <p className="text-xs text-slate-400 mt-1">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-slate-300 font-medium">Arraste o PDF aqui ou clique</p>
-                          <p className="text-xs text-slate-500 mt-1">Máximo 50MB</p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Campos */}
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Título (opcional)</label>
-                      <Input
-                        id="upload-titulo"
-                        placeholder="Deixe vazio para usar o nome do arquivo"
-                        className="bg-slate-800 border-slate-700 text-slate-200 placeholder-slate-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Órgão (opcional)</label>
-                      <Input
-                        id="upload-orgao"
-                        placeholder="Ex: FINEP, CNPq, CAPES"
-                        className="bg-slate-800 border-slate-700 text-slate-200 placeholder-slate-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Área / Categoria</label>
-                      <select
-                        id="upload-categoria"
-                        className="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="Cultura">🎭 Cultura</option>
-                        <option value="Pesquisa">🔬 TI e Pesquisa</option>
-                        <option value="Esporte">⚽ Esporte</option>
-                        <option value="Infraestrutura">🚧 Infraestrutura</option>
-                        <option value="Outros">📁 Outros</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Progress */}
-                  {uploading && (
-                    <div className="space-y-2">
-                      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-slate-400 text-center">
-                        Processando PDF... {uploadProgress}%
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowUploadModal(false);
-                        setUploadResult(null);
-                        setUploadProgress(0);
-                      }}
-                      disabled={uploading}
-                      className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={uploading || !selectedFile}
-                      className="flex-1 bg-blue-600 hover:bg-blue-500 text-white border-none"
-                    >
-                      {uploading ? (
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Analisando...
-                        </span>
-                      ) : (
-                        'Analisar'
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              ) : uploadResult.erros && uploadResult.erros.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                    <div className="flex items-center gap-2 text-red-400 mb-2">
-                      <XCircle className="w-5 h-5" />
-                      <span className="font-medium">Erro no processamento</span>
-                    </div>
-                    {uploadResult.erros.map((erro: string, i: number) => (
-                      <p key={i} className="text-sm text-red-300/80">{erro}</p>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setUploadResult(null);
-                        setUploadProgress(0);
-                        setSelectedFile(null);
-                      }}
-                      className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
-                    >
-                      Tentar Novamente
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setShowUploadModal(false);
-                        setUploadResult(null);
-                        setUploadProgress(0);
-                        fetchEditais();
-                      }}
-                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white border-none"
-                    >
-                      Fechar
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-                        <CheckCircle className="w-6 h-6 text-green-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-100">Edital processado!</p>
-                        <p className="text-xs text-slate-400">Análise por IA concluída</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between py-2 border-b border-slate-700/50">
-                        <span className="text-slate-400">Título</span>
-                        <span className="text-slate-200 font-medium truncate max-w-[200px]">{uploadResult.titulo}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-slate-700/50">
-                        <span className="text-slate-400">Tecnologia</span>
-                        <span className="text-blue-400">{uploadResult.tecnologiaFoco}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-slate-700/50">
-                        <span className="text-slate-400">Score IA</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-gradient-to-r from-blue-500 to-green-400"
-                              style={{ width: `${uploadResult.scoreRelevancia}%` }}
-                            />
-                          </div>
-                          <span className="text-slate-200">{uploadResult.scoreRelevancia}</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between py-2">
-                        <span className="text-slate-400">Confiança</span>
-                        <span className="text-green-400">{uploadResult.confiancaIA}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowUploadModal(false);
-                        setUploadResult(null);
-                        setUploadProgress(0);
-                      }}
-                      className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
-                    >
-                      Fechar
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setShowUploadModal(false);
-                        setUploadResult(null);
-                        setUploadProgress(0);
-                        fetchEditais();
-                      }}
-                      className="flex-1 bg-blue-600 hover:bg-blue-500 text-white border-none"
-                    >
-                      Ver na Lista
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        aberto={paraExcluir !== null}
+        titulo="Excluir edital"
+        mensagem={`Tem certeza que deseja excluir "${paraExcluir?.titulo ?? ''}"? Isso também removerá o PDF.`}
+        textoConfirmar="Excluir"
+        perigoso
+        carregando={deleting !== null}
+        onConfirmar={confirmarExclusao}
+        onCancelar={() => setParaExcluir(null)}
+      />
+      <UploadPdfModal aberto={showUploadModal} onFechar={() => setShowUploadModal(false)} onProcessado={fetchEditais} />
       
       <ProcessingOverlay
         isOpen={analyzing !== null || reanalyzing !== null}
