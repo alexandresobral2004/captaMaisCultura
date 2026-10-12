@@ -3,7 +3,8 @@ import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 import { Edital, parseDateString, isEditalExcluido } from '../db/editais-store';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
+import { triarEdital } from '../triagem';
+import { obterEixoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
@@ -375,63 +376,22 @@ async function tentarBuscaComSessao(cookies: string[] | null): Promise<Edital[]>
             continue;
           }
 
-           // ✨ NOVO: Validação TI com Whitelist + OpenAI
-           let validacaoWhitelist;
-           try {
-             validacaoWhitelist = validarWhitelistTI(proc.nome, proc.descricao || '');
-           } catch (err) {
-             console.log(`  [${idx + 1}/${todasAsPaginas.length}] ⚠️ Erro na whitelist: ${(err as Error).message}`);
-             continue;
-           }
-           
-           // Se não passou na whitelist, pular
-           if (!validacaoWhitelist.válido) {
-            console.log(`  [${idx + 1}/${todasAsPaginas.length}] ❌ Rejeitado (sem termo TI): ${proc.nome.substring(0, 40)}`);
-            pipelineLogger.logWhitelist(idEdital, proc.nome, false, validacaoWhitelist.confidence || 'baixa', validacaoWhitelist.termosBranco || []);
-            pipelineLogger.logResultado(idEdital, proc.nome, 'rejeitado', 'Whitelist');
-            continue;
-          }
-          
-          pipelineLogger.logWhitelist(idEdital, proc.nome, true, validacaoWhitelist.confidence || 'alta', validacaoWhitelist.termosBranco || []);
-           
-           // ✨ NOVO: Chamar OpenAI para validação completa
-            let validacaoIA;
-            try {
-              console.log(`  [${idx + 1}/${todasAsPaginas.length}] 🤖 Validando com OpenAI: ${proc.nome.substring(0, 40)}...`);
-              validacaoIA = await validarComOpenAI(
-                proc.nome,
-                proc.descricao || '',
-                proc.valor_limite?.toString(),
-                proc.nome_empresa,
-                validacaoWhitelist.termosBranco
-              );
-            } catch (err) {
-              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ⚠️ Erro OpenAI: ${(err as Error).message}`);
-              pipelineLogger.logErro(idEdital, `Erro OpenAI: ${(err as Error).message}`);
-              // Fallback para falha interna da API
-              validacaoIA = {
-                ok: false as const,
-                válido: false as const,
-                erroTipo: 'unknown' as const,
-                mensagem: (err as Error).message,
-                modelo: 'unknown'
-              };
-            }
-            
-            if (validacaoIA.ok) {
-              pipelineLogger.logIA(idEdital, proc.nome, validacaoIA.válido, validacaoIA.tecnologia, validacaoIA.score);
+            // Triagem por eixo (Cultura ou TI/Pesquisa) conforme a configuração do portal
+            const triagem = await triarEdital({
+              titulo: proc.nome,
+              descricao: proc.descricao || '',
+              valor: proc.valor_limite?.toString(),
+              orgao: proc.nome_empresa,
+              eixoPortal: await obterEixoPortal('prosas'),
+            });
+
+            if (triagem.validacaoIA?.ok) {
+              pipelineLogger.logIA(idEdital, proc.nome, triagem.validacaoIA.válido, triagem.validacaoIA.tecnologia, triagem.validacaoIA.score);
             }
 
-            // ✨ NOVO: Validação final com blacklist
-            let textoCombinado = `${proc.nome} ${proc.descricao || ''}`;
-            const passarBlacklistObj = validarBlacklist(proc.nome, textoCombinado);
-            pipelineLogger.logBlacklist(idEdital, proc.nome, passarBlacklistObj ? 0 : 50, passarBlacklistObj ? 'aprovar' : 'bloquear');
-            
-            // Rejeita apenas se a classificação por IA foi bem-sucedida E indicou inválido, OU se falhou na blacklist
-            const rejeitadoPelaIA = validacaoIA.ok && !validacaoIA.válido;
-            if (rejeitadoPelaIA || !passarBlacklistObj) {
-              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ❌ Rejeitado (válidoIA=${validacaoIA.ok ? validacaoIA.válido : 'incerto'}, passouBlacklist=${passarBlacklistObj}): ${proc.nome.substring(0, 40)}`);
-              pipelineLogger.logResultado(idEdital, proc.nome, 'rejeitado', rejeitadoPelaIA ? 'IA (OpenAI)' : 'Blacklist');
+            if (!triagem.aceito) {
+              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ❌ Rejeitado pela triagem (${triagem.etapa}): ${proc.nome.substring(0, 40)}`);
+              pipelineLogger.logResultado(idEdital, proc.nome, 'rejeitado', `Triagem (${triagem.etapa})`);
               continue;
             }
 
@@ -450,26 +410,16 @@ async function tentarBuscaComSessao(cookies: string[] | null): Promise<Edital[]>
               criadoEm: new Date().toISOString(),
               arquivosAnexos: arquivosAnexos.length > 0 ? arquivosAnexos : undefined,
               
-              // ✨ NOVOS CAMPOS TI COM INCOGNITA CONTROLADA SE FALHAR
-              tecnologiaFoco: validacaoIA.ok ? validacaoIA.tecnologia : undefined,
-              tipoFerramenta: validacaoIA.ok ? validacaoIA.tipo : undefined,
-              scoreRelevancia: validacaoIA.ok ? validacaoIA.score : 0,
-              scoreConfiancaIA: validacaoIA.ok ? validacaoIA.confiança : 0,
-              validadoPorIA: validacaoIA.ok,
-              palavrasChaveEncontradas: validacaoWhitelist.termosBranco,
-              dataValidacaoIA: new Date().toISOString(),
-              statusAnalise: validacaoIA.ok ? undefined : 'duvida',
-              foraDoEscopo: validacaoIA.ok ? false : null,
-              motivosPontuacao: validacaoIA.ok ? undefined : [`Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`]
+              ...camposTriagemParaEdital(triagem)
             };
 
             totalEditais.push(edital);
             pipelineLogger.logResultado(idEdital, proc.nome, 'salvo', `Score IA: ${edital.scoreRelevancia}`);
             
-            if (validacaoIA.ok) {
-              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ✅ VÁLIDO TI [${validacaoIA.tecnologia}]: ${proc.nome.substring(0, 40)}`);
+            if (triagem.incerto) {
+              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ❓ INCERTO [${triagem.categoriaArea}]: ${proc.nome.substring(0, 40)}`);
             } else {
-              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ❓ INCERTO TI (Falha IA): ${proc.nome.substring(0, 40)}`);
+              console.log(`  [${idx + 1}/${todasAsPaginas.length}] ✅ VÁLIDO [${triagem.categoriaArea}]: ${proc.nome.substring(0, 40)}`);
             }
 
             // Rate limiting: 500ms entre requests de detalhe

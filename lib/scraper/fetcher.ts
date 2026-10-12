@@ -5,7 +5,6 @@ import { Edital, saveEdital, parseDateString } from '../db/editais-store';
 import { buscarEditaisProsas } from './prosas-scraper';
 import { buscarEditaisCapta } from './capta-scraper';
 import { buscarEditaisFinep, buscarEditaisCNPq, buscarEditaisCapes, buscarEditaisMinisterioCiencia } from './portais-finep-cnpq-capes';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
 
 // Helper para converter string de data em formato Date
 function extrairData(texto: string): Date | null {

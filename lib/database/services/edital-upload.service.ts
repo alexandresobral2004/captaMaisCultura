@@ -101,7 +101,8 @@ export class EditalUploadService {
       confiança: 30
     };
 
-    if (textoExtraido && textoExtraido.length > 50) {
+    // A classificação de tecnologia/tipo é do eixo TI/Pesquisa; edital de Cultura não passa por ela
+    if (textoExtraido && textoExtraido.length > 50 && options.categoriaArea !== 'Cultura') {
       try {
         const resultado = await validarComOpenAI(
           titulo,

@@ -2,7 +2,8 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import crypto from 'crypto';
 import { Edital, isEditalExcluido } from '../db/editais-store';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
+import { triarEdital } from '../triagem';
+import { obterEixoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 
 const CAPTA_URL = 'https://capta.org.br/fontes-de-financiamento/oportunidades/';
@@ -150,52 +151,20 @@ export async function buscarEditaisCapta(): Promise<Edital[]> {
       }
 
       try {
-        const validacaoWhitelist = validarWhitelistTI(item.titulo, item.descricao);
+        const triagem = await triarEdital({
+          titulo: item.titulo,
+          descricao: item.descricao,
+          orgao: 'Capta/ISPN',
+          eixoPortal: await obterEixoPortal('capta'),
+        });
 
-        if (!validacaoWhitelist.válido) {
-          console.log(`   ⏭️ [${idEdital}] Rejeitado por whitelist: ${item.titulo.substring(0, 40)}...`);
-          pipelineLogger.logWhitelist(idEdital, item.titulo, false, validacaoWhitelist.confidence || 'baixa', validacaoWhitelist.termosBranco || []);
-          pipelineLogger.logResultado(idEdital, item.titulo, 'rejeitado', 'Whitelist');
-          rejeitados++;
-          continue;
-        }
-        
-        pipelineLogger.logWhitelist(idEdital, item.titulo, true, validacaoWhitelist.confidence || 'alta', validacaoWhitelist.termosBranco || []);
-
-        let validacaoIA;
-        try {
-          validacaoIA = await validarComOpenAI(
-            item.titulo,
-            item.descricao,
-            undefined,
-            'Capta/ISPN',
-            validacaoWhitelist.termosBranco
-          );
-        } catch (err) {
-          console.warn(`   ⚠️ Erro OpenAI: ${(err as Error).message}`);
-          validacaoIA = {
-            ok: false as const,
-            válido: false as const,
-            erroTipo: 'unknown' as const,
-            mensagem: (err as Error).message,
-            modelo: 'unknown'
-          };
-          pipelineLogger.logErro(idEdital, `Erro OpenAI: ${(err as Error).message}`);
-        }
-        
-        if (validacaoIA.ok) {
-          pipelineLogger.logIA(idEdital, item.titulo, validacaoIA.válido, validacaoIA.tecnologia, validacaoIA.score);
+        if (triagem.validacaoIA?.ok) {
+          pipelineLogger.logIA(idEdital, item.titulo, triagem.validacaoIA.válido, triagem.validacaoIA.tecnologia, triagem.validacaoIA.score);
         }
 
-        const passouBlacklist = validarBlacklist(item.titulo, item.descricao);
-        // Note: validarBlacklist returns boolean only in this old version. 
-        // We'll mock a simple log for it if we don't have the full object here.
-        pipelineLogger.logBlacklist(idEdital, item.titulo, passouBlacklist ? 0 : 50, passouBlacklist ? 'aprovar' : 'bloquear');
-
-        const rejeitadoPelaIA = validacaoIA.ok && !validacaoIA.válido;
-        if (rejeitadoPelaIA || !passouBlacklist) {
-          console.log(`   ⏭️ [${idEdital}] Rejeitado por IA/blacklist: ${item.titulo.substring(0, 40)}...`);
-          pipelineLogger.logResultado(idEdital, item.titulo, 'rejeitado', rejeitadoPelaIA ? 'IA (OpenAI)' : 'Blacklist');
+        if (!triagem.aceito) {
+          console.log(`   ⏭️ [${idEdital}] Rejeitado pela triagem (${triagem.etapa}): ${item.titulo.substring(0, 40)}...`);
+          pipelineLogger.logResultado(idEdital, item.titulo, 'rejeitado', `Triagem (${triagem.etapa})`);
           rejeitados++;
           continue;
         }
@@ -215,26 +184,7 @@ export async function buscarEditaisCapta(): Promise<Edital[]> {
           descricao: item.descricao.substring(0, 500),
           criadoEm: agora.toISOString(),
 
-          tecnologiaFoco: validacaoIA.ok ? validacaoIA.tecnologia : undefined,
-          tipoFerramenta: validacaoIA.ok ? validacaoIA.tipo : undefined,
-          scoreRelevancia: validacaoIA.ok ? validacaoIA.score : 0,
-          scoreConfiancaIA: validacaoIA.ok ? validacaoIA.confiança : 0,
-          validadoPorIA: validacaoIA.ok,
-          palavrasChaveEncontradas: validacaoWhitelist.termosBranco,
-          dataValidacaoIA: agora.toISOString(),
-          statusAnalise: validacaoIA.ok ? undefined : 'duvida',
-          foraDoEscopo: validacaoIA.ok ? false : null,
-          motivosPontuacao: validacaoIA.ok ? undefined : [
-            validacaoIA.erroTipo === 'timeout'
-              ? `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'rate_limit'
-              ? `Rate limit da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'auth'
-              ? `Erro de autenticação da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'parse'
-              ? `Resposta inválida da OpenAI: ${validacaoIA.mensagem}`
-              : `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-          ],
+          ...camposTriagemParaEdital(triagem),
 
           areasTematicas: item.regiao ? [item.regiao] : undefined,
           abrangencia: item.regiao || 'Nacional',

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { Edital, isEditalExcluido } from '../db/editais-store';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
+import { triarEdital } from '../triagem';
+import { obterEixoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { getPortal, atualizarUltimoScan } from './config';
 
@@ -122,45 +123,20 @@ export async function buscarEditaisFinep(): Promise<Edital[]> {
         continue;
       }
 
-      // Validação com whitelist
-      const validacaoWhitelist = validarWhitelistTI(titulo, '');
-      
-      if (!validacaoWhitelist.válido) {
+      const triagem = await triarEdital({
+        titulo,
+        descricao: '',
+        orgao: 'FINEP',
+        eixoPortal: await obterEixoPortal('finep'),
+      });
+
+      if (!triagem.aceito) {
         rejeitados++;
+        pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', `Triagem (${triagem.etapa})`);
         continue;
       }
 
-      // Validação com OpenAI
       try {
-        let validacaoIA;
-        try {
-          validacaoIA = await validarComOpenAI(
-            titulo,
-            '',
-            undefined,
-            'FINEP',
-            validacaoWhitelist.termosBranco
-          );
-        } catch (err) {
-          console.warn(`   ⚠️ Erro OpenAI (FINEP): ${(err as Error).message}`);
-          validacaoIA = {
-            ok: false as const,
-            válido: false as const,
-            erroTipo: 'unknown' as const,
-            mensagem: (err as Error).message,
-            modelo: 'unknown'
-          };
-        }
-
-        const passuBlacklist = validarBlacklist(titulo, '');
-
-        const rejeitadoPelaIA = validacaoIA.ok && !validacaoIA.válido;
-        if (rejeitadoPelaIA || !passuBlacklist) {
-          rejeitados++;
-          pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', rejeitadoPelaIA ? 'IA (OpenAI)' : 'Blacklist');
-          continue;
-        }
-
         const edital: Edital = {
           id: `finep-${Buffer.from(titulo).toString('base64').substring(0, 10)}`,
           titulo,
@@ -172,27 +148,7 @@ export async function buscarEditaisFinep(): Promise<Edital[]> {
           descricao: '',
           criadoEm: new Date().toISOString(),
           
-          // Campos TI
-          tecnologiaFoco: validacaoIA.ok ? validacaoIA.tecnologia : undefined,
-          tipoFerramenta: validacaoIA.ok ? validacaoIA.tipo : undefined,
-          scoreRelevancia: validacaoIA.ok ? validacaoIA.score : 0,
-          scoreConfiancaIA: validacaoIA.ok ? validacaoIA.confiança : 0,
-          validadoPorIA: validacaoIA.ok,
-          palavrasChaveEncontradas: validacaoWhitelist.termosBranco,
-          dataValidacaoIA: new Date().toISOString(),
-          statusAnalise: validacaoIA.ok ? undefined : 'duvida',
-          foraDoEscopo: validacaoIA.ok ? false : null,
-          motivosPontuacao: validacaoIA.ok ? undefined : [
-            validacaoIA.erroTipo === 'timeout'
-              ? `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'rate_limit'
-              ? `Rate limit da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'auth'
-              ? `Erro de autenticação da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'parse'
-              ? `Resposta inválida da OpenAI: ${validacaoIA.mensagem}`
-              : `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-          ]
+          ...camposTriagemParaEdital(triagem),
         };
 
         editaisValidados.push(edital);
@@ -293,49 +249,20 @@ export async function buscarEditaisCNPq(): Promise<Edital[]> {
         continue;
       }
 
-      // Validação com whitelist
-      const validacaoWhitelist = validarWhitelistTI(titulo, '');
-      
-      if (!validacaoWhitelist.válido) {
+      const triagem = await triarEdital({
+        titulo,
+        descricao: '',
+        orgao: 'CNPq',
+        eixoPortal: await obterEixoPortal('cnpq'),
+      });
+
+      if (!triagem.aceito) {
         rejeitados++;
+        pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', `Triagem (${triagem.etapa})`);
         continue;
       }
 
-      // Validação com OpenAI
       try {
-        let validacaoIA;
-        try {
-          validacaoIA = await validarComOpenAI(
-            titulo,
-            '',
-            undefined,
-            'CNPq',
-            validacaoWhitelist.termosBranco
-          );
-        } catch (err) {
-          console.warn(`   ⚠️ Erro OpenAI (CNPq): ${(err as Error).message}`);
-          validacaoIA = {
-            ok: false as const,
-            válido: false as const,
-            erroTipo: 'unknown' as const,
-            mensagem: (err as Error).message,
-            modelo: 'unknown'
-          };
-        }
-
-        const passuBlacklist = validarBlacklist(titulo, '');
-
-        const rejeitadoPelaIA = validacaoIA.ok && !validacaoIA.válido;
-        if (rejeitadoPelaIA || !passuBlacklist) {
-          rejeitados++;
-          pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', rejeitadoPelaIA ? 'IA (OpenAI)' : 'Blacklist');
-          continue;
-        }
-
-        const urlCompleta = link && !link.startsWith('http') 
-          ? `https://www.gov.br${link}`
-          : (link || 'https://www.gov.br/cnpq/pt-br/financiamento/chamadas-abertas');
-
         const edital: Edital = {
           id: `cnpq-${Buffer.from(titulo).toString('base64').substring(0, 10)}`,
           titulo,
@@ -347,27 +274,7 @@ export async function buscarEditaisCNPq(): Promise<Edital[]> {
           descricao: '',
           criadoEm: new Date().toISOString(),
           
-          // Campos TI
-          tecnologiaFoco: validacaoIA.ok ? validacaoIA.tecnologia : undefined,
-          tipoFerramenta: validacaoIA.ok ? validacaoIA.tipo : undefined,
-          scoreRelevancia: validacaoIA.ok ? validacaoIA.score : 0,
-          scoreConfiancaIA: validacaoIA.ok ? validacaoIA.confiança : 0,
-          validadoPorIA: validacaoIA.ok,
-          palavrasChaveEncontradas: validacaoWhitelist.termosBranco,
-          dataValidacaoIA: new Date().toISOString(),
-          statusAnalise: validacaoIA.ok ? undefined : 'duvida',
-          foraDoEscopo: validacaoIA.ok ? false : null,
-          motivosPontuacao: validacaoIA.ok ? undefined : [
-            validacaoIA.erroTipo === 'timeout'
-              ? `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'rate_limit'
-              ? `Rate limit da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'auth'
-              ? `Erro de autenticação da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'parse'
-              ? `Resposta inválida da OpenAI: ${validacaoIA.mensagem}`
-              : `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-          ]
+          ...camposTriagemParaEdital(triagem),
         };
 
         editaisValidados.push(edital);
@@ -468,49 +375,20 @@ export async function buscarEditaisCapes(): Promise<Edital[]> {
         continue;
       }
 
-      // Validação com whitelist
-      const validacaoWhitelist = validarWhitelistTI(titulo, '');
-      
-      if (!validacaoWhitelist.válido) {
+      const triagem = await triarEdital({
+        titulo,
+        descricao: '',
+        orgao: 'CAPES',
+        eixoPortal: await obterEixoPortal('capes'),
+      });
+
+      if (!triagem.aceito) {
         rejeitados++;
+        pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', `Triagem (${triagem.etapa})`);
         continue;
       }
 
-      // Validação com OpenAI
       try {
-        let validacaoIA;
-        try {
-          validacaoIA = await validarComOpenAI(
-            titulo,
-            '',
-            undefined,
-            'CAPES',
-            validacaoWhitelist.termosBranco
-          );
-        } catch (err) {
-          console.warn(`   ⚠️ Erro OpenAI (CAPES): ${(err as Error).message}`);
-          validacaoIA = {
-            ok: false as const,
-            válido: false as const,
-            erroTipo: 'unknown' as const,
-            mensagem: (err as Error).message,
-            modelo: 'unknown'
-          };
-        }
-
-        const passuBlacklist = validarBlacklist(titulo, '');
-
-        const rejeitadoPelaIA = validacaoIA.ok && !validacaoIA.válido;
-        if (rejeitadoPelaIA || !passuBlacklist) {
-          rejeitados++;
-          pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', rejeitadoPelaIA ? 'IA (OpenAI)' : 'Blacklist');
-          continue;
-        }
-
-        const urlCompleta = link && !link.startsWith('http')
-          ? `https://www.gov.br${link}`
-          : (link || 'https://www.gov.br/capes/pt-br/acesso-a-informacao/editais');
-
         const edital: Edital = {
           id: `capes-${Buffer.from(titulo).toString('base64').substring(0, 10)}`,
           titulo,
@@ -522,27 +400,7 @@ export async function buscarEditaisCapes(): Promise<Edital[]> {
           descricao: '',
           criadoEm: new Date().toISOString(),
           
-          // Campos TI
-          tecnologiaFoco: validacaoIA.ok ? validacaoIA.tecnologia : undefined,
-          tipoFerramenta: validacaoIA.ok ? validacaoIA.tipo : undefined,
-          scoreRelevancia: validacaoIA.ok ? validacaoIA.score : 0,
-          scoreConfiancaIA: validacaoIA.ok ? validacaoIA.confiança : 0,
-          validadoPorIA: validacaoIA.ok,
-          palavrasChaveEncontradas: validacaoWhitelist.termosBranco,
-          dataValidacaoIA: new Date().toISOString(),
-          statusAnalise: validacaoIA.ok ? undefined : 'duvida',
-          foraDoEscopo: validacaoIA.ok ? false : null,
-          motivosPontuacao: validacaoIA.ok ? undefined : [
-            validacaoIA.erroTipo === 'timeout'
-              ? `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'rate_limit'
-              ? `Rate limit da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'auth'
-              ? `Erro de autenticação da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'parse'
-              ? `Resposta inválida da OpenAI: ${validacaoIA.mensagem}`
-              : `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-          ]
+          ...camposTriagemParaEdital(triagem),
         };
 
         editaisValidados.push(edital);
@@ -672,47 +530,21 @@ export async function buscarEditaisMinisterioCiencia(): Promise<Edital[]> {
       // Aceitar se for evento científico OU chamada pública de pesquisa
       const ehEventoCientifico = temPalavraEvento && temPalavraCiencia;
 
-      // Validação com whitelist para pesquisa e ciência
-      const validacaoWhitelist = validarWhitelistTI(titulo, descricao);
-      
-      // Aceitar se passar na whitelist OU se for evento científico
-      if (!validacaoWhitelist.válido && !ehEventoCientifico) {
+      const triagem = await triarEdital({
+        titulo,
+        descricao: descricao,
+        orgao: 'Ministério da Ciência do Brasil',
+        tipoEdital: ehEventoCientifico ? 'evento_cientifico' : undefined,
+        eixoPortal: await obterEixoPortal('mcti'),
+      });
+
+      if (!triagem.aceito) {
         rejeitados++;
+        pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', `Triagem (${triagem.etapa})`);
         continue;
       }
 
-      // Validação com OpenAI
       try {
-        let validacaoIA;
-        try {
-          validacaoIA = await validarComOpenAI(
-            titulo,
-            descricao,
-            undefined,
-            'Ministério da Ciência do Brasil',
-            validacaoWhitelist.termosBranco,
-            ehEventoCientifico ? 'evento_cientifico' : undefined
-          );
-        } catch (err) {
-          console.warn(`   ⚠️ Erro OpenAI (Ministério da Ciência): ${(err as Error).message}`);
-          validacaoIA = {
-            ok: false as const,
-            válido: false as const,
-            erroTipo: 'unknown' as const,
-            mensagem: (err as Error).message,
-            modelo: 'unknown'
-          };
-        }
-
-        const passuBlacklist = validarBlacklist(titulo, descricao);
-
-        const rejeitadoPelaIA = validacaoIA.ok && !validacaoIA.válido;
-        if (rejeitadoPelaIA || !passuBlacklist) {
-          rejeitados++;
-          pipelineLogger.logResultado(idEdital, titulo, 'rejeitado', rejeitadoPelaIA ? 'IA (OpenAI)' : 'Blacklist');
-          continue;
-        }
-
         const edital: Edital = {
           id: `mciencia-${Buffer.from(titulo).toString('base64').substring(0, 10)}`,
           titulo,
@@ -724,27 +556,7 @@ export async function buscarEditaisMinisterioCiencia(): Promise<Edital[]> {
           descricao: descricao.substring(0, 500),
           criadoEm: new Date().toISOString(),
           
-          // Campos TI/Pesquisa
-          tecnologiaFoco: validacaoIA.ok ? validacaoIA.tecnologia : undefined,
-          tipoFerramenta: validacaoIA.ok ? validacaoIA.tipo : undefined,
-          scoreRelevancia: validacaoIA.ok ? validacaoIA.score : 0,
-          scoreConfiancaIA: validacaoIA.ok ? validacaoIA.confiança : 0,
-          validadoPorIA: validacaoIA.ok,
-          palavrasChaveEncontradas: validacaoWhitelist.termosBranco,
-          dataValidacaoIA: new Date().toISOString(),
-          statusAnalise: validacaoIA.ok ? undefined : 'duvida',
-          foraDoEscopo: validacaoIA.ok ? false : null,
-          motivosPontuacao: validacaoIA.ok ? undefined : [
-            validacaoIA.erroTipo === 'timeout'
-              ? `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'rate_limit'
-              ? `Rate limit da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'auth'
-              ? `Erro de autenticação da OpenAI: ${validacaoIA.mensagem}`
-              : validacaoIA.erroTipo === 'parse'
-              ? `Resposta inválida da OpenAI: ${validacaoIA.mensagem}`
-              : `Falha temporária na classificação OpenAI: ${validacaoIA.mensagem}`
-          ],
+          ...camposTriagemParaEdital(triagem),
           
           // Marcar se é evento científico
           tipoEdital: ehEventoCientifico ? 'evento_cientifico' : 'chamada_publica'
