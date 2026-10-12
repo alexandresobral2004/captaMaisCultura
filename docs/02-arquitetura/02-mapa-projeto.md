@@ -1,3 +1,5 @@
+> **Atenção:** as rotas `/api/editais/deletar` e `/api/editais/carregar-downloads` foram removidas. Para excluir um edital use `/api/v1/editais/[id]`. Trechos abaixo que as citam estão desatualizados.
+
 # Mapa Arquitetural do Projeto: Capta+ (CaptaMais v3.0)
 
 > **📍 Localização:** `docs/02-arquitetura/02-mapa-projeto.md`

@@ -1,3 +1,5 @@
+> **Atenção:** as rotas `/api/editais/deletar` e `/api/editais/carregar-downloads` foram removidas. Para excluir um edital use `/api/v1/editais/[id]`. Trechos abaixo que as citam estão desatualizados.
+
 # 🧪 Relatório de Teste do Fluxo Completo (End-to-End)
 
 > **📍 Localização:** `docs/08-testes-analise/02-workflow-test-report.md`

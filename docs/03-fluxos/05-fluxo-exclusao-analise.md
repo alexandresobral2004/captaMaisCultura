@@ -1,3 +1,5 @@
+> **Atenção:** as rotas `/api/editais/deletar` e `/api/editais/carregar-downloads` foram removidas. Para excluir um edital use `/api/v1/editais/[id]`. Trechos abaixo que as citam estão desatualizados.
+
 # Fluxo de Exclusão e Análise Manual de Editais
 
 > **📍 Localização:** `docs/03-fluxos/05-fluxo-exclusao-analise.md`

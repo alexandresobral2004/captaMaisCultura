@@ -1,3 +1,5 @@
+> **Atenção:** as rotas `/api/editais/deletar` e `/api/editais/carregar-downloads` foram removidas. Para excluir um edital use `/api/v1/editais/[id]`. Trechos abaixo que as citam estão desatualizados.
+
 # Análise Completa do Codebase - CaptaMais
 
 > **📍 Localização:** `docs/02-arquitetura/03-estrutura-codebase.md`
