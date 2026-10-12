@@ -88,6 +88,7 @@ export default function EditaisPage() {
   
   // Estados de Filtros
   const [searchTerm, setSearchTerm] = useState('');
+  const [eixoFiltro, setEixoFiltro] = useState<'todos' | 'Cultura' | 'Pesquisa'>('todos');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [selectedTiposEdital, setSelectedTiposEdital] = useState<string[]>([]);
@@ -405,7 +406,10 @@ export default function EditaisPage() {
       return true;
     });
 
-    return matchSearch && matchArea && matchTipo && matchTipoEdital;
+    // Eixo gravado na triagem; editais antigos sem eixo contam como Cultura (padrão do banco)
+    const matchEixo = eixoFiltro === 'todos' || (edital.categoriaArea || 'Cultura') === eixoFiltro;
+
+    return matchEixo && matchSearch && matchArea && matchTipo && matchTipoEdital;
   }).sort((a, b) => {
     // Ordenar por data de lançamento
     const dataA = new Date(a.criadoEm || a.dataLimite || 0).getTime();
@@ -567,6 +571,27 @@ export default function EditaisPage() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       style={{ paddingLeft: '2.25rem' }}
                     />
+                  </div>
+                </div>
+
+                <div className="filters-section">
+                  <label className="filters-section-title">Eixo</label>
+                  <div className="checkbox-group" role="radiogroup" aria-label="Eixo dos editais">
+                    {([
+                      ['todos', 'Todos'],
+                      ['Cultura', '🎭 Cultura'],
+                      ['Pesquisa', '🔬 TI e Pesquisa'],
+                    ] as const).map(([valor, rotulo]) => (
+                      <label key={valor} className="checkbox-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="eixo-editais"
+                          checked={eixoFiltro === valor}
+                          onChange={() => setEixoFiltro(valor)}
+                        />
+                        {rotulo}
+                      </label>
+                    ))}
                   </div>
                 </div>
 
@@ -751,7 +776,7 @@ export default function EditaisPage() {
                             className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-slate-800 dark:text-slate-200"
                           >
                             <option value="Cultura">🎭 Cultura</option>
-                            <option value="Pesquisa">🔬 Pesquisa</option>
+                            <option value="Pesquisa">🔬 TI e Pesquisa</option>
                             <option value="Esporte">⚽ Esporte</option>
                             <option value="Infraestrutura">🚧 Infraestrutura</option>
                             <option value="Outros">📁 Outros</option>
@@ -1358,7 +1383,7 @@ export default function EditaisPage() {
                         className="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
                         <option value="Cultura">🎭 Cultura</option>
-                        <option value="Pesquisa">🔬 Pesquisa</option>
+                        <option value="Pesquisa">🔬 TI e Pesquisa</option>
                         <option value="Esporte">⚽ Esporte</option>
                         <option value="Infraestrutura">🚧 Infraestrutura</option>
                         <option value="Outros">📁 Outros</option>
