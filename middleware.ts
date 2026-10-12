@@ -95,6 +95,7 @@ export async function middleware(request: NextRequest) {
     // Permitir login público e consulta do perfil pessoal
     const isExempt = 
       pathname === '/api/v1/usuarios/login' || 
+      pathname === '/api/v1/usuarios/logout' || 
       pathname === '/api/v1/usuarios/me';
 
     if (!isExempt) {
@@ -116,6 +117,7 @@ export async function middleware(request: NextRequest) {
     metodoMutavel &&
     pathname.startsWith('/api/') &&
     pathname !== '/api/v1/usuarios/me' &&
+    pathname !== '/api/v1/usuarios/logout' &&
     usuario.role !== 'admin' &&
     usuario.role !== 'editor'
   ) {

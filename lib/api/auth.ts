@@ -55,6 +55,8 @@ function base64UrlToBuffer(base64url: string): ArrayBuffer {
 /**
  * Assina um payload gerando uma string no formato payloadBase64.assinatura (base64url)
  */
+export const SESSAO_DURACAO_SEGUNDOS = 60 * 60 * 24;
+
 export async function assinarToken(payload: string): Promise<string> {
   const payloadBase64 = bufferToBase64Url(encode(payload));
   const key = await crypto.subtle.importKey(
@@ -123,7 +125,11 @@ export async function obterUsuarioLogado(request: NextRequest): Promise<UsuarioL
     if (!payloadOriginal) {
       return null;
     }
-    const usuario = JSON.parse(payloadOriginal) as UsuarioLogado;
+    const { exp, ...usuario } = JSON.parse(payloadOriginal) as UsuarioLogado & { exp?: number };
+    // Token sem validade (emitido antes desta regra) ou vencido não vale
+    if (typeof exp !== 'number' || exp * 1000 < Date.now()) {
+      return null;
+    }
     return usuario;
   } catch {
     return null;

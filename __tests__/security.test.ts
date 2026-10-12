@@ -136,7 +136,7 @@ describe('Middleware - perfil somente leitura', () => {
     const { assinarToken } = await import('../lib/api/auth');
     const { middleware } = await import('../middleware');
     const token = await assinarToken(
-      JSON.stringify({ id: 'u1', nome: 'Teste', email: 't@t.com', role, status: 'ativo' })
+      JSON.stringify({ id: 'u1', nome: 'Teste', email: 't@t.com', role, status: 'ativo', exp: Math.floor(Date.now() / 1000) + 3600 })
     );
     const req = new NextRequest(`http://localhost:3000${caminho}`, {
       method: metodo,
@@ -154,6 +154,11 @@ describe('Middleware - perfil somente leitura', () => {
       const res = await requisicao('leitor', metodo, caminho);
       expect(res.status).toBe(403);
     }
+  });
+
+  it('leitor consegue encerrar a própria sessão', async () => {
+    const res = await requisicao('leitor', 'POST', '/api/v1/usuarios/logout');
+    expect(res.status).toBe(200);
   });
 
   it('leitor ainda pode ler (GET)', async () => {
@@ -210,5 +215,33 @@ describe('handleApiError', () => {
     const erro = z.object({ a: z.string() }).safeParse({}).error!;
     const res = handleApiError(erro);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('Sessão - validade do token', () => {
+  async function usuarioDe(exp?: number) {
+    const { NextRequest } = await import('next/server');
+    const { assinarToken, obterUsuarioLogado } = await import('../lib/api/auth');
+    const payload: Record<string, unknown> = { id: 'u1', nome: 'T', email: 't@t.com', role: 'admin', status: 'ativo' };
+    if (exp !== undefined) payload.exp = exp;
+    const token = await assinarToken(JSON.stringify(payload));
+    const req = new NextRequest('http://localhost:3000/api/v1/usuarios/me', {
+      headers: { cookie: `usuario_logado=${token}` },
+    });
+    return obterUsuarioLogado(req);
+  }
+
+  it('aceita token dentro da validade e não expõe exp', async () => {
+    const u = await usuarioDe(Math.floor(Date.now() / 1000) + 60);
+    expect(u?.id).toBe('u1');
+    expect(u).not.toHaveProperty('exp');
+  });
+
+  it('rejeita token vencido', async () => {
+    expect(await usuarioDe(Math.floor(Date.now() / 1000) - 1)).toBeNull();
+  });
+
+  it('rejeita token sem validade', async () => {
+    expect(await usuarioDe()).toBeNull();
   });
 });

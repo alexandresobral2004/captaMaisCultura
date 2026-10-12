@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UsuarioService } from '@/lib/database/services/usuario.service';
-import { assinarToken } from '@/lib/api/auth';
+import { assinarToken, SESSAO_DURACAO_SEGUNDOS } from '@/lib/api/auth';
 import { LoginUsuarioSchema } from '@/lib/api/validators';
 import { rateLimit, rateLimitPorChave, handleRateLimitResponse } from '@/lib/api/middleware/rate-limit';
 import { ZodError } from 'zod';
@@ -38,13 +38,15 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json(usuario);
 
     console.log('🔒 [LOGIN] Gerando cookie de sessão criptografado/assinado...');
-    const token = await assinarToken(JSON.stringify(usuario));
+    const token = await assinarToken(
+      JSON.stringify({ ...usuario, exp: Math.floor(Date.now() / 1000) + SESSAO_DURACAO_SEGUNDOS })
+    );
 
     response.cookies.set('usuario_logado', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 horas
+      maxAge: SESSAO_DURACAO_SEGUNDOS,
       path: '/',
     });
     console.log('🍪 [LOGIN] Cookie usuario_logado definido com sucesso.');
