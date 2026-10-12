@@ -4,6 +4,7 @@ import { getPortais, removerPortal, PortalConfig } from './config';
 import { Edital, saveEdital, parseDateString } from '../db/editais-store';
 import { buscarEditaisProsas } from './prosas-scraper';
 import { buscarEditaisCapta } from './capta-scraper';
+import { buscarEditaisPortalGenerico, PORTAIS_COM_COLETOR_PROPRIO } from './portal-generico';
 import { buscarEditaisFinep, buscarEditaisCNPq, buscarEditaisCapes, buscarEditaisMinisterioCiencia } from './portais-finep-cnpq-capes';
 
 // Helper para converter string de data em formato Date
@@ -291,6 +292,28 @@ export async function buscarEditaisPortais(): Promise<Edital[]> {
       erro: err.message
     });
     console.warn(`      ❌ ERRO | ${err.message} | ${tempoMctiDecorrido}s\n`);
+  }
+
+  // 7. Portais sem coletor próprio (cadastrados em "Onde buscar"), via coletor genérico
+  try {
+    const genericos = getPortais().filter(p => p.ativo && p.tipo === 'html' && !PORTAIS_COM_COLETOR_PROPRIO.includes(p.id));
+    for (const portal of genericos) {
+      const inicio = Date.now();
+      console.log(`  📥 Consultando ${portal.nome} (coletor genérico)...`);
+      try {
+        const encontrados = await buscarEditaisPortalGenerico(portal);
+        for (const ed of encontrados) {
+          const salvo = await saveEdital(ed);
+          if (!salvo.deletedAt) novosEditais.push(salvo);
+        }
+        statusPortais.push({ nome: portal.nome.substring(0, 14), numero: statusPortais.length + 1, sucesso: true, editaisRetornados: encontrados.length, tempo: (Date.now() - inicio) / 1000 });
+      } catch (err: any) {
+        statusPortais.push({ nome: portal.nome.substring(0, 14), numero: statusPortais.length + 1, sucesso: false, editaisRetornados: 0, tempo: (Date.now() - inicio) / 1000, erro: err.message });
+      }
+      await sleep(1000);
+    }
+  } catch (err: any) {
+    console.warn(`  ⚠️ Falha ao consultar portais genéricos: ${err.message}`);
   }
 
   // ✨ RESUMO FINAL
