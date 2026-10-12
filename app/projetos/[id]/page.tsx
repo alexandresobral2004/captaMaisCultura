@@ -19,6 +19,7 @@ import {
 import { EquipeProjeto } from '@/components/projetos/EquipeProjeto';
 import { DadosProponenteForm } from '@/components/projetos/DadosProponenteForm';
 import { defaultDadosProponente, type DadosProponente } from '@/components/projetos/dados-proponente';
+import { EscolhaModoGeracao } from '@/components/projetos/EscolhaModoGeracao';
 import { AprimorarSecaoPopover } from '@/components/projetos/AprimorarSecaoPopover';
 import { ConferenciaProjeto, type ResultadoConferencia } from '@/components/projetos/ConferenciaProjeto';
 import { useConfirm } from '@/contexts/confirm-context';
@@ -123,6 +124,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [gerando, setGerando] = useState(false);
+  const [escolhendoModo, setEscolhendoModo] = useState(false);
   const [conferindo, setConferindo] = useState(false);
   const [conferencia, setConferencia] = useState<ResultadoConferencia | null>(null);
 
@@ -262,8 +264,15 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
     }
   };
 
-  const handleGerarCompleto = async () => {
+  const iniciarGeracao = () => {
+    const temTexto = secoesDinamicas.some(s => (s.conteudo || '').replace(/<[^>]+>/g, '').trim());
+    if (temTexto) setEscolhendoModo(true);
+    else handleGerarCompleto('todas');
+  };
+
+  const handleGerarCompleto = async (modo: 'vazias' | 'todas') => {
     if (!projetoId) return;
+    setEscolhendoModo(false);
 
     setGerando(true);
     setSaving(true);
@@ -288,14 +297,26 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
       // 2. Executar a geração da proposta
       const res = await fetch(`/api/v1/projetos/${projetoId}/gerar`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modo }),
       });
+      const json = await res.json();
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Falha ao gerar proposta');
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Falha ao gerar proposta');
       }
 
       await fetchProjeto();
+
+      const { conferencia: conf, avisos, trechosAPreencher } = json.data;
+      const extras: string[] = [...(avisos || [])];
+      if (trechosAPreencher > 0) {
+        extras.push(`${trechosAPreencher} trecho(s) marcado(s) com [PREENCHER: ...] precisam ser completados por você.`);
+      }
+      setConferencia({
+        secoesExigidas: [], secoesFaltando: [], criterios: [], ...(conf || {}),
+        avisos: [...(conf?.avisos || []), ...extras],
+      });
     } catch (err: any) {
       toast.showError(err.message);
     } finally {
@@ -555,7 +576,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
               {conferindo ? <Spinner className="w-4 h-4 mr-2" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
               <span>{conferindo ? 'Conferindo...' : 'Conferir projeto'}</span>
             </Button>
-            <Button onClick={handleGerarCompleto} disabled={gerando} className="touch-target">
+            <Button onClick={iniciarGeracao} disabled={gerando} className="touch-target">
               {gerando ? (
                 <>
                   <Spinner className="w-4 h-4 mr-2" />
@@ -570,6 +591,8 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
             </Button>
           </div>
         </div>
+
+        {escolhendoModo && <EscolhaModoGeracao onEscolher={handleGerarCompleto} onCancelar={() => setEscolhendoModo(false)} />}
 
         {desfazer && (
           <div className="mb-4 flex items-center justify-between rounded-md bg-purple-50 p-3 text-sm text-purple-900 dark:bg-purple-950/30 dark:text-purple-200">
