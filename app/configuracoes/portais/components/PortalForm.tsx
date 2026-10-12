@@ -237,7 +237,7 @@ export function PortalForm({ portal, onSubmit, onCancel }: PortalFormProps) {
             >
               <option value="auto">Automático: o Jev decide edital a edital</option>
               <option value="Cultura">Sempre Cultura</option>
-              <option value="Pesquisa">Sempre TI e Pesquisa</option>
+              <option value="Pesquisa">Sempre Pesquisa e Tecnologia</option>
             </select>
             <p className="text-xs text-slate-400 mt-1">
               Use um eixo fixo quando o portal só publica um tema. No automático, cada edital é separado em Cultura ou TI e Pesquisa.

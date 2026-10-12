@@ -95,7 +95,7 @@ export function SimuladorFiltros({ onErro }: { onErro: (mensagem: string) => voi
           {simLoading ? (
             <><Spinner /> Simulando...</>
           ) : (
-            <><FlaskConical style={{ width: '1rem', height: '1rem' }} /> Simular Pipeline</>
+            <><FlaskConical style={{ width: '1rem', height: '1rem' }} /> Testar filtros</>
           )}
         </Button>
       </div>
@@ -143,11 +143,11 @@ export function SimuladorFiltros({ onErro }: { onErro: (mensagem: string) => voi
             )}
           </div>
 
-          {/* Etapa 2 — Blacklist */}
+          {/* Etapa 2 — Termos de descarte */}
           {simResult.whitelist.válido && (
             <div className={`simulator-step ${simResult.blacklist.recomendacao === 'bloquear' ? 'bloqueou' : simResult.blacklist.recomendacao === 'revisar' ? 'penalizou' : simResult.blacklist.scoreNegativo > 0 ? 'penalizou' : 'passou'}`}>
               <div className="simulator-step-header">
-                <span className="simulator-step-title">Etapa 2 — Blacklist</span>
+                <span className="simulator-step-title">Etapa 2 — Termos de descarte</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: 'var(--font-size-xs)', fontWeight: 700 }}>
                   {simResult.blacklist.recomendacao === 'bloquear' ? (
                     <><XCircle style={{ width: '0.875rem', height: '0.875rem', color: '#dc2626' }} /> BLOQUEOU</>
@@ -163,7 +163,7 @@ export function SimuladorFiltros({ onErro }: { onErro: (mensagem: string) => voi
                 <>
                   <div className="score-bar-container" style={{ marginTop: '0.5rem' }}>
                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', minWidth: '5rem' }}>
-                      Score: <strong style={{ color: 'var(--color-text-primary)' }}>-{simResult.blacklist.scoreNegativo}</strong>
+                      Nota: <strong style={{ color: 'var(--color-text-primary)' }}>-{simResult.blacklist.scoreNegativo}</strong>
                     </span>
                     <div className="score-bar-track">
                       <div

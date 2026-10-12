@@ -352,7 +352,7 @@ export default function FiltrosPage() {
                 <span className="filtros-stat-value" style={{ color: '#dc2626' }}>
                   {stats?.totalBlacklist ?? '–'}
                 </span>
-                <span className="filtros-stat-label">Termos na Blacklist</span>
+                <span className="filtros-stat-label">Termos que descartam o edital</span>
               </div>
               <div className="filtros-stat-card">
                 <span className="filtros-stat-value" style={{ color: '#059669' }}>
@@ -549,15 +549,15 @@ export default function FiltrosPage() {
                   {/* Scoring info */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
                     <div>
-                      <strong style={{ color: 'var(--color-text-primary)' }}>Como funciona o cálculo do Score:</strong>
+                      <strong style={{ color: 'var(--color-text-primary)' }}>Como a nota do edital é calculada:</strong>
                       <ul style={{ listStyleType: 'disc', marginLeft: '1.25rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-                        <li>Cada ocorrência de um termo da Blacklist no edital soma <strong>15 pontos (base) + 5 pontos para cada repetição</strong> desse mesmo termo (máximo de 35 pontos por termo).</li>
+                        <li>Cada ocorrência de um termo de descarte no edital soma <strong>15 pontos (base) + 5 pontos para cada repetição</strong> desse mesmo termo (máximo de 35 pontos por termo).</li>
                         <li><strong>Exceções</strong> configuradas para o termo neutralizam o bloqueio e anulam sua pontuação caso a exceção seja encontrada no texto.</li>
-                        <li>O score final do edital é a soma acumulada de todos os termos encontrados.</li>
+                        <li>A nota final do edital é a soma acumulada de todos os termos encontrados.</li>
                       </ul>
                     </div>
                     <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
-                      <strong style={{ color: 'var(--color-text-primary)' }}>Ações tomadas com base no Score final:</strong>
+                      <strong style={{ color: 'var(--color-text-primary)' }}>O que acontece conforme a nota final:</strong>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.375rem' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></span>

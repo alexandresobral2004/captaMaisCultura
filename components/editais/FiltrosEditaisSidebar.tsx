@@ -55,7 +55,7 @@ export function FiltrosEditaisSidebar({ filtros, onChange }: FiltrosEditaisSideb
           </div>
 
           <div className="filters-section">
-            <label className="filters-section-title">Eixo</label>
+            <label className="filters-section-title">Área</label>
             <div className="checkbox-group" role="radiogroup" aria-label="Eixo dos editais">
               {([
                 ['todos', 'Todos'],

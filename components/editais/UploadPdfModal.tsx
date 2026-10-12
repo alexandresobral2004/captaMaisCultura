@@ -151,7 +151,7 @@ export function UploadPdfModal({ aberto, onFechar, onProcessado }: UploadPdfModa
                       className="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="Cultura">🎭 Cultura</option>
-                      <option value="Pesquisa">🔬 TI e Pesquisa</option>
+                      <option value="Pesquisa">🔬 Pesquisa e Tecnologia</option>
                       <option value="Esporte">⚽ Esporte</option>
                       <option value="Infraestrutura">🚧 Infraestrutura</option>
                       <option value="Outros">📁 Outros</option>
@@ -256,7 +256,7 @@ export function UploadPdfModal({ aberto, onFechar, onProcessado }: UploadPdfModa
                       <span className="text-blue-400">{uploadResult.tecnologiaFoco}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-slate-700/50">
-                      <span className="text-slate-400">Score IA</span>
+                      <span className="text-slate-400">Nota da IA</span>
                       <div className="flex items-center gap-2">
                         <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                           <div 

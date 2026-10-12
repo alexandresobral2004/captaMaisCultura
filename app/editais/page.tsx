@@ -341,7 +341,7 @@ export default function EditaisPage() {
             ) : searching ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: '1rem', textAlign: 'center' }}>
                 <RefreshCw className="animate-spin" style={{ width: '3rem', height: '3rem', color: 'var(--color-primary)' }} />
-                <h4 style={{ fontWeight: 600, fontSize: '1.25rem' }}>Buscando e Dividindo Editais em Chunks...</h4>
+                <h4 style={{ fontWeight: 600, fontSize: '1.25rem' }}>Buscando editais... pode levar alguns minutos</h4>
                 <p className="text-gray-600" style={{ maxWidth: '450px' }}>
                   A inteligência artificial do Capta+ está baixando os editais abertos, extraindo o conteúdo textual do PDF e analisando requisitos obrigatórios e itens financiáveis.
                 </p>
@@ -420,7 +420,7 @@ export default function EditaisPage() {
                             className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-slate-800 dark:text-slate-200"
                           >
                             <option value="Cultura">🎭 Cultura</option>
-                            <option value="Pesquisa">🔬 TI e Pesquisa</option>
+                            <option value="Pesquisa">🔬 Pesquisa e Tecnologia</option>
                             <option value="Esporte">⚽ Esporte</option>
                             <option value="Infraestrutura">🚧 Infraestrutura</option>
                             <option value="Outros">📁 Outros</option>
