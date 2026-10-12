@@ -129,3 +129,40 @@ describe('UpdateEditalSchema - pdfPath não pode vir do cliente', () => {
     expect(parsed).not.toHaveProperty('pdfPath');
   });
 });
+
+describe('Middleware - perfil somente leitura', () => {
+  async function requisicao(role: string, metodo: string, caminho: string) {
+    const { NextRequest } = await import('next/server');
+    const { assinarToken } = await import('../lib/api/auth');
+    const { middleware } = await import('../middleware');
+    const token = await assinarToken(
+      JSON.stringify({ id: 'u1', nome: 'Teste', email: 't@t.com', role, status: 'ativo' })
+    );
+    const req = new NextRequest(`http://localhost:3000${caminho}`, {
+      method: metodo,
+      headers: { cookie: `usuario_logado=${token}` },
+    });
+    return middleware(req);
+  }
+
+  it('leitor recebe 403 em métodos que alteram dados', async () => {
+    for (const [metodo, caminho] of [
+      ['DELETE', '/api/v1/editais/abc'],
+      ['POST', '/api/v1/editais/abc/analyze'],
+      ['PUT', '/api/v1/projetos/abc'],
+    ]) {
+      const res = await requisicao('leitor', metodo, caminho);
+      expect(res.status).toBe(403);
+    }
+  });
+
+  it('leitor ainda pode ler (GET)', async () => {
+    const res = await requisicao('leitor', 'GET', '/api/v1/editais');
+    expect(res.status).toBe(200);
+  });
+
+  it('editor pode alterar editais, mas não rotas de admin', async () => {
+    expect((await requisicao('editor', 'DELETE', '/api/v1/editais/abc')).status).toBe(200);
+    expect((await requisicao('editor', 'PUT', '/api/v1/usuarios/u1')).status).toBe(403);
+  });
+});

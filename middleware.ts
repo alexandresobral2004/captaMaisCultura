@@ -110,6 +110,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Perfil "leitor" é somente leitura: métodos que alteram dados exigem admin ou editor
+  const metodoMutavel = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+  if (
+    metodoMutavel &&
+    pathname.startsWith('/api/') &&
+    pathname !== '/api/v1/usuarios/me' &&
+    usuario.role !== 'admin' &&
+    usuario.role !== 'editor'
+  ) {
+    return NextResponse.json(
+      { error: 'Acesso negado: perfil somente leitura.' },
+      { status: 403 }
+    );
+  }
+
   return NextResponse.next();
 }
 

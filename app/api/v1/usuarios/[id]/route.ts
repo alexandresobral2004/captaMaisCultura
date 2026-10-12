@@ -1,5 +1,13 @@
+import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
 import { UsuarioService } from '@/lib/database/services/usuario.service';
+
+const AtualizarUsuarioSchema = z.object({
+  nome: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  role: z.enum(['admin', 'editor', 'leitor']).optional(),
+  status: z.enum(['ativo', 'inativo']).optional(),
+});
 
 const service = new UsuarioService();
 
@@ -29,7 +37,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
+    const body = AtualizarUsuarioSchema.parse(await request.json());
     const usuario = await service.atualizar(params.id, body);
     return NextResponse.json(usuario);
   } catch (error: any) {
