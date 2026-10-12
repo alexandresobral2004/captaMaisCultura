@@ -12,13 +12,14 @@ import { validarComOpenAI, type AiClassificationResult } from '../filtros-ti/ope
 import { validarWhitelistTI } from '../filtros-ti/whitelist';
 import { validarBlacklist } from '../filtros-ti/blacklist';
 import { termosCulturaEncontrados, pareceNaoEdital } from './cultura';
+import { restritoAOutraRegiao } from './regiao';
 
 export type { Eixo } from '../filtros-ti/jev-classifier';
 
 /** Eixo configurado no portal: fixo (Cultura/Pesquisa) ou decidido edital a edital (auto). */
 export type EixoPortal = 'auto' | Eixo;
 
-export type EtapaTriagem = 'eixo' | 'whitelist' | 'ia' | 'blacklist' | 'cultura';
+export type EtapaTriagem = 'eixo' | 'whitelist' | 'ia' | 'blacklist' | 'cultura' | 'regiao';
 
 export interface ResultadoTriagem {
   aceito: boolean;
@@ -137,6 +138,9 @@ function triarCultura(entrada: EntradaEdital, respostas: RespostasEdital | null)
  * relevância em uma única consulta; sem Jev, decide pelos termos de cada lista.
  */
 export async function triarEdital(entrada: EntradaTriagem): Promise<ResultadoTriagem> {
+  const regiao = restritoAOutraRegiao(entrada);
+  if (regiao.restrito) return rejeitar('regiao', regiao.motivo ?? 'Restrito a outra região', null);
+
   const eixoPortal = entrada.eixoPortal ?? 'auto';
   const respostas = await julgarEditalComJev(entrada);
 
