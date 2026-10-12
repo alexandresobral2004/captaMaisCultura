@@ -53,6 +53,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }

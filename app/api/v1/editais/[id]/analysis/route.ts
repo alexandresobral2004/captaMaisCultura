@@ -21,7 +21,7 @@ export async function GET(
 
     return NextResponse.json(successResponse(analise));
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -39,6 +39,6 @@ export async function PUT(
 
     return NextResponse.json(successResponse(analise));
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 400 });
+    return handleApiError(error, undefined, 400);
   }
 }

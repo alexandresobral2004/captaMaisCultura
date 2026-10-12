@@ -12,6 +12,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(successResponse(stats));
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }

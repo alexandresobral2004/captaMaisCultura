@@ -40,6 +40,6 @@ export async function DELETE(
       successResponse({ message: 'Arquivo deletado com sucesso' })
     );
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }

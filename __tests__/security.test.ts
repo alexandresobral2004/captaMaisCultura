@@ -194,3 +194,21 @@ describe('Rate limit por chave', () => {
     expect(rateLimitPorChave('outro@teste.com', 'teste-login', opcoes).success).toBe(true);
   });
 });
+
+describe('handleApiError', () => {
+  it('devolve JSON com status e não "{}" (regressão do wrapper duplo)', async () => {
+    const { handleApiError } = await import('../lib/api/responses');
+    const res = handleApiError(new Error('falhou'), undefined, 400);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+  });
+
+  it('trata ZodError como 400 de validação', async () => {
+    const { z } = await import('zod');
+    const { handleApiError } = await import('../lib/api/responses');
+    const erro = z.object({ a: z.string() }).safeParse({}).error!;
+    const res = handleApiError(erro);
+    expect(res.status).toBe(400);
+  });
+});

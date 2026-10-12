@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ZodError } from 'zod';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -69,7 +70,7 @@ export function paginatedResponse<T>(
   };
 }
 
-export function handleApiError(error: unknown, context?: string): NextResponse {
+export function handleApiError(error: unknown, context?: string, fallbackStatus: number = 500): NextResponse {
   console.error('[API Error]', error);
 
   const mensagem = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -92,16 +93,26 @@ export function handleApiError(error: unknown, context?: string): NextResponse {
     );
   }
 
+  if (error instanceof ZodError) {
+    return NextResponse.json(
+      errorResponse('VALIDATION_ERROR', error.issues.map((i) => i.message).join(', '), error.issues),
+      { status: 400 }
+    );
+  }
+
+  // Em produção não expõe mensagens internas (SQL, caminhos) ao cliente
+  const expor = process.env.NODE_ENV !== 'production';
+
   if (error instanceof Error) {
     return NextResponse.json(
-      errorResponse('INTERNAL_ERROR', error.message),
-      { status: 500 }
+      errorResponse('INTERNAL_ERROR', expor ? error.message : 'Erro interno do servidor'),
+      { status: fallbackStatus }
     );
   }
 
   return NextResponse.json(
     errorResponse('UNKNOWN_ERROR', 'Erro desconhecido'),
-    { status: 500 }
+    { status: fallbackStatus }
   );
 }
 

@@ -33,6 +33,6 @@ export async function PATCH(
         { status: 404 }
       );
     }
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }

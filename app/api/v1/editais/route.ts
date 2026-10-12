@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       paginatedResponse(result.data, result.total, query.page, query.limit)
     );
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 400 });
+    return handleApiError(error, undefined, 400);
   }
 }
 
@@ -51,6 +51,6 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    return NextResponse.json(handleApiError(error), { status: 400 });
+    return handleApiError(error, undefined, 400);
   }
 }

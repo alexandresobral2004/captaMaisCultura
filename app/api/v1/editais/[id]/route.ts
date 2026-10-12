@@ -24,7 +24,7 @@ export async function GET(
 
     return NextResponse.json(successResponse(edital));
   } catch (error) {
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -44,7 +44,7 @@ export async function PUT(
         { status: 404 }
       );
     }
-    return NextResponse.json(handleApiError(error), { status: 400 });
+    return handleApiError(error, undefined, 400);
   }
 }
 
@@ -65,6 +65,6 @@ export async function DELETE(
         { status: 404 }
       );
     }
-    return NextResponse.json(handleApiError(error), { status: 500 });
+    return handleApiError(error);
   }
 }
