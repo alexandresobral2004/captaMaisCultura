@@ -5,6 +5,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from '@/contexts/toast-context';
 import {
@@ -273,43 +274,16 @@ export default function LogsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
-              <div className="flex flex-col gap-1.5 min-w-[140px]">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nível</label>
-                <select
-                  value={nivel}
-                  onChange={(e) => { setNivel(e.target.value); setPage(1); }}
-                  className="input"
-                >
-                  {nivelOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+              <div className="min-w-[140px]">
+                <Select label="Nível" value={nivel} onChange={(e) => { setNivel(e.target.value); setPage(1); }} options={nivelOptions} />
               </div>
 
-              <div className="flex flex-col gap-1.5 min-w-[140px]">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Cenário</label>
-                <select
-                  value={cenario}
-                  onChange={(e) => { setCenario(e.target.value); setPage(1); }}
-                  className="input"
-                >
-                  {cenarioOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+              <div className="min-w-[140px]">
+                <Select label="Cenário" value={cenario} onChange={(e) => { setCenario(e.target.value); setPage(1); }} options={cenarioOptions} />
               </div>
 
-              <div className="flex flex-col gap-1.5 min-w-[140px]">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Ação</label>
-                <select
-                  value={acao}
-                  onChange={(e) => { setAcao(e.target.value); setPage(1); }}
-                  className="input"
-                >
-                  {acaoOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+              <div className="min-w-[140px]">
+                <Select label="Ação" value={acao} onChange={(e) => { setAcao(e.target.value); setPage(1); }} options={acaoOptions} />
               </div>
 
               <div className="flex flex-col gap-1.5 min-w-[140px]">

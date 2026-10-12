@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { ResumoProjeto } from '@/components/analise-cientifica/ResumoProjeto';
 import { ProponentesTab, type Pesquisador } from '@/components/analise-cientifica/ProponentesTab';
 
 interface ObjetivoEspecifico {
@@ -553,51 +554,7 @@ export default function EditorProjetoCientificoPage({ params }: { params: { id: 
           </div>
         </div>
 
-        {/* Progress Bar & Tabs Header */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2 shadow-sm rounded-2xl bg-white/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Completude do Projeto
-                </span>
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                  {calcularCompletude()}%
-                </span>
-              </div>
-              <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    calcularCompletude() >= 70
-                      ? 'bg-green-500'
-                      : calcularCompletude() >= 50
-                        ? 'bg-amber-500'
-                        : 'bg-violet-500'
-                  }`}
-                  style={{ width: `${calcularCompletude()}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-sm rounded-2xl bg-white/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
-            <CardContent className="p-5 flex flex-col justify-center">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 block">
-                    Nível de Pesquisa
-                  </span>
-                  <span className="text-base font-bold capitalize text-slate-900 dark:text-slate-100">
-                    {projeto.nivel === 'iniciacao' ? 'Iniciação Científica' : projeto.nivel}
-                  </span>
-                </div>
-                <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300 border-0 rounded-lg">
-                  {projeto.areaTematica}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <ResumoProjeto completude={calcularCompletude()} nivel={projeto.nivel} areaTematica={projeto.areaTematica} />
 
         {/* Tab Switcher */}
         <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-xl max-w-md">
