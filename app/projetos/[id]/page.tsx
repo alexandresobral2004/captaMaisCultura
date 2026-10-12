@@ -19,6 +19,7 @@ import {
 import { EquipeProjeto } from '@/components/projetos/EquipeProjeto';
 import { DadosProponenteForm } from '@/components/projetos/DadosProponenteForm';
 import { defaultDadosProponente, type DadosProponente } from '@/components/projetos/dados-proponente';
+import { AprimorarSecaoPopover } from '@/components/projetos/AprimorarSecaoPopover';
 import { ConferenciaProjeto, type ResultadoConferencia } from '@/components/projetos/ConferenciaProjeto';
 import { useConfirm } from '@/contexts/confirm-context';
 import { useToast } from '@/contexts/toast-context';
@@ -130,6 +131,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
   const [incluirEquipe, setIncluirEquipe] = useState(false);
   const [equipeData, setEquipeData] = useState<any[]>([]);
   const [aprimorando, setAprimorando] = useState<string | null>(null);
+  const [desfazer, setDesfazer] = useState<{ secaoId: string; titulo: string; conteudoAnterior: string } | null>(null);
 
   // States for tabs
   const [abaAtiva, setAbaAtiva] = useState<'proposta' | 'proponente'>('proposta');
@@ -302,33 +304,53 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
     }
   };
 
-  const handleAprimorarSecao = async (secaoId: string, secaoChave: string, secaoTitulo: string, conteudoAtual: string) => {
+  const salvarSecoes = async (lista: SecaoDinamica[]) => {
+    const res = await fetch(`/api/v1/projetos/${projetoId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secoesDinamicas: lista }),
+    });
+    if (!res.ok) throw new Error('Não foi possível salvar a seção.');
+  };
+
+  const handleAprimorarSecao = async (secaoId: string, secaoChave: string, secaoTitulo: string, conteudoAtual: string, pedido: string) => {
     if (!projetoId) return;
 
     setAprimorando(secaoId);
     try {
+      const pendencias = (conferencia?.criterios || [])
+        .filter(c => c.situacao !== 'atendido')
+        .map(c => c.criterio);
       const res = await fetch(`/api/v1/projetos/${projetoId}/aprimorar-secao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secaoChave, secaoTitulo, conteudoAtual }),
+        body: JSON.stringify({ secaoChave, secaoTitulo, conteudoAtual, pedido, pendencias }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Falha ao aprimorar seção');
-      }
-
       const data = await res.json();
-      const conteudoNovo = data.conteudoNovo;
+      if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao aprimorar seção');
 
-      setSecoesDinamicas(prev => prev.map(s =>
-        s.id === secaoId ? { ...s, conteudo: conteudoNovo } : s
-      ));
+      const nova = secoesDinamicas.map(s => (s.id === secaoId ? { ...s, conteudo: data.conteudoNovo } : s));
+      setSecoesDinamicas(nova);
+      setDesfazer({ secaoId, titulo: secaoTitulo, conteudoAnterior: conteudoAtual });
+      await salvarSecoes(nova);
+      if (data.avisos?.length) toast.showError(data.avisos.join(' '));
     } catch (err: any) {
       console.error(err);
       toast.showError(err.message || 'Erro ao aprimorar seção.');
     } finally {
       setAprimorando(null);
+    }
+  };
+
+  const handleDesfazerAprimorar = async () => {
+    if (!desfazer) return;
+    const anterior = secoesDinamicas.map(s => (s.id === desfazer.secaoId ? { ...s, conteudo: desfazer.conteudoAnterior } : s));
+    setSecoesDinamicas(anterior);
+    setDesfazer(null);
+    try {
+      await salvarSecoes(anterior);
+    } catch (err: any) {
+      toast.showError(err.message || 'Não foi possível desfazer.');
     }
   };
 
@@ -549,6 +571,13 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
           </div>
         </div>
 
+        {desfazer && (
+          <div className="mb-4 flex items-center justify-between rounded-md bg-purple-50 p-3 text-sm text-purple-900 dark:bg-purple-950/30 dark:text-purple-200">
+            <span>A seção "{desfazer.titulo}" foi reescrita e salva.</span>
+            <Button variant="outline" size="sm" onClick={handleDesfazerAprimorar}>Desfazer</Button>
+          </div>
+        )}
+
         {conferencia && <ConferenciaProjeto resultado={conferencia} onFechar={() => setConferencia(null)} />}
 
         {/* Tabs */}
@@ -692,26 +721,10 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
                                 </Button>
                               )}
 
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAprimorarSecao(secao.id, secao.chave, secao.titulo, secao.conteudo)}
-                                disabled={aprimorando === secao.id}
-                                className="h-7 text-xs px-2 rounded-lg text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950/30"
-                                title="Reescrever seção com abordagem diferente"
-                              >
-                                {aprimorando === secao.id ? (
-                                  <>
-                                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                                    <span>Reescrevendo...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Sparkles className="w-3 h-3 mr-1" />
-                                    <span>Aprimorar</span>
-                                  </>
-                                )}
-                              </Button>
+                              <AprimorarSecaoPopover
+                                carregando={aprimorando === secao.id}
+                                onAprimorar={pedido => handleAprimorarSecao(secao.id, secao.chave, secao.titulo, secao.conteudo, pedido)}
+                              />
 
                               <Button
                                 variant="ghost"
