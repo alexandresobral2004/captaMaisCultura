@@ -1,0 +1,16 @@
+{
+  "termos": [
+    "cultura", "cultural", "culturais", "artes", "arte", "artista", "artistas", "artístic",
+    "patrimônio cultural", "patrimônio imaterial", "museu", "museus", "biblioteca", "acervo",
+    "música", "musical", "teatro", "teatral", "dança", "circo", "audiovisual", "cinema",
+    "cineclube", "literatura", "literário", "livro", "leitura", "artes visuais", "fotografia",
+    "cultura popular", "folclore", "tradicional", "festa junina", "festas juninas", "carnaval",
+    "capoeira", "artesanato", "economia criativa", "indústria criativa", "fomento à cultura",
+    "ponto de cultura", "pontos de cultura", "aldir blanc", "paulo gustavo", "lei rouanet",
+    "pnab", "mestres da cultura", "cultura viva", "povos tradicionais", "festival"
+  ],
+  "excluir": [
+    "notícia", "notícias", "entrevista", "resultado final", "homologação do resultado",
+    "galeria de fotos", "nota de pesar"
+  ]
+}

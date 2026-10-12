@@ -34,7 +34,8 @@ export async function validarComOpenAI(
   valor?: string,
   orgao?: string,
   termosBranco?: string[],
-  tipoEdital?: string
+  tipoEdital?: string,
+  opcoes: { pularJev?: boolean } = {}
 ): Promise<AiClassificationResult> {
   const modelo = obterModelo('mini');
 
@@ -48,9 +49,11 @@ export async function validarComOpenAI(
     }
 
     // Triagem rápida e barata com o Jev; só escala para a OpenAI quando ele fica incerto/indisponível
-    const jev = await validarComJev(titulo, descricao, valor, orgao, termosBranco, tipoEdital, {
-      aceitarIncerto: !lerApiKey(),
-    });
+    const jev = opcoes.pularJev
+      ? null
+      : await validarComJev(titulo, descricao, valor, orgao, termosBranco, tipoEdital, {
+          aceitarIncerto: !lerApiKey(),
+        });
     if (jev && jev.ok) {
       cacheValidacao.set(chaveCache, {
         data: {
