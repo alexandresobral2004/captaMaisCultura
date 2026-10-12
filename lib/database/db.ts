@@ -424,10 +424,18 @@ function migrateSchema() {
       console.log('✅ Migração: coluna confianca_por_campo adicionada');
     }
 
+    const hasErroAnalise = columns.some((col: any) => col.name === 'erro_analise');
+    if (!hasErroAnalise) {
+      sqlite.exec(`ALTER TABLE editais ADD COLUMN erro_analise TEXT`);
+      console.log('✅ Migração: coluna erro_analise adicionada');
+    }
+
     // Migração: adicionar coluna codigo na tabela editais
     const hasCodigo = columns.some((col: any) => col.name === 'codigo');
     if (!hasCodigo) {
-      sqlite.exec(`ALTER TABLE editais ADD COLUMN codigo TEXT UNIQUE`);
+      // SQLite não permite ADD COLUMN ... UNIQUE; o índice único vem separado
+      sqlite.exec(`ALTER TABLE editais ADD COLUMN codigo TEXT`);
+      sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_editais_codigo_unique ON editais(codigo)`);
       console.log('✅ Migração: coluna codigo adicionada à tabela editais');
     }
 
