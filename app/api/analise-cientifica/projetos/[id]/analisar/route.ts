@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProposalWriterCientifico } from '@/lib/analise-cientifica/writer';
 import { Logger } from '@/lib/analise-cientifica/logger';
-import { projetos } from '@/lib/analise-cientifica/db-mock';
+import { projetos } from '@/lib/analise-cientifica/projetos-store';
 
 const logger = new Logger('api/analise');
 
@@ -49,7 +49,7 @@ export async function POST(
     if (projetoExistente) {
       projetoExistente.analise = analise;
       projetoExistente.scoreCompliance = analise.scoreGeral;
-      projetos.set(params.id, projetoExistente);
+      projetos.save({ ...projetoExistente, id: params.id });
     }
 
     return NextResponse.json({

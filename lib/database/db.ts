@@ -672,6 +672,18 @@ function migrateSchema() {
       console.warn('Erro ao normalizar datas limites no banco:', err.message);
     }
 
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS projetos_cientificos (
+        id TEXT PRIMARY KEY,
+        titulo TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'rascunho',
+        dados TEXT NOT NULL,
+        criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_cientificos_status ON projetos_cientificos(status)`);
+
   } catch (error: any) {
     // Coluna já existe ou outro erro irrelevante — silenciar
     if (!error.message?.includes('duplicate column')) {

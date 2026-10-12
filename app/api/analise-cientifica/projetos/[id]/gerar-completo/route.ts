@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProposalWriterCientifico } from '@/lib/analise-cientifica/writer';
 import { Logger } from '@/lib/analise-cientifica/logger';
-import { projetos } from '@/lib/analise-cientifica/db-mock';
+import { projetos } from '@/lib/analise-cientifica/projetos-store';
 import { buscarDadosProjetoMCP } from '@/lib/ai/tavily-mcp.client';
 
 const logger = new Logger('api/gerar-completo');
@@ -153,7 +153,7 @@ export async function POST(
       }
       projetoExistente.secoesDinamicas = JSON.stringify(secoesList);
       
-      projetos.set(params.id, projetoExistente);
+      projetos.save({ ...projetoExistente, id: params.id });
     }
 
     logger.info(`Proposta completa gerada com sucesso`, 'api/gerar-completo');

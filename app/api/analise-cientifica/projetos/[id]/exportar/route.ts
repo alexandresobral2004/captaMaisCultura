@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { projetos } from '@/lib/analise-cientifica/db-mock';
+import { projetos } from '@/lib/analise-cientifica/projetos-store';
 import PDFDocument from 'pdfkit';
 import { Logger } from '@/lib/analise-cientifica/logger';
 

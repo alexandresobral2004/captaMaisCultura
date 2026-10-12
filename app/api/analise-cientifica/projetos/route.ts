@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { criarProjetoCientificoSchema } from '@/lib/analise-cientifica/schema';
 import { Logger } from '@/lib/analise-cientifica/logger';
-import { projetos } from '@/lib/analise-cientifica/db-mock';
+import { projetos } from '@/lib/analise-cientifica/projetos-store';
 import { db } from '@/lib/database/db';
 import { editais as editaisTable } from '@/lib/database/schema';
 import { eq } from 'drizzle-orm';
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const area = searchParams.get('area');
 
-    let lista = Array.from(projetos.values());
+    let lista = projetos.list();
 
     // Filtrar apenas projetos com edital da categoria 'Pesquisa' (ou sem edital)
     const filteredLista = [];
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       versao: 1,
     };
 
-    projetos.set(projeto.id, projeto);
+    projetos.save({ ...projeto, id: projeto.id });
 
     logger.info(`Projeto criado: ${projeto.id}`, 'api', { titulo: projeto.titulo });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { atualizarProjetoCientificoSchema } from '@/lib/analise-cientifica/schema';
-import { projetos } from '@/lib/analise-cientifica/db-mock';
+import { projetos } from '@/lib/analise-cientifica/projetos-store';
 
 export async function GET(
   request: NextRequest,
@@ -45,7 +45,7 @@ export async function PUT(
       versao: projeto.versao + 1,
     };
 
-    projetos.set(params.id, projetoAtualizado);
+    projetos.save({ ...projetoAtualizado, id: params.id });
 
     return NextResponse.json({
       success: true,

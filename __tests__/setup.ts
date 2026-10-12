@@ -214,6 +214,15 @@ export function createTestDb() {
   `);
 
   sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS projetos_cientificos (
+      id TEXT PRIMARY KEY,
+      titulo TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'rascunho',
+      dados TEXT NOT NULL,
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS jobs (
       id TEXT PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'PENDENTE',
@@ -303,6 +312,7 @@ export function clearAllTables(rawDb: Database.Database) {
   rawDb.exec('DELETE FROM arquivos_anexos');
   rawDb.exec('DELETE FROM motivos_pontuacao');
   rawDb.exec('DELETE FROM projetos');
+  rawDb.exec('DELETE FROM projetos_cientificos');
   rawDb.exec('DELETE FROM editais');
   rawDb.exec('DELETE FROM jobs');
   rawDb.exec('DELETE FROM portais');

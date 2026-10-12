@@ -606,3 +606,15 @@ export const promptsHistoricoRelations = relations(promptsHistorico, ({ one }) =
     references: [usuarios.id],
   }),
 }));
+
+// Tabela: projetos_cientificos (módulo Análise Científica; objeto completo em `dados`)
+export const projetosCientificos = sqliteTable('projetos_cientificos', {
+  id: text('id').primaryKey(),
+  titulo: text('titulo').notNull(),
+  status: text('status').notNull().default('rascunho'),
+  dados: text('dados').notNull(), // JSON do projeto completo
+  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+}, (table) => ({
+  statusIdx: index('idx_projetos_cientificos_status').on(table.status),
+}));
