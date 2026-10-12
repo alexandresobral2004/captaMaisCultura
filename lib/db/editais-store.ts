@@ -371,6 +371,18 @@ export async function getAllEditais(incluirFechados = false, categoriaArea?: str
   }
 }
 
+/** Busca um edital pelo id (inclui fechados), sem carregar a lista inteira. */
+export async function getEditalPorId(id: string): Promise<Edital | null> {
+  try {
+    const row = db.get(sql`SELECT * FROM editais WHERE id = ${id} AND deleted_at IS NULL`) as any;
+    if (!row) return null;
+    return dbToEdital(row, await analiseRepo.findByEditalId(id));
+  } catch (erro) {
+    console.error('❌ Erro ao buscar edital no banco:', erro);
+    return null;
+  }
+}
+
 export async function saveEdital(edital: Partial<Edital> & { id: string }): Promise<Edital> {
   try {
     const dbData = editalToDb(edital);

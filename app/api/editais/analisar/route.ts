@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllEditais } from '../../../../lib/db/editais-store';
+import { getEditalPorId } from '../../../../lib/db/editais-store';
 import { processarEditalUnico, processarFilaDeEditais } from '../../../../lib/scraper/pipeline';
 
 export async function POST(request: Request) {
@@ -17,8 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ID do edital é obrigatório para análise individual.' }, { status: 400 });
     }
 
-    const editais = await getAllEditais(true);
-    const edital = editais.find(e => e.id === id);
+    const edital = await getEditalPorId(id);
 
     if (!edital) {
       return NextResponse.json({ error: 'Edital não encontrado.' }, { status: 404 });

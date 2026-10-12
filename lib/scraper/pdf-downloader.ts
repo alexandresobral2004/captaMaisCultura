@@ -136,44 +136,24 @@ async function extrairTextoPdf(buffer: Buffer): Promise<string> {
     console.log(`   → Usando pdf-parse como fallback...`);
   }
 
-  // Estratégia 2 (fallback): pdf-parse
+  // Estratégia 2 (fallback): pdf-parse v2 (classe PDFParse, método getText)
   try {
-    const PDFParseClass = pdfParse.PDFParse || (pdfParse.default && pdfParse.default.PDFParse) || pdfParse;
-    
+    const PDFParseClass = pdfParse.PDFParse || pdfParse.default?.PDFParse;
     if (!PDFParseClass) {
-      throw new Error("Classe PDFParse não encontrada no módulo.");
+      throw new Error('Classe PDFParse não encontrada no módulo pdf-parse.');
     }
 
-    let text = "";
-    
-    // Estratégia 2a: Usar pdfParse como função
+    const parser = new PDFParseClass({ data: new Uint8Array(buffer) });
     try {
-      const data = await PDFParseClass(buffer);
-      text = data.text || "";
-      if (text.length > 100) {
-        return text.trim();
+      const resultado = await parser.getText();
+      const texto = (resultado?.text || '').trim();
+      if (texto.length === 0) {
+        throw new Error('PDF sem texto extraível (provavelmente digitalizado/escaneado).');
       }
-    } catch (err1) {
-      console.warn(`   ℹ️ Estratégia 2a de extração falhou: ${(err1 as Error).message}`);
+      return texto;
+    } finally {
+      await parser.destroy?.();
     }
-    
-    // Estratégia 2b: Usar como class
-    try {
-      const parser = new (PDFParseClass as any)({ data: buffer });
-      const data = await parser.getPage(1);
-      text = data?.text || "";
-      if (text.length > 100) {
-        return text.trim();
-      }
-    } catch (err2) {
-      console.warn(`   ℹ️ Estratégia 2b de extração falhou: ${(err2 as Error).message}`);
-    }
-    
-    if (text.length > 0) {
-      return text.trim();
-    }
-    
-    throw new Error("Nenhuma estratégia de extração de PDF funcionou");
   } catch (error) {
     console.warn(`   ⚠️ Erro ao extrair texto do PDF: ${(error as Error).message}`);
     throw error;

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { Edital, saveEdital, getAllEditais } from '../db/editais-store';
+import { Edital, saveEdital, getEditalPorId } from '../db/editais-store';
 import { promptAnaliseSimplificada } from './prompts';
 import { validarCamposEdital } from './validator';
 import { AnaliseEditalSchema, AnaliseEditalResult } from './schema-analise';
@@ -98,6 +98,12 @@ async function analisarComSchemaUnificado(
   return response;
 }
 
+/** DD/MM/AAAA (como a IA devolve) vira AAAA-MM-DD, o formato guardado no banco. */
+export function dataParaIso(valor: string): string {
+  const m = valor.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : valor.trim();
+}
+
 function mapearParaEdital(
   edital: Edital,
   resultado: AnaliseEditalResult
@@ -105,10 +111,10 @@ function mapearParaEdital(
   const e = edital as any;
 
   // Datas
-  if (resultado.datas.publicacao) edital.dataPublicacao = resultado.datas.publicacao;
-  if (resultado.datas.abertura) edital.dataAbertura = resultado.datas.abertura;
-  if (resultado.datas.limite) edital.dataLimite = resultado.datas.limite;
-  if (resultado.datas.resultado) edital.dataResultado = resultado.datas.resultado;
+  if (resultado.datas.publicacao) edital.dataPublicacao = dataParaIso(resultado.datas.publicacao);
+  if (resultado.datas.abertura) edital.dataAbertura = dataParaIso(resultado.datas.abertura);
+  if (resultado.datas.limite) edital.dataLimite = dataParaIso(resultado.datas.limite);
+  if (resultado.datas.resultado) edital.dataResultado = dataParaIso(resultado.datas.resultado);
 
   // Valores
   if (typeof resultado.valores.valorMin === 'number') edital.valorMin = resultado.valores.valorMin;
@@ -196,72 +202,14 @@ export async function analisarEditalComIA(
   console.log(`   - Texto para análise: ${textoCompleto.length} caracteres`);
   console.log(`   - Modo: ${options?.modo || 'completo'}`);
 
-  // Buscar todos os editais (incluindo fechados)
-  console.log(`\n📋 [ANALYZER] Buscando todos os editais no banco...`);
-  const todos = await getAllEditais(true);
-  console.log(`   - Total de editais encontrados: ${todos.length}`);
-
-  // Log de todos os IDs para diagnóstico
-  if (todos.length > 0) {
-    console.log(`   - IDs disponíveis: ${todos.map(e => e.id).slice(0, 10).join(', ')}${todos.length > 10 ? ` ... (+${todos.length - 10} outros)` : ''}`);
-  }
-
-  // Buscar edital específico
-  console.log(`\n🔎 [ANALYZER] Procurando edital ${editalId}...`);
-  const editalOriginal = todos.find((e: Edital) => e.id === editalId);
+  const editalOriginal = await getEditalPorId(editalId);
 
   if (!editalOriginal) {
-    console.error(`\n❌ [ANALYZER] Edital ${editalId} NÃO ENCONTRADO!`);
-
-    // Debug: verificar padrão do ID
-    const uploadIds = todos.filter(e => e.id?.startsWith('upload-'));
-    console.log(`   - Editais com prefixo 'upload-': ${uploadIds.length}`);
-    if (uploadIds.length > 0) {
-      console.log(`     IDs: ${uploadIds.map(e => e.id).join(', ')}`);
-    }
-
-    // Tentar buscar diretamente do serviço para diagnóstico
-    try {
-      console.log(`\n   🔍 Tentando busca direta via EditalService...`);
-      const { EditalService } = require('../database/services/edital.service');
-      const service = new EditalService();
-      const editalDireto = await service.buscarPorId(editalId);
-      if (editalDireto) {
-        console.log(`   ✅ Edital encontrado via EditalService!`);
-        console.log(`      - ID: ${editalDireto.id}`);
-        console.log(`      - fonteConteudo: ${editalDireto.fonteConteudo}`);
-        console.log(`      - conteudoCompleto: ${editalDireto.conteudoCompleto ? editalDireto.conteudoCompleto.length + ' chars' : 'ausente'}`);
-        console.log(`      - statusAnalise: ${editalDireto.statusAnalise}`);
-      } else {
-        console.error(`   ❌ Edital também não encontrado via EditalService`);
-      }
-    } catch (e: any) {
-      console.error(`   ❌ Erro ao buscar via EditalService: ${e.message}`);
-    }
-
-    // Tentar query direta no banco
-    try {
-      console.log(`\n   🔍 Tentando query direta no SQLite...`);
-      const { db } = require('../database/db');
-      const result = db.all(`SELECT id, titulo, fonte_conteudo, status_analise, length(conteudo_completo) as conteudo_len FROM editais WHERE id = ?`, [editalId]);
-      if (result && result.length > 0) {
-        console.log(`   ✅ Edital encontrado via query direta!`);
-        console.log(`      - Result: ${JSON.stringify(result[0])}`);
-      } else {
-        console.error(`   ❌ Edital não encontrado via query direta`);
-      }
-    } catch (e: any) {
-      console.error(`   ❌ Erro na query direta: ${e.message}`);
-    }
-
+    console.error(`❌ [ANALYZER] Edital ${editalId} não encontrado no banco.`);
     return null;
   }
 
-  console.log(`\n✅ [ANALYZER] Edital ${editalId} ENCONTRADO!`);
-  console.log(`   - fonteConteudo: ${editalOriginal.fonteConteudo || 'não definido'}`);
-  console.log(`   - conteudoCompleto: ${editalOriginal.conteudoCompleto ? editalOriginal.conteudoCompleto.length + ' chars' : 'ausente'}`);
-  console.log(`   - statusAnalise: ${editalOriginal.statusAnalise || 'não definido'}`);
-  console.log(`   - link: ${editalOriginal.link}`);
+  console.log(`✅ [ANALYZER] Edital ${editalId} encontrado (fonte: ${editalOriginal.fonteConteudo || 'não definida'}, status: ${editalOriginal.statusAnalise || 'não definido'})`);
 
   const modo: ModoAnalise = options?.modo ?? 'completo';
   console.log(`\n🤖 Analisando edital ${editalId} com IA (${textoCompleto.length} chars, modo=${modo})`);
