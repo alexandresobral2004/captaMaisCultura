@@ -25,6 +25,7 @@ const ElegibilidadeSchema = z.object({
   areasTematicas: z.array(z.string()).describe('Áreas de foco do edital'),
   focoGeografico: z.array(z.string()).describe('Estados ou regiões específicas se aplicável'),
   observacoes: z.string().nullable().describe('Observações sobre elegibilidade'),
+  restritoA: z.string().nullable().describe('Se a participação é restrita a um público, instituição ou localidade específicos (ex.: "servidores do IFCE", "estudantes de uma universidade", "residentes de um município"), descreva em poucas palavras; caso seja aberta ao público em geral, null'),
 });
 
 const DocumentosSchema = z.object({

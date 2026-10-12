@@ -40,7 +40,8 @@ export async function POST(request: Request) {
     if (sucesso) {
       return NextResponse.json({ message: `Edital ${id} analisado com sucesso!` });
     } else {
-      return NextResponse.json({ error: `Falha ao analisar edital ${id}. Verifique os logs.` }, { status: 500 });
+      const depois = await getEditalPorId(id);
+      return NextResponse.json({ error: depois?.erroAnalise || 'Não foi possível analisar este edital. Tente novamente.' }, { status: 500 });
     }
 
   } catch (error) {

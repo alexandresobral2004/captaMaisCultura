@@ -1,6 +1,7 @@
 import { getAllEditais, saveEdital, Edital } from '../db/editais-store';
 import { baixarELerPDFEdital, OpcoesDownload } from './pdf-downloader';
 import { analisarEditalComIA } from '../ai/analyzer';
+import { MENSAGEM_SEM_DOCUMENTO, mensagemErroAnalise } from '../ai/erros-analise';
 import { extrairRelativePath } from './utils/path-utils';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -68,6 +69,7 @@ export async function processarEditalUnico(edital: Edital): Promise<boolean> {
     if (resultadoExtracao.fonte === 'sem_pdf' || !resultadoExtracao.texto) {
       console.warn(`⚠️ Edital [${edital.id}] sem conteúdo disponível. Marcando como 'sem_pdf'.`);
       edital.statusAnalise = 'sem_pdf';
+      edital.erroAnalise = MENSAGEM_SEM_DOCUMENTO;
       await saveEdital(edital);
       return false;
     }
@@ -93,7 +95,7 @@ export async function processarEditalUnico(edital: Edital): Promise<boolean> {
   } catch (error: any) {
     console.error(`🔥 Erro crítico ao processar edital [${edital.id}]:`, error.message);
     edital.statusAnalise = 'erro';
-    edital.erroAnalise = error.message;
+    edital.erroAnalise = mensagemErroAnalise(error);
     await saveEdital(edital);
     return false;
   }

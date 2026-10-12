@@ -359,7 +359,7 @@ export default function EditaisPage() {
 <div className="editais-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
                 {editaisFiltrados.map((edital) => {
                   const isAnalisado = edital.statusAnalise === 'analisado';
-                  const isErro = edital.statusAnalise === 'erro';
+                  const isErro = edital.statusAnalise === 'erro' || edital.statusAnalise === 'sem_pdf';
                   const isPendente = edital.statusAnalise === 'pendente' || edital.statusAnalise === 'pdf_baixado';
                   const isUpload = edital.fonteConteudo === 'pdf_upload';
                   const score = edital.analiseIA?.scoreAdequacao;
@@ -388,9 +388,9 @@ export default function EditaisPage() {
                             <Badge 
                               variant="danger" 
                               style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                              title={edital.erroAnalise || 'Falha na análise por IA'}
+                              title={edital.erroAnalise || 'Não foi possível analisar este edital'}
                             >
-                              <AlertCircle style={{ width: '0.75rem', height: '0.75rem' }} /> Falha IA
+                              <AlertCircle style={{ width: '0.75rem', height: '0.75rem' }} /> {edital.statusAnalise === 'sem_pdf' ? 'Sem documento' : 'Falha na análise'}
                             </Badge>
                           ) : isPendente ? (
                             <Badge variant="default" style={{ backgroundColor: 'transparent', color: 'var(--color-warning)', border: '1px solid var(--color-warning)' }}>

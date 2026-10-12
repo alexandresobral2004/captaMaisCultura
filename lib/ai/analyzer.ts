@@ -3,6 +3,7 @@ import { Edital, saveEdital, getEditalPorId } from '../db/editais-store';
 import { promptAnaliseSimplificada } from './prompts';
 import { validarCamposEdital } from './validator';
 import { AnaliseEditalSchema, AnaliseEditalResult } from './schema-analise';
+import { mensagemErroAnalise } from './erros-analise';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
 import { apiKeyConfigurada, criarChatModel, obterClienteOpenAI, obterModelo } from './client';
@@ -37,6 +38,7 @@ VALORES:
 - Identifique a moeda e unidade de repasse.
 
 ELEGIBILIDADE:
+- Preencha 'restritoA' quando só um público específico puder participar (servidores de uma instituição, estudantes de um curso, moradores de um local); senão null.
 - Liste quem pode participar (universidades, empresas, ONGs, etc.).
 - Extraia requisitos obrigatórios e restrições.
 - Identifique a abrangência geográfica.
@@ -156,7 +158,10 @@ function mapearParaEdital(
       ...resultado.avaliacao.criteriosDetalhados,
     ],
     contatoEdital: resultado.contato || edital.analiseIA?.contatoEdital,
-    pontosFracos: resultado.consistencia.alertas,
+    pontosFracos: [
+      ...(resultado.elegibilidade.restritoA ? [`Participação restrita: ${resultado.elegibilidade.restritoA}`] : []),
+      ...resultado.consistencia.alertas,
+    ],
     scoreAdequacao: resultado.consistencia.status === 'ok'
       ? 90
       : resultado.consistencia.status === 'duvida'
@@ -217,7 +222,7 @@ export async function analisarEditalComIA(
   if (!apiKeyConfigurada()) {
     console.warn('⚠️ OPENAI_API_KEY não configurada');
     editalOriginal.statusAnalise = 'erro';
-    editalOriginal.erroAnalise = 'OPENAI_API_KEY não configurada';
+    editalOriginal.erroAnalise = mensagemErroAnalise('OPENAI_API_KEY não configurada');
     await saveEdital(editalOriginal);
     return editalOriginal;
   }
@@ -254,6 +259,7 @@ export async function analisarEditalComIA(
         };
 
         editalOriginal.statusAnalise = 'analisado';
+        editalOriginal.erroAnalise = '';
         editalOriginal.statusRevisao = editalOriginal.statusRevisao || 'pendente';
         editalOriginal.ultimaAnalise = new Date();
 
@@ -275,7 +281,7 @@ export async function analisarEditalComIA(
         );
 
         editalOriginal.statusAnalise = 'erro';
-        editalOriginal.erroAnalise = (erroSimplificado as Error).message;
+        editalOriginal.erroAnalise = mensagemErroAnalise(erroSimplificado);
         await saveEdital(editalOriginal);
         return editalOriginal;
       }
@@ -287,6 +293,7 @@ export async function analisarEditalComIA(
       mapearParaEdital(editalOriginal, resultado);
 
       editalOriginal.statusAnalise = 'analisado';
+        editalOriginal.erroAnalise = '';
       editalOriginal.statusRevisao = editalOriginal.statusRevisao || 'pendente';
       editalOriginal.ultimaAnalise = new Date();
 
@@ -312,14 +319,14 @@ export async function analisarEditalComIA(
       );
 
       editalOriginal.statusAnalise = 'erro';
-      editalOriginal.erroAnalise = (erroAnalise as Error).message;
+      editalOriginal.erroAnalise = mensagemErroAnalise(erroAnalise);
       await saveEdital(editalOriginal);
       return editalOriginal;
     }
   } catch (erro) {
     console.error('❌ Erro ao analisar edital com IA:', erro);
     editalOriginal.statusAnalise = 'erro';
-    editalOriginal.erroAnalise = (erro as Error).message;
+    editalOriginal.erroAnalise = mensagemErroAnalise(erro);
     await saveEdital(editalOriginal);
     return editalOriginal;
   }
