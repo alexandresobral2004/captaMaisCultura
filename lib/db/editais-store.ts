@@ -1,4 +1,4 @@
-import { TecnologiaFoco, TipoFerramenta } from '../scraper/filtros-ti';
+import { TecnologiaFoco, TipoFerramenta } from '../filtros-ti';
 import { EditalRepository, CreateEditalDTO } from '../database/repositories/edital.repository';
 import { AnaliseRepository, CreateAnaliseDTO } from '../database/repositories/analise.repository';
 import { db } from '../database/db';

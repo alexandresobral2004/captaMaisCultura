@@ -1,4 +1,4 @@
-import { validarWhitelistTI, validarBlacklist } from '../scraper/filtros-ti';
+import { validarWhitelistTI, validarBlacklist } from '../filtros-ti';
 import { classificarSeEhEdital, ResultadoClassificacao } from './classifier';
 import {
   computeContentHash,

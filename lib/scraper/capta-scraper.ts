@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import crypto from 'crypto';
 import { Edital, isEditalExcluido } from '../db/editais-store';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from './filtros-ti';
+import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
 import { pipelineLogger } from './pipeline-logger';
 
 const CAPTA_URL = 'https://capta.org.br/fontes-de-financiamento/oportunidades/';

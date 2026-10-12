@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { analisarEditalComIA } from '@/lib/ai/analyzer';
 import { calcularPontuacaoEdital } from '@/lib/ai/scoring';
-import { analisarBlacklist } from '@/lib/scraper/filtros-ti';
+import { analisarBlacklist } from '@/lib/filtros-ti';
 import { baixarELerPDFEdital, OpcoesDownload } from '@/lib/scraper/pdf-downloader';
 import { saveEdital, Edital } from '@/lib/db/editais-store';
 import { verificarAdmin } from '@/lib/api/auth';

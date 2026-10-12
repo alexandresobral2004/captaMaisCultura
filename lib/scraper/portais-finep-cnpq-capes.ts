@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { Edital, isEditalExcluido } from '../db/editais-store';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from './filtros-ti';
+import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
 import { pipelineLogger } from './pipeline-logger';
 import { getPortal, atualizarUltimoScan } from './config';
 

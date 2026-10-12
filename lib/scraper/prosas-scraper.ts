@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 import { Edital, parseDateString, isEditalExcluido } from '../db/editais-store';
-import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from './filtros-ti';
+import { validarComOpenAI, validarBlacklist, validarWhitelistTI } from '../filtros-ti';
 import { pipelineLogger } from './pipeline-logger';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
