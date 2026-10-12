@@ -16,6 +16,7 @@ import {
   CheckCircle2, AlertCircle, Copy, ArrowUp, ArrowDown, Plus, Trash2,
   Building2
 } from "lucide-react";
+import { EquipeProjeto } from '@/components/projetos/EquipeProjeto';
 import { DadosProponenteForm } from '@/components/projetos/DadosProponenteForm';
 import { defaultDadosProponente, type DadosProponente } from '@/components/projetos/dados-proponente';
 import { useConfirm } from '@/contexts/confirm-context';
@@ -746,121 +747,13 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
               )}
             </div>
 
-            {/* Team Section */}
-            {projeto.status === 'gerado' && (
-              <Card className="bg-white/60 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800/60 shadow-sm">
-                <CardHeader className="py-3 px-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50">Equipe do Projeto</CardTitle>
-                    {equipeData.length > 0 && (
-                      <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs w-fit">
-                        {equipeData.length} membros
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0 px-4 pb-4">
-                  <div className="space-y-3">
-                    {equipeData.map((membro: any, i: number) => (
-                      <div key={i} className="p-3 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/50 dark:border-slate-800/50 rounded-lg">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase mb-1 block">Nome</label>
-                            <Input
-                              value={membro.nome || ''}
-                              className="bg-white dark:bg-slate-950"
-                              onChange={(e) => {
-                                const newEquipe = [...equipeData];
-                                newEquipe[i].nome = e.target.value;
-                                setEquipeData(newEquipe);
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase mb-1 block">Função</label>
-                            <Input
-                              value={membro.funcao || ''}
-                              className="bg-white dark:bg-slate-950"
-                              onChange={(e) => {
-                                const newEquipe = [...equipeData];
-                                newEquipe[i].funcao = e.target.value;
-                                setEquipeData(newEquipe);
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase mb-1 block">Qualificação</label>
-                            <Input
-                              value={membro.qualificacao || ''}
-                              className="bg-white dark:bg-slate-950"
-                              onChange={(e) => {
-                                const newEquipe = [...equipeData];
-                                newEquipe[i].qualificacao = e.target.value;
-                                setEquipeData(newEquipe);
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-semibold text-slate-500 uppercase mb-1 block">Dedicação</label>
-                            <Input
-                              value={membro.dedicacao || ''}
-                              className="bg-white dark:bg-slate-950"
-                              onChange={(e) => {
-                                const newEquipe = [...equipeData];
-                                newEquipe[i].dedicacao = e.target.value;
-                                setEquipeData(newEquipe);
-                              }}
-                              placeholder="ex: 20h/semana"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEquipeData([...equipeData, { nome: '', funcao: '', qualificacao: '', dedicacao: '' }]);
-                      }}
-                      className="text-xs hover:bg-slate-100"
-                    >
-                      + Adicionar Membro
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEquipeData(equipeData.slice(0, -1));
-                      }}
-                      className="text-xs text-slate-500 hover:text-red-500"
-                      disabled={equipeData.length === 0}
-                    >
-                      Remover Último
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Include Team Toggle */}
-            <Card className="bg-white/60 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800/60 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="incluirEquipe"
-                    checked={incluirEquipe}
-                    onChange={(e) => setIncluirEquipe(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <label htmlFor="incluirEquipe" className="text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                    Incluir equipe na proposta
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
+            <EquipeProjeto
+              equipe={equipeData}
+              onChange={setEquipeData}
+              incluir={incluirEquipe}
+              onIncluirChange={setIncluirEquipe}
+              mostrarLista={projeto.status === 'gerado'}
+            />
 
             {/* Export Section */}
             {projeto.status === 'gerado' && (
