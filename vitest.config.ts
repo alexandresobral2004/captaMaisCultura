@@ -14,6 +14,6 @@ export default defineConfig({
     include: ['__tests__/**/*.test.ts'],
     testTimeout: 15000,
     // Testes não devem chamar serviços externos nem depender do ambiente do desenvolvedor
-    env: { TYPESAFE_API_KEY: '', OPENAI_API_KEY: '' },
+    env: { TYPESAFE_API_KEY: '', JEV_API_KEY: '', OPENAI_API_KEY: '' },
   },
 });

@@ -82,3 +82,17 @@ describe('validarComJev', () => {
     expect(await validarComJev('Edital', 'Descrição')).toBeNull();
   });
 });
+
+describe('chave do Jev', () => {
+  afterEach(() => {
+    process.env.TYPESAFE_API_KEY = '';
+    process.env.JEV_API_KEY = '';
+  });
+
+  it('aceita JEV_API_KEY quando TYPESAFE_API_KEY não existe', async () => {
+    const { jevDisponivel } = await import('../lib/ai/jev');
+    expect(jevDisponivel()).toBe(false);
+    process.env.JEV_API_KEY = 'jev-teste';
+    expect(jevDisponivel()).toBe(true);
+  });
+});

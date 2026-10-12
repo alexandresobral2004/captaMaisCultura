@@ -2,7 +2,7 @@
  * Cliente mínimo do Jev (TypeSafe System One): julgamentos tipados e rápidos.
  * Docs: https://docs.typesafe.ai/api.md
  *
- * - Chave em TYPESAFE_API_KEY (somente servidor). Sem chave, o Jev fica indisponível
+ * - Chave em TYPESAFE_API_KEY ou JEV_API_KEY (somente servidor). Sem chave, o Jev fica indisponível
  *   e os chamadores devem seguir com o fluxo alternativo.
  * - Perguntas independentes sobre o mesmo `state` vão na mesma requisição (rodam em paralelo).
  */
@@ -54,8 +54,12 @@ export class JevError extends Error {
   }
 }
 
+function lerChaveJev(): string | undefined {
+  return process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY || undefined;
+}
+
 export function jevDisponivel(): boolean {
-  return Boolean(process.env.TYPESAFE_API_KEY);
+  return lerChaveJev() !== undefined;
 }
 
 export function obterModeloJev(): string {
@@ -85,8 +89,8 @@ export async function consultarJev<Q extends Record<string, PerguntaJev>>(
   state: string | Record<string, unknown> | unknown[],
   questions: Q
 ): Promise<ResultadoJev<Q>> {
-  const chave = process.env.TYPESAFE_API_KEY;
-  if (!chave) throw new JevError('TYPESAFE_API_KEY não está definida.');
+  const chave = lerChaveJev();
+  if (!chave) throw new JevError('TYPESAFE_API_KEY (ou JEV_API_KEY) não está definida.');
 
   const corpo = { state, model: obterModeloJev(), questions };
 
