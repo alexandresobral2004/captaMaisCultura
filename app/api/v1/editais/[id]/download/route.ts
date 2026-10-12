@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EditalService } from '@/lib/database/services/edital.service';
 import { FileService } from '@/lib/database/services/file.service';
 import { errorResponse, handleApiError } from '@/lib/api/responses';
-import fs from 'fs/promises';
 import path from 'path';
 
 const service = new EditalService();
@@ -29,25 +28,27 @@ export async function GET(
       );
     }
 
-    const fullPath = path.join(process.cwd(), 'data', edital.pdfPath);
-
-    // Verificar se arquivo existe
+    let fileBuffer: Buffer;
     try {
-      await fs.access(fullPath);
-    } catch {
+      fileBuffer = await fileService.lerArquivo(edital.pdfPath);
+    } catch (err: any) {
+      if (err?.message?.includes('Directory Traversal')) {
+        return NextResponse.json(
+          errorResponse('FORBIDDEN', 'Caminho de arquivo invalido'),
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         errorResponse('FILE_NOT_FOUND', 'Arquivo PDF nao encontrado no disco'),
         { status: 404 }
       );
     }
-
-    const fileBuffer = await fs.readFile(fullPath);
     const fileName = path.basename(edital.pdfPath);
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': `attachment; filename="${fileName.replace(/[^\w.\-]/g, '_')}"`,
         'Content-Length': fileBuffer.length.toString(),
       },
     });

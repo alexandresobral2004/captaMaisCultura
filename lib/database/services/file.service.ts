@@ -13,7 +13,7 @@ export class FileService {
     const basePath = path.resolve(process.cwd(), 'data');
     const fullPath = path.resolve(basePath, relativePath);
 
-    if (!fullPath.startsWith(basePath)) {
+    if (fullPath !== basePath && !fullPath.startsWith(basePath + path.sep)) {
       throw new Error('Acesso negado: Tentativa de Directory Traversal detectada.');
     }
 

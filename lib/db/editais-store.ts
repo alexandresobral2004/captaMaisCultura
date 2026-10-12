@@ -2,7 +2,7 @@ import { TecnologiaFoco, TipoFerramenta } from '../scraper/filtros-ti';
 import { EditalRepository, CreateEditalDTO } from '../database/repositories/edital.repository';
 import { AnaliseRepository, CreateAnaliseDTO } from '../database/repositories/analise.repository';
 import { db } from '../database/db';
-import { eq, or, gte, and } from 'drizzle-orm';
+import { eq, or, gte, and, sql } from 'drizzle-orm';
 import { editais as editaisTable } from '../database/schema';
 
 // ============================================================
@@ -341,26 +341,19 @@ const analiseRepo = new AnaliseRepository();
 
 export async function getAllEditais(incluirFechados = false, categoriaArea?: string): Promise<Edital[]> {
   try {
-    let query = `SELECT * FROM editais`;
-    const conditions: string[] = [];
-
-    // Sempre ignorar os editais deletados logicamente
-    conditions.push('deleted_at IS NULL');
+    // Valores sempre parametrizados pelo template `sql` (nunca interpolados na string)
+    const conditions = [sql`deleted_at IS NULL`];
 
     if (!incluirFechados) {
       const agora = new Date().toISOString();
-      conditions.push(`(data_limite IS NULL OR data_limite >= '${agora}')`);
+      conditions.push(sql`(data_limite IS NULL OR data_limite >= ${agora})`);
     }
 
     if (categoriaArea) {
-      conditions.push(`categoria_area = '${categoriaArea}'`);
+      conditions.push(sql`categoria_area = ${categoriaArea}`);
     }
 
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
-    }
-
-    query += ` ORDER BY criado_em DESC`;
+    const query = sql`SELECT * FROM editais WHERE ${sql.join(conditions, sql` AND `)} ORDER BY criado_em DESC`;
 
     const rows = db.all(query) as any[];
 

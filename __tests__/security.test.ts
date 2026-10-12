@@ -45,6 +45,12 @@ describe('Validação de Funcionalidades de Segurança', () => {
         'Acesso negado: Tentativa de Directory Traversal detectada.'
       );
     });
+
+    it('deve rejeitar pasta irmã com o mesmo prefixo (data-evil)', async () => {
+      await expect(fileService.lerArquivo('../data-evil/segredo.txt')).rejects.toThrow(
+        'Directory Traversal'
+      );
+    });
   });
 
   describe('Validação Zod - Cadastro e Login', () => {
@@ -110,5 +116,16 @@ describe('Validação de Funcionalidades de Segurança', () => {
         expect(resultado.success).toBe(false);
       });
     });
+  });
+});
+
+describe('UpdateEditalSchema - pdfPath não pode vir do cliente', () => {
+  it('descarta pdfPath no corpo do PUT de editais', async () => {
+    const { UpdateEditalSchema } = await import('../lib/api/validators');
+    const parsed = UpdateEditalSchema.omit({ pdfPath: true }).parse({
+      titulo: 'Novo título',
+      pdfPath: '../.env',
+    });
+    expect(parsed).not.toHaveProperty('pdfPath');
   });
 });

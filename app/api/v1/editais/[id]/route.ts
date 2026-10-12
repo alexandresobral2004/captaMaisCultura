@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EditalService } from '@/lib/database/services/edital.service';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api/responses';
+import { UpdateEditalSchema } from '@/lib/api/validators';
+
+// pdfPath só é definido no servidor (upload/file); nunca pelo cliente
+const UpdateEditalBodySchema = UpdateEditalSchema.omit({ pdfPath: true });
 
 const service = new EditalService();
 
@@ -29,7 +33,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
+    const body = UpdateEditalBodySchema.parse(await request.json());
     const edital = await service.atualizar(params.id, body);
 
     return NextResponse.json(successResponse(edital));

@@ -178,4 +178,21 @@ describe('EditaisStore - Soft Delete Rules', () => {
     expect(list.some(e => e.id === idAtivo)).toBe(true);
     expect(list.some(e => e.id === idExcluido)).toBe(false);
   });
+
+  it('getAllEditais() trata categoriaArea como valor, nunca como SQL (SQL injection)', async () => {
+    await saveEdital({
+      id: 'edital-sqli-1',
+      titulo: 'Edital Cultura',
+      orgao: 'MinC',
+      dataLimite: '2099-12-31',
+      link: 'https://example.com/sqli-1',
+      status: 'Aberto' as const,
+    });
+
+    const injetado = await getAllEditais(true, "x' OR '1'='1");
+    expect(injetado).toHaveLength(0);
+
+    const uniao = await getAllEditais(true, "x' UNION SELECT * FROM usuarios --");
+    expect(uniao).toHaveLength(0);
+  });
 });
