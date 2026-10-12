@@ -55,7 +55,7 @@ async function extrairTargetMetrics(titulo: string, descricao: string, duracaoMe
   const client = obterClienteOpenAI();
 
   const prompt = `Analise o título e a descrição do projeto abaixo e extraia as métricas estruturadas de impacto no formato JSON.
-Se as informações não forem explícitas na descrição, gere valores/estimativas plausíveis e realistas coerentes com o escopo do projeto.
+Extraia SOMENTE o que estiver explícito na descrição. NÃO estime nem invente: o que não constar deve ficar null (números) ou lista/texto vazio.
 
 Título: ${titulo}
 Descrição: ${descricao}
@@ -63,10 +63,10 @@ Descrição: ${descricao}
 Retorne um objeto JSON estrito com a seguinte estrutura:
 {
   "publicoAlvo": "breve descrição do público-alvo",
-  "localizacao": "cidade/estado/região provável de execução",
+  "localizacao": "cidade/estado/região de execução, se citada",
   "duracaoMeses": ${duracaoMeses},
-  "beneficiariosDiretos": 150,
-  "beneficiariosIndiretos": 600,
+  "beneficiariosDiretos": null,
+  "beneficiariosIndiretos": null,
   "produtosEntregues": ["produto 1", "produto 2", ...],
   "indicadoresImpacto": ["indicador de impacto 1", "indicador de impacto 2", ...]
 }
@@ -76,14 +76,24 @@ Apenas o JSON, sem markdown ou explicações adicionais.`;
     model: obterModelo('mini'),
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
-    temperature: 0.3,
+    temperature: 0,
   });
 
   const content = response.choices[0]?.message?.content;
   if (!content) {
     throw new Error('Falha ao extrair métricas do projeto');
   }
-  return JSON.parse(content) as TargetMetrics;
+  const bruto = JSON.parse(content) as Partial<TargetMetrics>;
+  const numero = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  return {
+    publicoAlvo: bruto.publicoAlvo || '',
+    localizacao: bruto.localizacao || '',
+    duracaoMeses,
+    beneficiariosDiretos: numero(bruto.beneficiariosDiretos),
+    beneficiariosIndiretos: numero(bruto.beneficiariosIndiretos),
+    produtosEntregues: Array.isArray(bruto.produtosEntregues) ? bruto.produtosEntregues : [],
+    indicadoresImpacto: Array.isArray(bruto.indicadoresImpacto) ? bruto.indicadoresImpacto : [],
+  };
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -140,24 +150,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const secoesDinamicasAtuais = (projeto.secoesDinamicas as any[]) || [];
     const resultado = await writer.gerarPropostaDinamica(editalContext, proposalUser, secoesDinamicasAtuais);
 
-    // Contexto da Instituição - usar dadosProponente do projeto se disponíveis, senão usar padrão
+    // Contexto da instituição: somente dados informados pelo usuário (nada inventado)
     const dadosProponente = projeto.dadosProponente as any;
+    if (!dadosProponente?.nomeProponente?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Preencha o nome do proponente (aba Dados do proponente) antes de gerar o projeto.' },
+        { status: 400 }
+      );
+    }
     const defaultInstitution: InstitutionContext = {
-      nome: dadosProponente?.nomeProponente || 'Instituto Cultural CaptaMais',
-      cnpj: dadosProponente?.cnpjCpf || '12.345.678/0001-99',
-      historico: dadosProponente?.historico || 'O Instituto Cultural CaptaMais é uma associação sem fins lucrativos que há 8 anos atua na democratização do acesso à cultura, arte e educação em regiões de alta vulnerabilidade social.',
-      projetosAnteriores: dadosProponente?.projetosAnteriores || [
-        'Oficinas de Inclusão Digital e Robótica Educacional (2023) - 150 alunos atendidos.',
-        'Ciclo de Teatro Itinerante Nas Escolas (2024) - 1.200 espectadores.',
-      ],
-      certificacoes: dadosProponente?.certificacoes || [
-        'Organização da Sociedade Civil de Interesse Público (OSCIP)',
-        'Cadastro Estadual de Entidades Culturais',
-      ],
-      capacidadeTecnica: dadosProponente?.capacidadeTecnica || 'A entidade conta com equipe de coordenação pedagógica, produtores culturais experientes e analistas técnicos capacitados para a gestão e prestação de contas de projetos financiados por editais.'
+      nome: dadosProponente.nomeProponente,
+      cnpj: dadosProponente.cnpjCpf || '',
+      historico: dadosProponente.historico || '',
+      projetosAnteriores: Array.isArray(dadosProponente.projetosAnteriores) ? dadosProponente.projetosAnteriores : [],
+      certificacoes: Array.isArray(dadosProponente.certificacoes) ? dadosProponente.certificacoes : [],
+      capacidadeTecnica: dadosProponente.capacidadeTecnica || '',
     };
 
-    // Extrair métricas de impacto realistas a partir do input do projeto
+    // Extrair métricas explícitas no texto do projeto (sem estimar)
     const targetMetrics = await extrairTargetMetrics(
       projeto.titulo,
       proposalUser.descricao,

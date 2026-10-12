@@ -75,8 +75,9 @@ export interface TargetMetrics {
   publicoAlvo: string;
   localizacao: string;
   duracaoMeses: number;
-  beneficiariosDiretos: number;
-  beneficiariosIndiretos: number;
+  /** null = não informado pelo usuário; nunca estimar. */
+  beneficiariosDiretos: number | null;
+  beneficiariosIndiretos: number | null;
   produtosEntregues: string[];
   indicadoresImpacto: string[];
 }
@@ -469,20 +470,22 @@ ${context.elegibilidade.join('\n')}
    * Formata o contexto da instituição para o prompt.
    */
   private formatInstitutionContext(context: InstitutionContext): string {
+    const NI = '(não informado: não inventar, escrever de forma genérica ou omitir)';
+    const lista = (itens: string[]) => (itens.length ? itens.join('\n') : NI);
     return `
-Nome: ${context.nome}
-CNPJ: ${context.cnpj}
+Nome: ${context.nome || NI}
+CNPJ: ${context.cnpj || NI}
 Histórico:
-${context.historico}
+${context.historico || NI}
 
 Projetos Anteriores:
-${context.projetosAnteriores.join('\n')}
+${lista(context.projetosAnteriores)}
 
 Certificações:
-${context.certificacoes.join('\n')}
+${lista(context.certificacoes)}
 
 Capacidade Técnica:
-${context.capacidadeTecnica}
+${context.capacidadeTecnica || NI}
 `.trim();
   }
 
@@ -490,18 +493,21 @@ ${context.capacidadeTecnica}
    * Formata as métricas alvo para o prompt.
    */
   private formatTargetMetrics(metrics: TargetMetrics): string {
+    const NI = '(não informado: não citar números)';
+    const num = (n: number | null) => (n === null || n === undefined ? NI : String(n));
+    const lista = (itens: string[]) => (itens.length ? itens.join('\n') : NI);
     return `
-Público-Alvo: ${metrics.publicoAlvo}
-Localização: ${metrics.localizacao}
+Público-Alvo: ${metrics.publicoAlvo || NI}
+Localização: ${metrics.localizacao || NI}
 Duração: ${metrics.duracaoMeses} meses
-Beneficiários Diretos: ${metrics.beneficiariosDiretos}
-Beneficiários Indiretos: ${metrics.beneficiariosIndiretos}
+Beneficiários Diretos: ${num(metrics.beneficiariosDiretos)}
+Beneficiários Indiretos: ${num(metrics.beneficiariosIndiretos)}
 
 Produtos a Entregar:
-${metrics.produtosEntregues.join('\n')}
+${lista(metrics.produtosEntregues)}
 
 Indicadores de Impacto:
-${metrics.indicadoresImpacto.join('\n')}
+${lista(metrics.indicadoresImpacto)}
 `.trim();
   }
 }
