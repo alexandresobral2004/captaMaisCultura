@@ -33,7 +33,7 @@ function regrasGerais(ctx: ContextoGeracao): string {
 REGRAS (obrigatórias):
 1. Escreva em português, formal, técnico e objetivo, na voz ativa e em 3ª pessoa. Frases curtas.
 2. Retorne SOMENTE o HTML da seção (<p>, <ul><li>, <h3>, <table>, <strong>), sem saudação, explicação ou cerca de código.
-3. NADA INVENTADO: use apenas nomes, números, datas, parceiros, estatísticas e fontes que estejam no contexto ou no rascunho do usuário. Onde faltar um dado necessário, escreva [PREENCHER: o que falta].
+3. NADA INVENTADO: use apenas nomes, números, datas, parceiros, estatísticas e fontes que estejam no contexto ou no rascunho do usuário. Metas e quantidades (percentuais, número de pessoas, unidades, valores) que o usuário não informou NÃO podem ser criadas: escreva [PREENCHER: meta]. Onde faltar qualquer outro dado necessário, escreva [PREENCHER: o que falta].
 4. Atenda aos critérios de avaliação e à elegibilidade do edital, respeitando valor máximo e prazo.
 5. Proibido usar: ${EXPRESSOES_PROIBIDAS.join(', ')}.${ctx.instrucoesExtras ? `\n\nINSTRUÇÕES ADICIONAIS DA INSTITUIÇÃO:\n${ctx.instrucoesExtras}` : ''}`;
 }
