@@ -32,7 +32,8 @@ if (!process.env.OPENAI_API_KEY) {
   }
 }
 
-const DB_PATH = path.join(process.cwd(), 'data', 'db', 'editais.db');
+// DATABASE_PATH permite apontar para outro arquivo (ex.: testes); o padrão é data/db/editais.db
+const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'db', 'editais.db');
 
 // Garantir que o diretorio existe
 const dbDir = path.dirname(DB_PATH);
