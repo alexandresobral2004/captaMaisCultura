@@ -40,7 +40,7 @@ const colorMap: Record<ColorScheme, string> = {
 
 const menuItems: MenuItem[] = [
   { href: "/dashboard", label: "Início", icon: Home, colorScheme: 'emerald' },
-  { href: "/editais", label: "Meus Editais", icon: FileText, colorScheme: 'amber' },
+  { href: "/editais", label: "Editais", icon: FileText, colorScheme: 'amber' },
   { href: "/projetos", label: "Projetos Culturais", icon: CheckCircle, colorScheme: 'sky' },
   {
     href: "/analise-cientifica",
@@ -49,7 +49,7 @@ const menuItems: MenuItem[] = [
     colorScheme: 'violet',
     submenu: [
       { href: "/analise-cientifica/projetos", label: "Meus Projetos", colorScheme: 'violet' },
-      { href: "/analise-cientifica/editais", label: "Editais Científicos", colorScheme: 'violet' },
+      { href: "/analise-cientifica/editais", label: "Editais de Pesquisa", colorScheme: 'violet' },
     ]
   },
   {
@@ -58,12 +58,12 @@ const menuItems: MenuItem[] = [
     icon: Settings,
     colorScheme: 'slate',
     submenu: [
-      { href: "/configuracoes", label: "Geral", colorScheme: 'slate' },
+      { href: "/configuracoes", label: "Visão geral", colorScheme: 'slate' },
       { href: "/usuarios", label: "Usuários", colorScheme: 'slate' },
-      { href: "/configuracoes/logs", label: "Logs de Erro", colorScheme: 'slate' },
-      { href: "/configuracoes/filtros", label: "Filtros de Editais", colorScheme: 'slate' },
-      { href: "/configuracoes/portais", label: "Portais de Editais", colorScheme: 'slate' },
-      { href: "/configuracoes/prompts", label: "Prompts de IA", colorScheme: 'slate' },
+      { href: "/configuracoes/logs", label: "Problemas do sistema", colorScheme: 'slate' },
+      { href: "/configuracoes/filtros", label: "O que buscar", colorScheme: 'slate' },
+      { href: "/configuracoes/portais", label: "Onde buscar", colorScheme: 'slate' },
+      { href: "/configuracoes/prompts", label: "Instruções da IA (avançado)", colorScheme: 'slate' },
     ]
   },
 ]
@@ -137,11 +137,11 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Capta</h1>
           <span className="text-blue-600 font-bold dark:text-blue-400">+</span>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Gestão de Editais</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Encontre e organize editais</p>
       </div>
 
       {/* Navigation */}
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Menu principal">
         {menuItems
           .filter((item) => {
             if (item.href === '/configuracoes') {
@@ -160,6 +160,7 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
               <div key={item.href} className="nav-group">
                 <button
                   onClick={() => toggleSubMenu(item.href)}
+                  aria-expanded={isExpanded}
                   className={cn(
                     "nav-item nav-item-expandable",
                     (isActive || isSubMenuActive(item.submenu!)) && "active"
@@ -184,12 +185,13 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
                           key={subItem.href}
                           href={subItem.href}
                           onClick={handleNavClick}
+                          aria-current={isSubActive ? "page" : undefined}
                           className={cn(
                             "nav-submenu-item",
                             isSubActive && "active"
                           )}
                         >
-                          {subItem.label === "Logs de Erro" && (
+                          {subItem.label === "Problemas do sistema" && (
                             <AlertTriangle className="h-3 w-3" style={{ color: subColor }} />
                           )}
                           <span style={{ color: isSubActive ? subColor : undefined }}>{subItem.label}</span>
@@ -207,6 +209,7 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
               key={item.href}
               href={item.href}
               onClick={handleNavClick}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "nav-item",
                 isActive && "active"
@@ -219,13 +222,6 @@ export function Sidebar({ mobileOnClose }: SidebarProps) {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="sidebar-footer">
-        <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
-          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Plano Governamental</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Vence em: 15 dias</p>
-        </div>
-      </div>
     </div>
   );
 }

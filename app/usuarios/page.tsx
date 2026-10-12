@@ -250,9 +250,9 @@ export default function UsuariosPage() {
                       marginBottom: "0.25rem",
                       display: "block"
                     }}>
-                      Nome da Instituicao
+                      Nome da instituição
                     </label>
-                    <Input defaultValue="Prefeitura Municipal de Exemplo" style={{ height: "2.25rem" }} />
+                    <Input placeholder="Nome da instituição" style={{ height: "2.25rem" }} />
                   </div>
                   <div>
                     <label style={{

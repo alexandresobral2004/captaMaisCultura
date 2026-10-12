@@ -2,9 +2,12 @@ import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { FileText, Clock, AlertCircle, DollarSign, ArrowRight } from "lucide-react"
+import { FileText, Theater, AlertCircle, ArrowRight, Search, FolderOpen } from "lucide-react"
 import { getAllEditais, parseDateString } from "@/lib/db/editais-store"
 import Link from "next/link"
+import { db } from "@/lib/database/db"
+import { projetos } from "@/lib/database/schema"
+import { count } from "drizzle-orm"
 
 // Força renderização dinâmica pois usa SQLite (módulo nativo Node.js)
 export const dynamic = 'force-dynamic';
@@ -92,6 +95,7 @@ function renderAreaBadge(area: string) {
 export default async function DashboardPage() {
   const editaisReais = await getAllEditais();
   const totalEditais = editaisReais.length;
+  const [{ total: totalProjetos }] = db.select({ total: count() }).from(projetos).all();
 
   const agora = new Date();
   const proximosVencer = editaisReais.filter(edital => {
@@ -102,11 +106,20 @@ export default async function DashboardPage() {
     return diffDays >= 0 && diffDays <= 10;
   }).length;
 
+  const totalCultura = editaisReais.filter(e => (e.categoriaArea || 'Cultura') === 'Cultura').length;
+  const totalPesquisa = editaisReais.filter(e => e.categoriaArea === 'Pesquisa').length;
+
   const stats = [
-    { title: "Editais Mapeados", value: String(totalEditais), change: `${totalEditais > 0 ? '+' + totalEditais : '0'} ativos`, icon: FileText },
-    { title: "Projetos em Análise", value: "5", change: "Aguardando", icon: Clock },
-    { title: "Prazos Curtos (≤ 10 dias)", value: String(proximosVencer), change: "Necessita atenção", icon: AlertCircle },
-    { title: "Total Captado", value: "R$ 2.4M", change: "+15% ano", icon: DollarSign },
+    { title: "Editais encontrados", value: String(totalEditais), change: "No total, já salvos no sistema", icon: FileText },
+    { title: "Prazo acabando", value: String(proximosVencer), change: "Fecham em até 10 dias", icon: AlertCircle },
+    { title: "Projetos criados", value: String(totalProjetos), change: "Projetos culturais no sistema", icon: FolderOpen },
+    { title: "Cultura e Pesquisa", value: `${totalCultura} e ${totalPesquisa}`, change: "Editais de cada área", icon: Theater },
+  ];
+
+  const passos = [
+    { href: "/editais", icon: Search, titulo: "1. Procure editais", texto: "Os editais abertos aparecem na lista de Editais." },
+    { href: "/editais", icon: FileText, titulo: "2. Veja os melhores", texto: "A lista mostra primeiro os que mais combinam com você." },
+    { href: "/projetos", icon: FolderOpen, titulo: "3. Monte seu projeto", texto: "Escolha um edital e preencha o projeto com ajuda da IA." },
   ];
 
   const ultimosEditais = editaisReais.slice(0, 5);
@@ -116,9 +129,9 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-8">
         {/* Header */}
         <div className="flex flex-col gap-2">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Visão Geral</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Início</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Acompanhe o desempenho de captação da sua instituição em tempo real
+            Um resumo dos editais encontrados e do que precisa da sua atenção.
           </p>
         </div>
 
@@ -143,13 +156,37 @@ export default async function DashboardPage() {
           })}
         </div>
 
+        {totalEditais === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Primeiros passos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {passos.map((p) => {
+                  const Icon = p.icon
+                  return (
+                    <Link key={p.titulo} href={p.href} className="flex gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <Icon className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+                      <span>
+                        <span className="block font-semibold text-slate-900 dark:text-slate-100">{p.titulo}</span>
+                        <span className="block text-sm text-slate-600 dark:text-slate-400">{p.texto}</span>
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Editais Table */}
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Últimos Editais Publicados (Abertos)</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Editais abertos mais recentes</h3>
             <Link href="/editais">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
-                Ver Todos
+                Ver todos
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
@@ -160,19 +197,19 @@ export default async function DashboardPage() {
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
-                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Título</th>
-                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Órgão</th>
-                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Valor Estimado</th>
-                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Data Limite</th>
-                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Área</th>
-                    <th className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Status</th>
+                    <th scope="col" className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Nome do edital</th>
+                    <th scope="col" className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Quem publicou</th>
+                    <th scope="col" className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Valor</th>
+                    <th scope="col" className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Prazo final</th>
+                    <th scope="col" className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Área</th>
+                    <th scope="col" className="text-left p-3 font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ultimosEditais.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-center p-8 text-slate-500">
-                        Nenhum edital ativo no banco de dados. Vá em <Link href="/editais" className="text-blue-600 underline">Explorar Editais</Link> para realizar a primeira busca.
+                        Ainda não há editais por aqui. Abra a página <Link href="/editais" className="text-blue-600 underline">Editais</Link> para ver as oportunidades.
                       </td>
                     </tr>
                   ) : (

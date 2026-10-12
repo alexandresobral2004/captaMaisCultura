@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Bell, User, Settings, LogOut } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { User, Settings, LogOut } from "lucide-react"
+import NotificacaoBell from "@/components/NotificacaoBell"
 import { ThemeToggleIcon } from "@/components/providers/theme-toggle"
 
 interface TopBarProps {
@@ -15,6 +14,20 @@ export function TopBar({ onMobileMenuOpen }: TopBarProps) {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [usuario, setUsuario] = useState<{ nome: string; role: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/v1/usuarios/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => u && setUsuario({ nome: u.nome, role: u.role }))
+      .catch(() => {})
+  }, [])
+
+  const papel: Record<string, string> = {
+    admin: 'Administrador',
+    editor: 'Editor',
+    leitor: 'Somente leitura',
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -32,40 +45,36 @@ export function TopBar({ onMobileMenuOpen }: TopBarProps) {
     }
   }, [isMenuOpen])
 
-  const handleLogout = () => {
-    router.push("/")
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/v1/usuarios/logout', { method: 'POST' })
+    } finally {
+      router.push('/login')
+    }
   }
 
   return (
     <header className="topbar">
-      {/* Search */}
-      <div className="flex-1 max-w-xl relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input
-          type="text"
-          placeholder="Buscar editais, projetos ou usuários..."
-          className="pl-10"
-        />
-      </div>
+      <div className="flex-1" />
 
       {/* User Info */}
       <div className="flex items-center gap-4">
         <ThemeToggleIcon />
-        <Button variant="ghost" size="sm" className="relative">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
-        </Button>
+        <NotificacaoBell />
         <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700" />
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Abrir menu da conta"
+            aria-expanded={isMenuOpen}
+            aria-haspopup="menu"
             className="flex items-center gap-3 bg-transparent border-0 cursor-pointer p-1"
           >
             <div className="hidden sm:block text-right">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Prefeitura Municipal de Exemplo
+                {usuario?.nome ?? 'Minha conta'}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Gestor Administrativo</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{usuario ? papel[usuario.role] ?? usuario.role : ""}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
               <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
@@ -75,6 +84,8 @@ export function TopBar({ onMobileMenuOpen }: TopBarProps) {
           {/* Dropdown Menu */}
           {isMenuOpen && (
             <div className="absolute top-12 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg w-56 overflow-hidden z-20">
+              {usuario?.role === 'admin' && (
+                <>
               <button
                 onClick={() => {
                   router.push("/configuracoes")
@@ -83,8 +94,10 @@ export function TopBar({ onMobileMenuOpen }: TopBarProps) {
                 className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left bg-transparent border-0 cursor-pointer"
               >
                 <Settings className="w-4 h-4" />
-                <span>Alterar dados</span>
+                <span>Configurações</span>
               </button>
+                </>
+              )}
               <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
               <button
                 onClick={handleLogout}
