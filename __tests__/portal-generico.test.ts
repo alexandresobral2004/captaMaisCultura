@@ -37,3 +37,22 @@ describe('filtros de título', () => {
     expect(tituloDeAnoPassado('Edital 12/2026', agora)).toBe(false);
   });
 });
+
+describe('páginas de texto corrido', () => {
+  it('extrai editais escritos como parágrafos', () => {
+    const html = `<div id="content-core"><p>Chamada <a href="/edital-1.pdf">(documento Nº 1)</a> para seleção de unidades da Rede Federal interessadas em apoio técnico.</p>
+      <ul><li><a href="/retificacao.pdf">Retificação</a></li></ul><p>Texto qualquer curto.</p></div>`;
+    const itens = extrairItensDePagina(html, 'https://gov.br/mec/editais/2026', agora);
+    expect(itens).toHaveLength(1);
+    expect(itens[0].link).toBe('https://gov.br/edital-1.pdf');
+  });
+});
+
+describe('links genéricos para PDF', () => {
+  it('usa o nome do arquivo como título', () => {
+    const html = `<div><h3>Edital - Estudantes</h3><a href="/uploads/EDITAL-No-1.2026-DG-POLO-IFCE-Estudantes.pdf">Acesse o edital.</a></div>`;
+    const itens = extrairItensDePagina(html, 'https://polo.ifce.edu.br/embrapii-editais/', agora);
+    expect(itens).toHaveLength(1);
+    expect(itens[0].titulo).toBe('EDITAL No 1.2026 DG POLO IFCE Estudantes');
+  });
+});

@@ -20,6 +20,8 @@ export function tituloDeAnoPassado(titulo: string, agora = new Date()): boolean 
   return anos.length > 0 && Math.max(...anos) < agora.getFullYear();
 }
 
+const GENERICO = /^(acesse|baixe|baixar|clique|veja|ver)\b.{0,25}$/i;
+
 export interface ItemColetado {
   titulo: string;
   link: string;
@@ -44,7 +46,13 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
 
   $('a[href]').each((_, el) => {
     const href = ($(el).attr('href') || '').trim();
-    const titulo = $(el).text().replace(/\s+/g, ' ').trim();
+    let titulo = $(el).text().replace(/\s+/g, ' ').trim();
+    // Link genérico ("Acesse o edital."): usa o nome do arquivo como título
+    if (GENERICO.test(titulo) && /\.pdf(\?|$)/i.test(href)) {
+      try {
+        titulo = decodeURIComponent(new URL(href, urlBase).pathname.split('/').pop() || '').replace(/\.pdf$/i, '').replace(/[-_+]+/g, ' ').trim();
+      } catch { /* mantém o texto do link */ }
+    }
     if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) return;
     if (titulo.length < 15 || titulo.length > 300 || LIXO_NAVEGACAO.test(titulo)) return;
     if (!PALAVRAS_EDITAL.test(titulo) && !PALAVRAS_EDITAL.test(href)) return;
@@ -68,7 +76,31 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
     itens.push({ titulo, link, dataLimite: dataLimite || 'A consultar' });
   });
 
-  return itens;
+  // Páginas de texto corrido (ex.: gov.br/mec), em que cada edital é um parágrafo: "Chamada (...) para seleção de ..."
+  const porParagrafo: ItemColetado[] = [];
+  const vistosP = new Set<string>();
+  {
+    $('p').each((_, el) => {
+      const texto = $(el).text().replace(/\s+/g, ' ').trim();
+      if (texto.length < 40 || !/^(edital|chamada|sele[cç][aã]o|concurso|pr[eê]mio)/i.test(texto)) return;
+      if (NAO_E_EDITAL.test(texto.substring(0, 80)) || tituloDeAnoPassado(texto.substring(0, 120), agora)) return;
+      const href = $(el).find('a[href]').first().attr('href');
+      let link: string;
+      try {
+        link = new URL(href || '', urlBase).toString();
+      } catch {
+        return;
+      }
+      if (vistosP.has(link)) return;
+      vistosP.add(link);
+      const dataLimite = extrairDataFutura(texto, agora);
+      if (!dataLimite && /\d{1,2}\/\d{1,2}\/\d{4}/.test(texto)) return;
+      porParagrafo.push({ titulo: texto.length > 220 ? `${texto.substring(0, 217)}...` : texto, link, dataLimite: dataLimite || 'A consultar' });
+    });
+  }
+
+  // Em página de texto corrido, os links são anexos (PDFs de retificação, formulários): vale só o parágrafo
+  return porParagrafo.length > 0 ? porParagrafo : itens;
 }
 
 /** Abre a página do edital e procura o prazo. 'encerrado' quando só há datas passadas. */
