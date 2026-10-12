@@ -16,6 +16,8 @@ import {
   CheckCircle2, AlertCircle, Copy, ArrowUp, ArrowDown, Plus, Trash2,
   Upload, X, Building2, Phone, Mail, MapPin, UserCircle
 } from "lucide-react";
+import { useConfirm } from '@/contexts/confirm-context';
+import { useToast } from '@/contexts/toast-context';
 
 interface SecaoDinamica {
   id: string;
@@ -148,6 +150,8 @@ const defaultDadosProponente: DadosProponente = {
 };
 
 export default function ProjetoEditorPage({ params }: { params: { id: string } }) {
+  const confirmar = useConfirm();
+  const toast = useToast();
   const router = useRouter();
   const [projetoId, setProjetoId] = useState<string | null>(null);
   const [projeto, setProjeto] = useState<Projeto | null>(null);
@@ -263,7 +267,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
       await fetchProjeto();
     } catch (err) {
       console.error('Erro ao salvar:', err);
-      alert('Erro ao salvar projeto.');
+      toast.showError('Erro ao salvar projeto.');
     } finally {
       setSaving(false);
     }
@@ -304,7 +308,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
 
       await fetchProjeto();
     } catch (err: any) {
-      alert(err.message);
+      toast.showError(err.message);
     } finally {
       setGerando(false);
       setSaving(false);
@@ -335,7 +339,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
       ));
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'Erro ao aprimorar seção.');
+      toast.showError(err.message || 'Erro ao aprimorar seção.');
     } finally {
       setAprimorando(null);
     }
@@ -398,8 +402,8 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
     setMostrarAddForm(false);
   };
 
-  const handleRemoverSecao = (id: string) => {
-    if (confirm('Tem certeza que deseja remover esta seção?')) {
+  const handleRemoverSecao = async (id: string) => {
+    if (await confirmar('Tem certeza que deseja remover esta seção?')) {
       const filtradas = secoesDinamicas.filter(s => s.id !== id);
       const reordenadas = filtradas.map((s, idx) => ({ ...s, ordem: idx }));
       setSecoesDinamicas(reordenadas);
@@ -456,7 +460,7 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecione um arquivo de imagem válido.');
+      toast.showWarning('Por favor, selecione um arquivo de imagem válido.');
       return;
     }
 

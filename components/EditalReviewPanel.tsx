@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { Edital } from '@/lib/db/editais-store';
 import EditalReviewCard from './EditalReviewCard';
+import { useToast } from '@/contexts/toast-context';
 
 /**
  * Painel completo para revisão de editais
  */
 export const EditalReviewPanel: React.FC = () => {
+  const toast = useToast();
   const [editais, setEditais] = useState<Edital[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -57,16 +59,16 @@ export const EditalReviewPanel: React.FC = () => {
       if (response.ok) {
         // Remover da lista
         setEditais(editais.filter((e) => e.id !== id));
-        alert('✅ Edital aprovado com sucesso!');
+        toast.showSuccess('Edital aprovado com sucesso!');
       } else {
         const data = await response.json();
         const errorMsg = typeof data.error === 'object' && data.error !== null && 'message' in data.error
           ? data.error.message
           : (typeof data.error === 'string' ? data.error : null);
-        alert(`❌ Erro: ${errorMsg || 'Erro desconhecido'}`);
+        toast.showError(`Erro: ${errorMsg || 'Erro desconhecido'}`);
       }
     } catch (erro) {
-      alert('Erro ao aprovar edital');
+      toast.showError('Erro ao aprovar edital');
       console.error(erro);
     }
   };
@@ -85,16 +87,16 @@ export const EditalReviewPanel: React.FC = () => {
 
       if (response.ok) {
         setEditais(editais.filter((e) => e.id !== id));
-        alert('❌ Edital rejeitado');
+        toast.showInfo('Edital rejeitado');
       } else {
         const data = await response.json();
         const errorMsg = typeof data.error === 'object' && data.error !== null && 'message' in data.error
           ? data.error.message
           : (typeof data.error === 'string' ? data.error : null);
-        alert(`Erro: ${errorMsg || 'Erro desconhecido'}`);
+        toast.showError(`Erro: ${errorMsg || 'Erro desconhecido'}`);
       }
     } catch (erro) {
-      alert('Erro ao rejeitar edital');
+      toast.showError('Erro ao rejeitar edital');
       console.error(erro);
     }
   };
@@ -113,17 +115,17 @@ export const EditalReviewPanel: React.FC = () => {
       });
 
       if (response.ok) {
-        alert('✅ Correções salvas!');
+        toast.showSuccess('Correções salvas!');
         carregarEditais(); // Recarregar
       } else {
         const data = await response.json();
         const errorMsg = typeof data.error === 'object' && data.error !== null && 'message' in data.error
           ? data.error.message
           : (typeof data.error === 'string' ? data.error : null);
-        alert(`Erro: ${errorMsg || 'Erro desconhecido'}`);
+        toast.showError(`Erro: ${errorMsg || 'Erro desconhecido'}`);
       }
     } catch (erro) {
-      alert('Erro ao salvar correções');
+      toast.showError('Erro ao salvar correções');
       console.error(erro);
     }
   };

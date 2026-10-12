@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/contexts/confirm-context';
 
 interface Projeto {
   id: string;
@@ -33,6 +34,7 @@ interface Projeto {
 }
 
 export default function ProjetosCientificosPage() {
+  const confirmar = useConfirm();
   const router = useRouter();
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ export default function ProjetosCientificosPage() {
   });
 
   const handleDeletar = async (id: string) => {
-    if (!confirm('Tem certeza que deseja deletar este projeto?')) return;
+    if (!(await confirmar('Tem certeza que deseja deletar este projeto?'))) return;
     setDeletingId(id);
     try {
       const response = await fetch(`/api/analise-cientifica/projetos/${id}`, {

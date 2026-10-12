@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Edital } from '@/lib/db/editais-store';
+import { useConfirm } from '@/contexts/confirm-context';
 
 interface EditalReviewCardProps {
   edital: Edital;
@@ -20,6 +21,7 @@ export const EditalReviewCard: React.FC<EditalReviewCardProps> = ({
   onReject,
   onSave
 }) => {
+  const confirmar = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dadosEditados, setDadosEditados] = useState<any>({});
@@ -62,7 +64,7 @@ export const EditalReviewCard: React.FC<EditalReviewCardProps> = ({
   };
 
   const handleReject = async () => {
-    if (confirm('Tem certeza que deseja rejeitar este edital?')) {
+    if (await confirmar('Tem certeza que deseja rejeitar este edital?')) {
       setIsLoading(true);
       try {
         await onReject(edital.id);

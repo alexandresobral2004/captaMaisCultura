@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserPlus, Users, Building2, MoreVertical, X, Save } from "lucide-react";
+import { useConfirm } from '@/contexts/confirm-context';
 
 interface Usuario {
   id: string;
@@ -18,6 +19,7 @@ interface Usuario {
 }
 
 export default function UsuariosPage() {
+  const confirmar = useConfirm();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -89,7 +91,7 @@ export default function UsuariosPage() {
   };
 
   const handleExcluir = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este usuario?")) return;
+    if (!(await confirmar("Tem certeza que deseja excluir este usuario?"))) return;
 
     try {
       const response = await fetch(`/api/v1/usuarios/${id}`, {

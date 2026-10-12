@@ -3,6 +3,7 @@
 import { ThemeProvider } from './theme-provider';
 import { ToastProvider } from '@/contexts/toast-context';
 import { ToastContainer } from '@/components/ui/toast';
+import { ConfirmProvider } from '@/contexts/confirm-context';
 import { useToastContext } from '@/contexts/toast-context';
 
 function ToastRenderer() {
@@ -18,7 +19,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider>
       <ToastProvider>
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
         <ToastRenderer />
       </ToastProvider>
     </ThemeProvider>

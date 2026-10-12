@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Save, RotateCcw, CheckCircle2, FileText } from 'lucide-react';
+import { useConfirm } from '@/contexts/confirm-context';
+import { useToast } from '@/contexts/toast-context';
 
 interface PromptCompleto {
   id: string;
@@ -38,6 +40,8 @@ const chaveLabels: Record<string, string> = {
 };
 
 export default function EditarPromptPage() {
+  const confirmar = useConfirm();
+  const toast = useToast();
   const router = useRouter();
   const params = useParams();
   const modulo = params.modulo as string;
@@ -71,7 +75,7 @@ export default function EditarPromptPage() {
 
   const handleSalvar = async () => {
     if (!conteudo.trim()) {
-      alert('O conteúdo do prompt não pode estar vazio');
+      toast.showWarning('O conteúdo do prompt não pode estar vazio');
       return;
     }
 
@@ -94,13 +98,13 @@ export default function EditarPromptPage() {
         throw new Error(data.error || 'Falha ao salvar prompt');
       }
 
-      alert('Prompt salvo com sucesso!');
+      toast.showSuccess('Prompt salvo com sucesso!');
       setJustificativa('');
       setShowJustificativa(false);
       fetchPrompt();
     } catch (err: any) {
       console.error('Erro ao salvar prompt:', err);
-      alert(`Erro ao salvar: ${err.message}`);
+      toast.showError(`Erro ao salvar: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -109,7 +113,7 @@ export default function EditarPromptPage() {
   const handleRestaurarPadrao = async () => {
     if (!prompt) return;
 
-    if (!confirm('Tem certeza que deseja restaurar o prompt padrão? Isso irá desativar a versão customizada atual.')) {
+    if (!(await confirmar('Tem certeza que deseja restaurar o prompt padrão? Isso irá desativar a versão customizada atual.'))) {
       return;
     }
 
@@ -132,11 +136,11 @@ export default function EditarPromptPage() {
         throw new Error(data.error || 'Falha ao restaurar prompt');
       }
 
-      alert('Prompt restaurado para o padrão do sistema!');
+      toast.showSuccess('Prompt restaurado para o padrão do sistema!');
       fetchPrompt();
     } catch (err: any) {
       console.error('Erro ao restaurar prompt:', err);
-      alert(`Erro ao restaurar: ${err.message}`);
+      toast.showError(`Erro ao restaurar: ${err.message}`);
     } finally {
       setSaving(false);
     }

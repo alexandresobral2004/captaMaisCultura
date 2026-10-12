@@ -20,6 +20,7 @@ import {
   RefreshCw,
   XCircle
 } from 'lucide-react';
+import { useConfirm } from '@/contexts/confirm-context';
 
 interface LogEntry {
   id: number;
@@ -98,6 +99,7 @@ const acaoOptions = [
 ];
 
 export default function LogsPage() {
+  const confirmar = useConfirm();
   const { showError, showSuccess, showToast } = useToast();
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -190,7 +192,7 @@ export default function LogsPage() {
   };
 
   const handleClearLogs = async () => {
-    if (!confirm('Tem certeza que deseja limpar todos os logs? Esta ação não pode ser desfeita.')) {
+    if (!(await confirmar('Tem certeza que deseja limpar todos os logs? Esta ação não pode ser desfeita.'))) {
       return;
     }
 

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { PortalCard } from './components/PortalCard';
 import { PortalForm } from './components/PortalForm';
 import { Plus, Search, Globe, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useConfirm } from '@/contexts/confirm-context';
 
 interface Portal {
   id: string;
@@ -32,6 +33,7 @@ interface Toast {
 }
 
 export default function PortaisPage() {
+  const confirmar = useConfirm();
   const [portais, setPortais] = useState<Portal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -118,7 +120,7 @@ export default function PortaisPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja remover este portal?')) return;
+    if (!(await confirmar('Tem certeza que deseja remover este portal?'))) return;
 
     try {
       const res = await fetch(`/api/v1/portais/${id}`, { method: 'DELETE' });

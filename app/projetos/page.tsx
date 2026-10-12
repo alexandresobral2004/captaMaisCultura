@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, FileText, Trash2, Eye, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useConfirm } from '@/contexts/confirm-context';
 
 interface Projeto {
   id: string;
@@ -26,6 +27,7 @@ interface Projeto {
 }
 
 export default function ProjetosPage() {
+  const confirmar = useConfirm();
   const router = useRouter();
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +97,7 @@ export default function ProjetosPage() {
   };
 
   const handleDeletar = async (id: string) => {
-    if (!confirm('Tem certeza que deseja deletar este projeto?')) return;
+    if (!(await confirmar('Tem certeza que deseja deletar este projeto?'))) return;
 
     setDeletingId(id);
     try {
