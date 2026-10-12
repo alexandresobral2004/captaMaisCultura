@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProjetoService } from '@/lib/database/services/projeto.service';
-import OpenAI from 'openai';
 
+import { apiKeyConfigurada, obterClienteOpenAI, obterModelo } from '@/lib/ai/client';
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -39,15 +39,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!apiKeyConfigurada()) {
       return NextResponse.json(
         { success: false, error: 'Chave OpenAI não configurada no servidor' },
         { status: 500 }
       );
     }
 
-    const client = new OpenAI({ apiKey });
+    const client = obterClienteOpenAI();
 
     // Informações adicionais do edital para contextualização
     const editalData = projeto.edital as any;
@@ -83,7 +82,7 @@ ${conteudoAtual}
 Reescreva a seção acima de forma inovadora e com variação semântica real, mantendo rigorosamente a conformidade técnica com o edital e os dados do projeto.`;
 
     const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: obterModelo('mini'),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

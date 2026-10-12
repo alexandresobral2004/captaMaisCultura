@@ -1,5 +1,5 @@
-import OpenAI from 'openai';
 
+import { apiKeyConfigurada, obterClienteOpenAI, obterModelo } from './client';
 export interface ResultadoClassificacao {
   isEdital: boolean;
   confianca: number;           // 0-100
@@ -20,15 +20,13 @@ export async function classificarSeEhEdital(
   url: string,
   orgao?: string
 ): Promise<ResultadoClassificacao> {
-  const apiKey = process.env.OPENAI_API_KEY;
-
   // Se não tiver API key, usa heurística simples
-  if (!apiKey) {
+  if (!apiKeyConfigurada()) {
     return classificacaoHeuristica(titulo, descricao, url, orgao);
   }
 
   try {
-    const openai = new OpenAI({ apiKey });
+    const openai = obterClienteOpenAI();
 
     const systemPrompt = `Você é um especialista em identificar editais, chamadas públicas, editais de fomento e seleções públicas.
 Analise o título, descrição e URL fornecidos e determine se se trata de um edital válido.
@@ -60,7 +58,7 @@ ${orgao ? `Órgão: ${orgao}` : ''}
 É um edital válido? Analise e responda em JSON.`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: obterModelo('mini'),
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },

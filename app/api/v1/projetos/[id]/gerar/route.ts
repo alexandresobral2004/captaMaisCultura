@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ProjetoService } from '@/lib/database/services/projeto.service';
 import { ProposalWriter } from '@/lib/ai/writer';
 import { proposalEngine, TargetMetrics, InstitutionContext } from '@/lib/ai/engines/proposal-writer.engine';
-import OpenAI from 'openai';
 
+import { obterClienteOpenAI, obterModelo } from '@/lib/ai/client';
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -52,11 +52,7 @@ function normalizeElegibilidade(elegibilidade: any): string[] {
 }
 
 async function extrairTargetMetrics(titulo: string, descricao: string, duracaoMeses: number): Promise<TargetMetrics> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY não configurada no ambiente.');
-  }
-  const client = new OpenAI({ apiKey });
+  const client = obterClienteOpenAI();
 
   const prompt = `Analise o título e a descrição do projeto abaixo e extraia as métricas estruturadas de impacto no formato JSON.
 Se as informações não forem explícitas na descrição, gere valores/estimativas plausíveis e realistas coerentes com o escopo do projeto.
@@ -77,7 +73,7 @@ Retorne um objeto JSON estrito com a seguinte estrutura:
 Apenas o JSON, sem markdown ou explicações adicionais.`;
 
   const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: obterModelo('mini'),
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
     temperature: 0.3,

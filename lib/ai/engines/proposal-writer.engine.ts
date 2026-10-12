@@ -12,9 +12,9 @@
  * - Estrutura previsível por número de parágrafos
  */
 
-import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 
+import { criarChatModel } from '../client';
 /**
  * Schema estrito de saída para garantir que a IA divida o texto de forma estruturada.
  * Cada seção é retornada como array de parágrafos com metadados de validação.
@@ -185,7 +185,6 @@ const TRUSTED_DATA_SOURCES = [
 export class ProposalWithRigidConstraintsEngine {
 
   private readonly temperature: number = 0.2;
-  private readonly model: string = 'gpt-4o-mini';
 
   /**
    * Gera uma seção específica do projeto aplicando regras severas de escrita técnica.
@@ -221,11 +220,7 @@ DIRETRIZES TÉCNICAS IMPERATIVAS DE ESCRITA:
 8. Evite voz passiva e termos de incerteza ("pretende-se fazer", "busca-se tentar"). Use "O projeto capacita", "Instalar", "Desenvolver".
 9. Você está ABSOLUTAMENTE PROIBIDO de utilizar as seguintes palavras ou expressões (o validador automático irá rejeitar o texto caso utilize qualquer uma delas): ${FORBIDDEN_BUZZWORDS.join(', ')}.`;
 
-    const model = new ChatOpenAI({
-      model: this.model,
-      temperature: this.temperature,
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const model = criarChatModel({ nivel: 'mini', temperature: this.temperature });
 
     const modelWithSchema = model.withStructuredOutput(SectionOutputSchema, {
       name: 'section_generation',

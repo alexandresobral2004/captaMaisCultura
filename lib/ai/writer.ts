@@ -1,10 +1,10 @@
-import OpenAI from 'openai';
 import { propostaCompletaSchema, secaoSchema, PropostaCompleta, SecaoGerada, propostaDinamicaSchema, PropostaDinamica } from './schema-projeto';
 import { gerarPromptCompleto, gerarPromptSecao, gerarPromptPolimento, SearchResult, gerarPromptDinamico } from './prompts-projeto';
 import { buscarDadosProjetoMCP } from './tavily-mcp.client';
 import { buscarContextoRAG, formatarContextoRAG } from '../rag/rag-service';
 import { PromptRepository } from '../database/repositories/prompt.repository';
 
+import { obterClienteOpenAI, obterModelo } from './client';
 interface EditalContext {
   titulo: string;
   orgao: string;
@@ -25,25 +25,14 @@ interface UserProposal {
   propostaUsuario: string;
 }
 
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!openai) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY não está definida. Configure a variável de ambiente.');
-    }
-    openai = new OpenAI({ apiKey });
-  }
-  return openai;
-}
+const getOpenAIClient = obterClienteOpenAI;
 
 export class ProposalWriter {
   private model: string;
   private promptRepository: PromptRepository;
 
   constructor(model: 'mini' | 'full' = 'mini') {
-    this.model = model === 'mini' ? 'gpt-4o-mini' : 'gpt-4o';
+    this.model = obterModelo(model);
     this.promptRepository = new PromptRepository();
   }
 
@@ -148,7 +137,7 @@ export class ProposalWriter {
 
     const client = getOpenAIClient();
     const response = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: obterModelo('full'),
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
     });

@@ -3,6 +3,7 @@ import { TecnologiaFoco, TipoFerramenta } from './enums';
 import { cacheValidacao, gerarChaveCache, CACHE_TTL } from './cache';
 import { loadCategorias } from '../scraper/filtros/loaders';
 
+import { lerApiKey, obterModelo } from '../ai/client';
 export type AiClassificationResult =
   | {
       ok: true;
@@ -34,7 +35,7 @@ export async function validarComOpenAI(
   termosBranco?: string[],
   tipoEdital?: string
 ): Promise<AiClassificationResult> {
-  const modelo = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const modelo = obterModelo('mini');
 
   try {
     const chaveCache = gerarChaveCache(titulo, descricao);
@@ -45,7 +46,7 @@ export async function validarComOpenAI(
       return { ...cacheEntry.data, ok: true, usouCache: true, modelo };
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = lerApiKey();
 
     if (!apiKey) {
       console.warn(`   OPENAI_API_KEY não configurada.`);

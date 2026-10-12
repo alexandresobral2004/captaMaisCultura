@@ -12,10 +12,9 @@
  * - Cronograma
  */
 
-import OpenAI from 'openai';
 import { ResultadoValidacaoKeywords } from './keyword-map';
 
-const MODELO_PADRAO = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+import { apiKeyConfigurada, obterClienteOpenAI, obterModelo } from '../ai/client';
 const LIMITE_TEXTO = 30000; // Limite menor para resumo
 
 /**
@@ -81,7 +80,6 @@ export async function extrairDadosEditais(
       ? textoCompletoInput.texto
       : String(textoCompletoInput || '');
 
-  const apiKey = process.env.OPENAI_API_KEY;
   const erros: string[] = [];
   const metodos: string[] = ['keywords'];
 
@@ -104,7 +102,7 @@ export async function extrairDadosEditais(
   };
 
   // Se não tiver API key, usar apenas keywords
-  if (!apiKey) {
+  if (!apiKeyConfigurada()) {
     console.warn('⚠️ OPENAI_API_KEY não configurada - usando apenas keywords');
     return extrairComKeywords(textoCompleto, dadosBasicos, validacaoKeywords);
   }
@@ -115,7 +113,7 @@ export async function extrairDadosEditais(
       ? textoCompleto.substring(0, LIMITE_TEXTO)
       : textoCompleto;
 
-    const openai = new OpenAI({ apiKey });
+    const openai = obterClienteOpenAI();
 
     const systemPrompt = `Você é um especialista em extrair informações de editais brasileiros.
 Analise o documento fornecido e extraia APENAS as informações solicitadas em formato JSON.
@@ -138,7 +136,7 @@ Extraia em JSON:
 }`;
 
     const response = await openai.chat.completions.create({
-      model: MODELO_PADRAO,
+      model: obterModelo('mini'),
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },

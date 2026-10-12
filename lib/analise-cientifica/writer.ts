@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import {
   projetoCientificoSchema,
   AnaliseConformidade,
@@ -15,6 +14,7 @@ import {
 } from './prompts';
 import { PromptRepository } from '../database/repositories/prompt.repository';
 
+import { obterClienteOpenAI, obterModelo } from '@/lib/ai/client';
 interface EditalContext {
   titulo: string;
   orgao: string;
@@ -48,18 +48,7 @@ interface UserProposal {
   analiseExistente?: any;
 }
 
-let openai: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!openai) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY não está definida. Configure a variável de ambiente.');
-    }
-    openai = new OpenAI({ apiKey });
-  }
-  return openai;
-}
+const getOpenAIClient = obterClienteOpenAI;
 
 /**
  * Serviço para geração e análise de projetos científicos
@@ -70,7 +59,7 @@ export class ProposalWriterCientifico {
   private promptRepository: PromptRepository;
 
   constructor(model: 'mini' | 'full' = 'mini') {
-    this.model = model === 'mini' ? 'gpt-4o-mini' : 'gpt-4o';
+    this.model = obterModelo(model);
     this.promptRepository = new PromptRepository();
   }
 

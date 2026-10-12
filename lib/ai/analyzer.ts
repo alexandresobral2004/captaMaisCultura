@@ -1,18 +1,17 @@
 import OpenAI from 'openai';
-import { ChatOpenAI } from '@langchain/openai';
 import { Edital, saveEdital, getAllEditais } from '../db/editais-store';
 import { promptAnaliseSimplificada } from './prompts';
 import { validarCamposEdital } from './validator';
 import { AnaliseEditalSchema, AnaliseEditalResult } from './schema-analise';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
+import { apiKeyConfigurada, criarChatModel, obterClienteOpenAI, obterModelo } from './client';
 type ModoAnalise = 'completo' | 'simplificado';
 
 interface AnalisarOptions {
   modo?: ModoAnalise;
 }
 
-const MODELO_PADRAO = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const LIMITE_TEXTO = 60000;
 
 const SYSTEM_PROMPT_COMPLETO = `Você é um especialista em análise de editais de fomento brasileiros.
@@ -69,7 +68,7 @@ SEÇÕES REQUERIDAS DA PROPOSTA:
 
 async function executarPromptJSON(openai: OpenAI, sistema: string, texto: string) {
   const response = await openai.chat.completions.create({
-    model: MODELO_PADRAO,
+    model: obterModelo('mini'),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: sistema },
@@ -85,11 +84,7 @@ async function executarPromptJSON(openai: OpenAI, sistema: string, texto: string
 async function analisarComSchemaUnificado(
   texto: string
 ): Promise<AnaliseEditalResult> {
-  const model = new ChatOpenAI({
-    model: MODELO_PADRAO,
-    temperature: 0.1,
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  const model = criarChatModel({ nivel: 'mini', temperature: 0.1 });
 
   const modelWithSchema = model.withStructuredOutput(AnaliseEditalSchema, {
     name: 'analise_edital',
@@ -271,8 +266,7 @@ export async function analisarEditalComIA(
   const modo: ModoAnalise = options?.modo ?? 'completo';
   console.log(`\n🤖 Analisando edital ${editalId} com IA (${textoCompleto.length} chars, modo=${modo})`);
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!apiKeyConfigurada()) {
     console.warn('⚠️ OPENAI_API_KEY não configurada');
     editalOriginal.statusAnalise = 'erro';
     editalOriginal.erroAnalise = 'OPENAI_API_KEY não configurada';
@@ -288,7 +282,7 @@ export async function analisarEditalComIA(
     // Modo simplificado: mantém fluxo original com OpenAI SDK direto
     if (modo === 'simplificado') {
       try {
-        const openai = new OpenAI({ apiKey });
+        const openai = obterClienteOpenAI();
         const resultado = await executarPromptJSON(openai, promptAnaliseSimplificada(), textoParaAnalise);
 
         editalOriginal.analiseIA = {
