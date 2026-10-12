@@ -1,5 +1,7 @@
 'use client';
 
+import { sanitizarHtml } from '@/lib/sanitize-html';
+
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -992,7 +994,7 @@ export default function EditaisPage() {
                 <div 
                   className="text-sm text-gray-600" 
                   style={{ lineHeight: 1.6 }}
-                  dangerouslySetInnerHTML={{ __html: editalSelecionado.analiseIA?.resumo || editalSelecionado.descricao }}
+                  dangerouslySetInnerHTML={{ __html: sanitizarHtml(editalSelecionado.analiseIA?.resumo || editalSelecionado.descricao) }}
                 />
                 {editalSelecionado.analiseIA?.objetivo && (
                   <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>

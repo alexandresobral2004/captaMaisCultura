@@ -166,3 +166,19 @@ describe('Middleware - perfil somente leitura', () => {
     expect((await requisicao('editor', 'PUT', '/api/v1/usuarios/u1')).status).toBe(403);
   });
 });
+
+describe('sanitizarHtml - XSS', () => {
+  it('remove scripts, handlers inline e javascript:', async () => {
+    const { sanitizarHtml } = await import('../lib/sanitize-html');
+    const sujo = '<p>ok</p><img src=x onerror="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)">x</a>';
+    const limpo = sanitizarHtml(sujo);
+    expect(limpo).toContain('<p>ok</p>');
+    expect(limpo).not.toMatch(/onerror|<script|javascript:/i);
+  });
+
+  it('aceita nulo/indefinido', async () => {
+    const { sanitizarHtml } = await import('../lib/sanitize-html');
+    expect(sanitizarHtml(null)).toBe('');
+    expect(sanitizarHtml(undefined)).toBe('');
+  });
+});

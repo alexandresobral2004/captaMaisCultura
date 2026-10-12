@@ -343,9 +343,8 @@ export default function ProjetoEditorPage({ params }: { params: { id: string } }
 
   const handleCopyToClipboard = (htmlContent: string) => {
     // Copiar como texto plano removendo tags html
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = htmlContent;
-    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+    // DOMParser não executa scripts nem carrega imagens (ao contrário de innerHTML em um div)
+    const plainText = new DOMParser().parseFromString(htmlContent, "text/html").body.textContent || "";
     navigator.clipboard.writeText(plainText);
   };
 

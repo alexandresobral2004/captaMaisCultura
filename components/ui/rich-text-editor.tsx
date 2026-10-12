@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
+import { sanitizarHtml } from '@/lib/sanitize-html';
 import { 
   Bold, Italic, Underline, 
   List, ListOrdered, RemoveFormatting, Table,
@@ -23,8 +24,9 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
   // Keep editor content in sync with external value, only when it differs to avoid caret jumps
   useEffect(() => {
     if (editorRef.current) {
-      if (editorRef.current.innerHTML !== value) {
-        editorRef.current.innerHTML = value || '<p><br></p>';
+      const limpo = sanitizarHtml(value);
+      if (editorRef.current.innerHTML !== limpo) {
+        editorRef.current.innerHTML = limpo || '<p><br></p>';
       }
     }
   }, [value]);
