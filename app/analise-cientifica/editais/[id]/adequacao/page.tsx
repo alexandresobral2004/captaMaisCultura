@@ -182,7 +182,7 @@ export default function AnaliseAdequacaoPage({ params }: { params: { id: string 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/analise-cientifica/editais">
-              <Button variant="ghost" size="sm">
+              <Button aria-label="Voltar" variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>

@@ -90,7 +90,7 @@ export function UploadPdfModal({ aberto, onFechar, onProcessado }: UploadPdfModa
                 <p className="text-xs text-slate-400">Envie um PDF para análise automática</p>
               </div>
             </div>
-            <button
+            <button aria-label="Fechar"
               onClick={fechar}
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             >

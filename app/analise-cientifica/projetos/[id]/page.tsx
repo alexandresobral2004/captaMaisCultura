@@ -494,7 +494,7 @@ export default function EditorProjetoCientificoPage({ params }: { params: { id: 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/analise-cientifica/projetos">
-              <Button variant="ghost" size="sm" className="rounded-xl border border-slate-200 dark:border-slate-800">
+              <Button aria-label="Voltar" variant="ghost" size="sm" className="rounded-xl border border-slate-200 dark:border-slate-800">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>

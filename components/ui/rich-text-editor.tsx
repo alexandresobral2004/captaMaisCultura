@@ -300,7 +300,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
         <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
 
         {/* Insertion Elements */}
-        <button
+        <button aria-label="Inserir tabela"
           type="button"
           onClick={insertTable}
           className="p-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all active:scale-95"

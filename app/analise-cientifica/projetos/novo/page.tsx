@@ -88,7 +88,7 @@ export default function NovoProjetoCientificoPage() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link href="/analise-cientifica/projetos">
-            <Button variant="ghost" size="sm">
+            <Button aria-label="Voltar" variant="ghost" size="sm">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>

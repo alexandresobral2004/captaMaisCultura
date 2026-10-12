@@ -139,7 +139,7 @@ export default function AnaliseConformidadePage({ params }: { params: { id: stri
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href={`/analise-cientifica/projetos/${params.id}`}>
-              <Button variant="ghost" size="sm">
+              <Button aria-label="Voltar" variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>

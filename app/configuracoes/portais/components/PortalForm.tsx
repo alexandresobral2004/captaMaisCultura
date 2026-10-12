@@ -140,7 +140,7 @@ export function PortalForm({ portal, onSubmit, onCancel }: PortalFormProps) {
           <h2 className="text-lg font-semibold text-slate-100">
             {portal ? 'Editar Portal' : 'Novo Portal'}
           </h2>
-          <button
+          <button aria-label="Fechar"
             onClick={onCancel}
             className="p-1 hover:bg-slate-800 rounded-lg transition-colors"
           >

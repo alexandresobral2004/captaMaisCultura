@@ -106,7 +106,7 @@ export function DadosProponenteForm({
             {logoPreview ? (
               <div className="relative">
                 <img src={logoPreview} alt="Logo preview" className="w-32 h-32 object-contain border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-950" />
-                <button
+                <button aria-label="Remover logo"
                   onClick={handleRemoverLogo}
                   className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                 >
