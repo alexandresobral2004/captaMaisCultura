@@ -19,7 +19,7 @@ async function verificarAutenticacao(request: NextRequest): Promise<{ ok: boolea
   // 2. Token no body (POST de scripts)
   const body = await request.clone().json().catch(() => ({}));
   if (body?.token) {
-    return scanTokenValido(body.token)
+    return typeof body.token === 'string' && scanTokenValido(body.token)
       ? { ok: true }
       : { ok: false, response: NextResponse.json({ error: 'Token inválido' }, { status: 401 }) };
   }

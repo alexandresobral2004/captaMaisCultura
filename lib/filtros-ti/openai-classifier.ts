@@ -55,7 +55,8 @@ export async function validarComOpenAI(
           aceitarIncerto: !lerApiKey(),
         });
     if (jev && jev.ok) {
-      cacheValidacao.set(chaveCache, {
+      // Sem chave da OpenAI o Jev pode ter respondido incerto: não cachear para reavaliar depois
+      if (lerApiKey()) cacheValidacao.set(chaveCache, {
         data: {
           válido: jev.válido,
           tecnologia: jev.tecnologia,

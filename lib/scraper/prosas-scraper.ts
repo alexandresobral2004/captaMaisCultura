@@ -3,8 +3,7 @@ import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 import { Edital, parseDateString, isEditalExcluido } from '../db/editais-store';
-import { triarEdital } from '../triagem';
-import { obterEixoPortal, camposTriagemParaEdital } from '../triagem/scraper';
+import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
@@ -377,12 +376,11 @@ async function tentarBuscaComSessao(cookies: string[] | null): Promise<Edital[]>
           }
 
             // Triagem por eixo (Cultura ou TI/Pesquisa) conforme a configuração do portal
-            const triagem = await triarEdital({
+            const triagem = await triarEditalDoPortal('prosas', {
               titulo: proc.nome,
               descricao: proc.descricao || '',
               valor: proc.valor_limite?.toString(),
               orgao: proc.nome_empresa,
-              eixoPortal: await obterEixoPortal('prosas'),
             });
 
             if (triagem.validacaoIA?.ok) {

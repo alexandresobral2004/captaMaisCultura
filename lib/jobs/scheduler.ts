@@ -1,3 +1,4 @@
+import { obterScanToken } from '../api/scan-token';
 import cron, { ScheduledTask } from 'node-cron';
 
 let taskAgendada: ScheduledTask | null = null;
@@ -22,7 +23,7 @@ export function iniciarScheduler() {
     try {
       // Chamar a API de varredura
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const token = process.env.SCAN_TOKEN || '';
+      const token = obterScanToken() || '';
 
       const url = `${baseUrl}/api/jobs/run-weekly-scan`;
 

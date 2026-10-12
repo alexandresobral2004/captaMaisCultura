@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
+import { handleApiError } from '@/lib/api/responses';
 import { UsuarioService } from '@/lib/database/services/usuario.service';
 
 const AtualizarUsuarioSchema = z.object({
@@ -41,10 +42,7 @@ export async function PUT(
     const usuario = await service.atualizar(params.id, body);
     return NextResponse.json(usuario);
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Erro ao atualizar usuario' },
-      { status: 400 }
-    );
+    return handleApiError(error, undefined, 400);
   }
 }
 

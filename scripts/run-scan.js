@@ -2,7 +2,12 @@ const http = require('http');
 const { URL } = require('url');
 
 const API_URL = process.argv[2] || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-const SCAN_TOKEN = process.argv[3] || process.env.SCAN_TOKEN || 'capta-mais-scan-token-secret-2026';
+const SCAN_TOKEN = process.argv[3] || process.env.SCAN_TOKEN;
+
+if (!SCAN_TOKEN) {
+  console.error('Informe SCAN_TOKEN (variável de ambiente ou 2º argumento).');
+  process.exit(1);
+}
 
 const editaisResults = {};
 let streamReq;

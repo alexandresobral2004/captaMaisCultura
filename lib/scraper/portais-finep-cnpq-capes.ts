@@ -1,8 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { Edital, isEditalExcluido } from '../db/editais-store';
-import { triarEdital } from '../triagem';
-import { obterEixoPortal, camposTriagemParaEdital } from '../triagem/scraper';
+import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { getPortal, atualizarUltimoScan } from './config';
 
@@ -123,11 +122,10 @@ export async function buscarEditaisFinep(): Promise<Edital[]> {
         continue;
       }
 
-      const triagem = await triarEdital({
+      const triagem = await triarEditalDoPortal('finep', {
         titulo,
         descricao: '',
         orgao: 'FINEP',
-        eixoPortal: await obterEixoPortal('finep'),
       });
 
       if (!triagem.aceito) {
@@ -249,11 +247,10 @@ export async function buscarEditaisCNPq(): Promise<Edital[]> {
         continue;
       }
 
-      const triagem = await triarEdital({
+      const triagem = await triarEditalDoPortal('cnpq', {
         titulo,
         descricao: '',
         orgao: 'CNPq',
-        eixoPortal: await obterEixoPortal('cnpq'),
       });
 
       if (!triagem.aceito) {
@@ -375,11 +372,10 @@ export async function buscarEditaisCapes(): Promise<Edital[]> {
         continue;
       }
 
-      const triagem = await triarEdital({
+      const triagem = await triarEditalDoPortal('capes', {
         titulo,
         descricao: '',
         orgao: 'CAPES',
-        eixoPortal: await obterEixoPortal('capes'),
       });
 
       if (!triagem.aceito) {
@@ -530,12 +526,11 @@ export async function buscarEditaisMinisterioCiencia(): Promise<Edital[]> {
       // Aceitar se for evento científico OU chamada pública de pesquisa
       const ehEventoCientifico = temPalavraEvento && temPalavraCiencia;
 
-      const triagem = await triarEdital({
+      const triagem = await triarEditalDoPortal('mcti', {
         titulo,
         descricao: descricao,
         orgao: 'Ministério da Ciência do Brasil',
         tipoEdital: ehEventoCientifico ? 'evento_cientifico' : undefined,
-        eixoPortal: await obterEixoPortal('mcti'),
       });
 
       if (!triagem.aceito) {

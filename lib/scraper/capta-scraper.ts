@@ -2,8 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import crypto from 'crypto';
 import { Edital, isEditalExcluido } from '../db/editais-store';
-import { triarEdital } from '../triagem';
-import { obterEixoPortal, camposTriagemParaEdital } from '../triagem/scraper';
+import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 
 const CAPTA_URL = 'https://capta.org.br/fontes-de-financiamento/oportunidades/';
@@ -151,11 +150,10 @@ export async function buscarEditaisCapta(): Promise<Edital[]> {
       }
 
       try {
-        const triagem = await triarEdital({
+        const triagem = await triarEditalDoPortal('capta', {
           titulo: item.titulo,
           descricao: item.descricao,
           orgao: 'Capta/ISPN',
-          eixoPortal: await obterEixoPortal('capta'),
         });
 
         if (triagem.validacaoIA?.ok) {
