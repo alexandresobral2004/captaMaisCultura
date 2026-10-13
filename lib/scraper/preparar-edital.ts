@@ -92,11 +92,13 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
   );
 
   const pdfEncontrado = resultado.fonte !== 'sem_pdf' && !!resultado.texto;
+  let documentoConfirmado = false;
+  let emDuvida: string | null = null;
 
   // Antes de pontuar, confere se o texto baixado é de um edital (palavras-chave + decisão do Jev)
   if (pdfEncontrado) {
     const validacao = await validarDocumentoEdital({ titulo: edital.titulo, orgao: edital.orgao, texto: resultado.texto });
-    if (!validacao.valido) {
+    if (validacao.decisao === 'descartado') {
       try { if (fs.existsSync(resultado.caminhoArquivo)) fs.unlinkSync(resultado.caminhoArquivo); } catch { /* arquivo temporário */ }
       return {
         pdfEncontrado: false,
@@ -110,6 +112,8 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
         },
       };
     }
+    documentoConfirmado = validacao.decisao === 'valido';
+    if (validacao.decisao === 'duvida') emDuvida = `${validacao.motivo}. Palavras encontradas: ${validacao.termos.join(', ')}`;
   }
   const pdfReal =
     ['pdf_s3', 'pdf_link'].includes(resultado.fonte) ||
@@ -125,6 +129,7 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
     fonteConteudo: resultado.fonte,
     pdfEncontrado,
     pdfReal,
+    documentoConfirmado,
     textoExtraido: resultado.texto,
     pdfUrlEncontrada: resultado.pdfUrlEncontrada,
     eixo,
@@ -132,15 +137,16 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
 
   // A blacklist de TI só vale para o eixo Pesquisa; em Cultura ela seria um falso positivo.
   const blacklist = eixo === 'Cultura' ? null : analisarBlacklist(edital.titulo, edital.descricao);
-  const penalidade = blacklist?.scoreNegativo ?? 0;
-  const scoreFinal = Math.max(0, pontuacao.scoreFinal - penalidade);
+  const penalidade = blacklist?.scoreNegativo ?? 0; // informativo: não reduz a nota
+  const scoreFinal = pontuacao.scoreFinal;
   const nivel = scoreFinal >= 80 ? 'alto' : scoreFinal >= 60 ? 'medio' : 'baixo';
 
   const motivos = [...(pontuacao.motivos || [])];
-  if (blacklist && penalidade > 0) motivos.push(...blacklist.motivos);
+  if (emDuvida) motivos.unshift(`[VALIDAÇÃO] ${emDuvida}`);
+  if (blacklist && penalidade > 0) motivos.push(...blacklist.motivos.map(m => `${m} (informativo)`));
   if (blacklist && pontuacao.whitelist.válido && (blacklist.recomendacao === 'revisar' || blacklist.recomendacao === 'bloquear')) {
     motivos.push(
-      `[CONFLITO] Whitelist casou termos de TI, mas Blacklist penalizou com peso -${penalidade} (${blacklist.recomendacao}). Encaminhado para revisão humana.`
+      `[CONFLITO] Whitelist casou termos de TI, mas a blacklist apontou termos suspeitos (${blacklist.recomendacao}). Encaminhado para revisão humana.`
     );
   }
 
@@ -161,7 +167,8 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
   }
 
   return {
-    pdfEncontrado,
+    // Em dúvida, o texto fica guardado mas a análise automática espera a revisão de uma pessoa
+    pdfEncontrado: pdfEncontrado && !emDuvida,
     scoreFinal,
     texto: resultado.texto || '',
     campos: {
@@ -171,9 +178,7 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
       nivelPontuacao: nivel,
       motivosPontuacao: motivos,
       modoAnaliseIA: 'completo',
-      hashPontuacao: pontuacao.hashConteudo,
-      cacheClassificacaoUsado: pontuacao.cacheUsado,
-      statusAnalise: pdfEncontrado ? 'pendente' : 'sem_pdf',
+      statusAnalise: emDuvida ? 'duvida' : pdfEncontrado ? 'pendente' : 'sem_pdf',
     },
   };
 }

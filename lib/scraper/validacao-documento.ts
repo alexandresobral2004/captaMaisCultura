@@ -20,8 +20,10 @@ const GRUPOS: Record<string, RegExp> = {
   finais: /disposi[cç][õo]es finais|impugna[cç][ãa]o|recursos administrativos|resultado final/i,
 };
 
-/** Quantos grupos precisam aparecer para o documento seguir para o Jev. */
-export const MINIMO_DE_GRUPOS = 3;
+/** Com menos grupos que isto o documento é descartado sem consultar o Jev. */
+export const MINIMO_DE_GRUPOS = 2;
+/** Com este número de grupos, sem Jev, o documento é aceito pela regra. */
+export const GRUPOS_PARA_ACEITAR_SEM_JEV = 3;
 
 export interface SinaisDeEdital {
   /** Grupos presentes e a palavra que casou em cada um. */
@@ -47,8 +49,9 @@ export function buscarSinaisDeEdital(texto: string, tamanhoTrecho = 90): SinaisD
 }
 
 export interface ResultadoValidacao {
-  valido: boolean;
-  /** 'regra' = decidido pelas palavras; 'jev' = confirmado pelo Jev. */
+  /** valido: segue para análise; duvida: uma pessoa revisa; descartado: não é edital. */
+  decisao: 'valido' | 'duvida' | 'descartado';
+  /** 'regra' = decidido pelas palavras; 'jev' = decidido pelo Jev. */
   etapa: 'regra' | 'jev';
   motivo: string;
   termos: string[];
@@ -74,13 +77,15 @@ export const julgarComJev: JulgarEdital = async (entrada) => {
   return answers.edital.noul;
 };
 
-/** Probabilidade mínima do Jev para aceitar o documento. */
-export const CORTE_JEV = 0.5;
+/** Aceita acima deste valor; descarta só abaixo do segundo; entre os dois vai para revisão. */
+export const CORTE_ACEITAR = 0.7;
+export const CORTE_DESCARTAR = 0.25;
 
 /**
- * Valida o texto de um documento antes de seguir para a análise.
+ * Segunda etapa da triagem: valida o texto de um documento já baixado.
  * 1) Regra: precisa ter palavras de pelo menos MINIMO_DE_GRUPOS grupos.
- * 2) Jev: recebe título, palavras e trechos e decide. Sem Jev, vale só a regra.
+ * 2) Jev: recebe título, palavras e trechos e decide, com três saídas (válido, dúvida, descartado).
+ *    Sem Jev, vale só a regra: muitos grupos aceita, poucos vai para revisão.
  */
 export async function validarDocumentoEdital(
   doc: { titulo: string; orgao: string; texto: string },
@@ -91,30 +96,36 @@ export async function validarDocumentoEdital(
 
   if (termos.length < MINIMO_DE_GRUPOS) {
     return {
-      valido: false,
+      decisao: 'descartado',
       etapa: 'regra',
-      motivo: `Poucas palavras de edital no documento (${termos.length} de ${MINIMO_DE_GRUPOS} necessárias)`,
+      motivo: `Quase nenhuma palavra de edital no documento (${termos.length} grupo${termos.length === 1 ? '' : 's'} de palavras)`,
       termos: palavras,
     };
   }
-  if (!julgar) {
-    return { valido: true, etapa: 'regra', motivo: `${termos.length} grupos de palavras de edital (Jev indisponível)`, termos: palavras };
-  }
+
+  const pelaRegra = (aviso: string): ResultadoValidacao => ({
+    decisao: termos.length >= GRUPOS_PARA_ACEITAR_SEM_JEV ? 'valido' : 'duvida',
+    etapa: 'regra',
+    motivo: `${termos.length} grupos de palavras de edital (${aviso})`,
+    termos: palavras,
+  });
+  if (!julgar) return pelaRegra('Jev indisponível');
 
   try {
     const probabilidade = await julgar({ titulo: doc.titulo, orgao: doc.orgao, termos: palavras, trechos });
-    const valido = probabilidade >= CORTE_JEV;
+    const pct = Math.round(probabilidade * 100);
+    const decisao = probabilidade >= CORTE_ACEITAR ? 'valido' : probabilidade <= CORTE_DESCARTAR ? 'descartado' : 'duvida';
     return {
-      valido,
+      decisao,
       etapa: 'jev',
       probabilidade,
-      motivo: valido
-        ? `Jev confirmou que é edital (${Math.round(probabilidade * 100)}%)`
-        : `Jev indicou que não é edital (${Math.round(probabilidade * 100)}%)`,
+      motivo:
+        decisao === 'valido' ? `Jev confirmou que é edital (${pct}%)`
+        : decisao === 'descartado' ? `Jev indicou que não é edital (${pct}%)`
+        : `Jev ficou em dúvida se é edital (${pct}%)`,
       termos: palavras,
     };
   } catch {
-    // Se o Jev falhar, não descarta: a regra já passou
-    return { valido: true, etapa: 'regra', motivo: `${termos.length} grupos de palavras de edital (Jev não respondeu)`, termos: palavras };
+    return pelaRegra('Jev não respondeu');
   }
 }

@@ -24,6 +24,15 @@ export function confiancaMinimaJev(): number {
   return Number.isFinite(valor) && valor > 0 ? valor : 75;
 }
 
+/**
+ * Só descarta quando o Jev tem certeza igual ou maior que esta (0-100). Entre a confiança mínima
+ * e este valor o edital vai para revisão ("dúvida"), em vez de ser rejeitado.
+ */
+export function confiancaParaDescartar(): number {
+  const valor = Number(process.env.JEV_CONFIANCA_DESCARTE);
+  return Number.isFinite(valor) && valor > 0 ? valor : 90;
+}
+
 const PERGUNTAS = {
   eixo: {
     type: 'choice',
@@ -96,6 +105,8 @@ export interface EntradaEdital {
   valor?: string;
   orgao?: string;
   termosBranco?: string[];
+  /** Termos da blacklist de TI que apareceram: só informação para o Jev, nunca motivo de rejeição. */
+  termosSuspeitos?: string[];
   tipoEdital?: string;
 }
 
@@ -116,6 +127,7 @@ export async function julgarEditalComJev(entrada: EntradaEdital): Promise<Respos
         valor: entrada.valor || null,
         orgao: entrada.orgao || null,
         palavras_chave: entrada.termosBranco ?? [],
+        termos_suspeitos: entrada.termosSuspeitos ?? [],
         tipo_edital: entrada.tipoEdital ?? null,
       },
       PERGUNTAS

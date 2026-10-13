@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { triarEdital } from '../lib/triagem';
 
+// A OpenAI (reserva) nunca é chamada de verdade nos testes
+vi.mock('../lib/filtros-ti/openai-classifier', async (orig) => ({
+  ...(await orig<typeof import('../lib/filtros-ti/openai-classifier')>()),
+  validarComOpenAI: vi.fn(async () => ({ ok: false, mensagem: 'sem chave' })),
+}));
+
 function respostaJev(p: {
   eixo: 'Cultura' | 'Pesquisa' | 'Fora';
   eixoProb?: number;
@@ -91,7 +97,7 @@ describe('triarEdital', () => {
       expect(r).toMatchObject({ aceito: true, categoriaArea: 'Cultura' });
     });
 
-    it('portal Pesquisa sem Jev e sem termo de TI rejeita na whitelist', async () => {
+    it('portal Pesquisa sem Jev, sem OpenAI e sem termo de TI rejeita', async () => {
       process.env.TYPESAFE_API_KEY = '';
       const r = await triarEdital({ titulo: 'Festival de teatro', descricao: 'Apoio a grupos', eixoPortal: 'Pesquisa' });
       expect(r).toMatchObject({ aceito: false, etapa: 'whitelist', categoriaArea: 'Pesquisa' });
@@ -123,6 +129,25 @@ describe('triarEdital', () => {
         eixoPortal: 'Cultura',
       });
       expect(r).toMatchObject({ aceito: false, etapa: 'cultura' });
+    });
+  });
+  describe('dúvida em vez de rejeição', () => {
+    it('Jev com pouca certeza de que é irrelevante manda para revisão', async () => {
+      jevComResposta(respostaJev({ eixo: 'Cultura', chamada: 0.2, cultura: 0.9 })); // certeza 80%
+      const r = await triarEdital({ titulo: 'Mostra de arte em debate', descricao: 'Texto ambíguo' });
+      expect(r).toMatchObject({ aceito: true, incerto: true, categoriaArea: 'Cultura' });
+    });
+
+    it('fora do escopo com certeza média vai para revisão', async () => {
+      jevComResposta(respostaJev({ eixo: 'Fora', eixoProb: 0.8 }));
+      const r = await triarEdital({ titulo: 'Programa de apoio a coletivos', descricao: 'Sem detalhes' });
+      expect(r).toMatchObject({ aceito: true, incerto: true, categoriaArea: null, etapa: 'eixo' });
+    });
+
+    it('Jev incerto no eixo e sem termos vai para revisão', async () => {
+      jevComResposta(respostaJev({ eixo: 'Pesquisa', eixoProb: 0.5 }));
+      const r = await triarEdital({ titulo: 'Aviso de licitação de merenda', descricao: 'Compra de alimentos' });
+      expect(r).toMatchObject({ aceito: true, incerto: true, etapa: 'eixo' });
     });
   });
 });

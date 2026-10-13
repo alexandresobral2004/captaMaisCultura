@@ -1,11 +1,4 @@
 import { validarWhitelistTI, validarBlacklist } from '../filtros-ti';
-import { classificarSeEhEdital, ResultadoClassificacao } from './classifier';
-import {
-  computeContentHash,
-  getCachedClassification,
-  setCachedClassification,
-  ClassificationCacheEntry
-} from './classification-cache';
 
 export type FonteConteudo = 'pdf_s3' | 'pdf_link' | 'html_link' | 'descricao_api' | 'sem_pdf' | undefined;
 
@@ -20,6 +13,8 @@ export interface PontuacaoParametros {
   pdfReal: boolean;
   textoExtraido?: string;
   pdfUrlEncontrada?: string;
+  /** O texto do documento foi confirmado como edital (palavras-chave + Jev, ver validacao-documento). */
+  documentoConfirmado?: boolean;
   /** Eixo do edital; em 'Cultura' os termos de TI (whitelist/blacklist) não pontuam nem penalizam. */
   eixo?: 'Cultura' | 'Pesquisa';
 }
@@ -31,9 +26,6 @@ export interface PontuacaoResultado {
   modoAnalise: 'ignorar' | 'simplificado' | 'completo';
   motivos: string[];
   whitelist: ReturnType<typeof validarWhitelistTI>;
-  classificacao?: ResultadoClassificacao | null;
-  cacheUsado?: boolean;
-  hashConteudo?: string;
 }
 
 const PORTAIS_VALIDOS = new Set([
@@ -74,11 +66,9 @@ export async function calcularPontuacaoEdital(params: PontuacaoParametros): Prom
     motivos.push('Whitelist TI: nenhum termo relevante encontrado');
   }
 
+  // A blacklist só informa: não tira pontos. Quem decide a relevância é o Jev.
   const passouBlacklist = ehCultura || validarBlacklist(params.titulo, params.descricao);
-  if (!passouBlacklist) {
-    score -= 35;
-    motivos.push('Termo bloqueado identificado (blacklist)');
-  }
+  if (!passouBlacklist) motivos.push('Atenção: termo da blacklist de TI no título (informativo, sem penalidade)');
 
   if (params.pdfEncontrado) {
     score += params.pdfReal ? 20 : 12;
@@ -97,39 +87,10 @@ export async function calcularPontuacaoEdital(params: PontuacaoParametros): Prom
     motivos.push(`Portal confiável (${params.orgao})`);
   }
 
-  let classificacao: ResultadoClassificacao | null = null;
-  let cacheUsado = false;
-  let hashConteudo: string | undefined;
-
-  if (params.pdfEncontrado && score < 70) {
-    hashConteudo = computeContentHash(params.titulo, params.descricao, params.pdfUrlEncontrada || params.url);
-    const cacheEntry = getCachedClassification<ResultadoClassificacao>(hashConteudo);
-
-    if (cacheEntry) {
-      classificacao = cacheEntry.data || null;
-      cacheUsado = true;
-      motivos.push('Classificação obtida via cache (30 dias)');
-    } else {
-      try {
-        classificacao = await classificarSeEhEdital(params.titulo, params.descricao, params.url, params.orgao);
-        if (classificacao) {
-          setCachedClassification(hashConteudo, classificacao);
-        }
-      } catch (error) {
-        motivos.push(`Falha ao classificar com IA: ${(error as Error).message}`);
-      }
-    }
-
-    if (classificacao) {
-      if (classificacao.isEdital) {
-        const bonus = Math.min(40, Math.round((classificacao.confianca / 100) * 40));
-        score += bonus;
-        motivos.push(`OpenAI confirmou edital (${classificacao.confianca}%)`);
-      } else {
-        score -= 30;
-        motivos.push('OpenAI indicou que não é edital');
-      }
-    }
+  // Documento lido e confirmado como edital: é a evidência mais forte (substitui a antiga consulta à OpenAI)
+  if (params.documentoConfirmado) {
+    score += 30;
+    motivos.push('Documento confirmado como edital pelas palavras-chave e pelo Jev');
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
@@ -157,8 +118,5 @@ export async function calcularPontuacaoEdital(params: PontuacaoParametros): Prom
     modoAnalise,
     motivos,
     whitelist,
-    classificacao,
-    cacheUsado,
-    hashConteudo
   };
 }

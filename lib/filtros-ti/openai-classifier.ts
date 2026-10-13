@@ -28,6 +28,10 @@ export type AiClassificationResult =
       modelo: string;
     };
 
+/**
+ * Classificador de reserva. O Jev é o juiz principal (ver `triagem/index.ts`); esta função só é
+ * chamada quando o Jev está indisponível ou respondeu abaixo da confiança mínima.
+ */
 export async function validarComOpenAI(
   titulo: string,
   descricao: string,

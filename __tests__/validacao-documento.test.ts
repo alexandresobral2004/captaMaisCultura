@@ -31,28 +31,31 @@ describe('buscarSinaisDeEdital', () => {
 
 describe('validarDocumentoEdital', () => {
   const doc = { titulo: 'Edital 12/2026', orgao: 'CNPq', texto: EDITAL };
-  it('rejeita pela regra, sem chamar o Jev', async () => {
+  it('descarta pela regra, sem chamar o Jev', async () => {
     let chamou = false;
     const r = await validarDocumentoEdital({ ...doc, texto: 'Política de privacidade do portal.' }, async () => { chamou = true; return 1; });
-    expect(r.valido).toBe(false);
+    expect(r.decisao).toBe('descartado');
     expect(r.etapa).toBe('regra');
     expect(chamou).toBe(false);
   });
-  it('envia palavras e trechos ao Jev e aceita', async () => {
+  it('envia palavras e trechos ao Jev e aceita com alta probabilidade', async () => {
     let entrada: any;
     const r = await validarDocumentoEdital(doc, async e => { entrada = e; return 0.93; });
-    expect(r.valido).toBe(true);
+    expect(r.decisao).toBe('valido');
     expect(r.etapa).toBe('jev');
     expect(entrada.termos.length).toBeGreaterThanOrEqual(3);
     expect(entrada.trechos.length).toBeGreaterThan(0);
   });
-  it('descarta quando o Jev diz que não é edital', async () => {
-    const r = await validarDocumentoEdital(doc, async () => 0.12);
-    expect(r.valido).toBe(false);
-    expect(r.motivo).toMatch(/não é edital/);
+  it('descarta só com alta certeza de que não é edital', async () => {
+    expect((await validarDocumentoEdital(doc, async () => 0.1)).decisao).toBe('descartado');
   });
-  it('mantém quando o Jev falha ou está indisponível', async () => {
-    expect((await validarDocumentoEdital(doc, async () => { throw new Error('x'); })).valido).toBe(true);
-    expect((await validarDocumentoEdital(doc, null)).valido).toBe(true);
+  it('probabilidade intermediária vai para revisão', async () => {
+    expect((await validarDocumentoEdital(doc, async () => 0.5)).decisao).toBe('duvida');
+  });
+  it('sem Jev, muitos grupos aceita e poucos vão para revisão', async () => {
+    expect((await validarDocumentoEdital(doc, null)).decisao).toBe('valido');
+    expect((await validarDocumentoEdital(doc, async () => { throw new Error('x'); })).decisao).toBe('valido');
+    const poucos = { ...doc, texto: 'Edital de seleção. Inscrições abertas.' };
+    expect((await validarDocumentoEdital(poucos, null)).decisao).toBe('duvida');
   });
 });
