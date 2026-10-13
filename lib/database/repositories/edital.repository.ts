@@ -58,8 +58,6 @@ export interface CreateEditalDTO {
   nivelPontuacao?: string;
   motivosPontuacao?: string[];
   modoAnaliseIa?: string;
-  hashPontuacao?: string;
-  cacheClassificacaoUsado?: boolean;
   confiancaPorCampo?: Record<string, number>;
   scoreValidacaoKeywords?: number;
   densidadeKeywords?: number;
@@ -243,8 +241,6 @@ export class EditalRepository extends BaseRepository {
       nivelPontuacao: (data.nivelPontuacao || null) as any,
       motivosPontuacao: data.motivosPontuacao ? JSON.stringify(data.motivosPontuacao) : null,
       modoAnaliseIa: (data.modoAnaliseIa || null) as any,
-      hashPontuacao: data.hashPontuacao || null,
-      cacheClassificacaoUsado: !!data.cacheClassificacaoUsado,
       confiancaPorCampo: data.confiancaPorCampo ? JSON.stringify(data.confiancaPorCampo) : null,
       codigo: codigo,
       categoriaArea: data.categoriaArea || 'Cultura',
@@ -287,7 +283,6 @@ export class EditalRepository extends BaseRepository {
     if (data.scorePontuacao !== undefined) updateData.scorePontuacao = data.scorePontuacao;
     if (data.nivelPontuacao !== undefined) updateData.nivelPontuacao = data.nivelPontuacao;
     if (data.modoAnaliseIa !== undefined) updateData.modoAnaliseIa = data.modoAnaliseIa;
-    if (data.hashPontuacao !== undefined) updateData.hashPontuacao = data.hashPontuacao;
     if (data.confiancaPorCampo !== undefined) updateData.confiancaPorCampo = JSON.stringify(data.confiancaPorCampo);
     if (data.tipoProponente !== undefined) updateData.tipoProponente = JSON.stringify(data.tipoProponente);
     if (data.areasTematicas !== undefined) updateData.areasTematicas = JSON.stringify(data.areasTematicas);

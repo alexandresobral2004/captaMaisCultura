@@ -45,8 +45,6 @@ CREATE TABLE IF NOT EXISTS editais (
   nivel_pontuacao text,
   motivos_pontuacao text,
   modo_analise_ia text,
-  hash_pontuacao text,
-  cache_classificacao_usado integer DEFAULT false,
   confianca_por_campo text,
   criado_em text DEFAULT CURRENT_TIMESTAMP,
   atualizado_em text DEFAULT CURRENT_TIMESTAMP,

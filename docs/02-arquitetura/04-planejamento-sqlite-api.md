@@ -76,8 +76,6 @@ CREATE TABLE editais (
   score_pontuacao INTEGER CHECK(score_pontuacao >= 0 AND score_pontuacao <= 100),
   nivel_pontuacao TEXT CHECK(nivel_pontuacao IN ('baixo', 'medio', 'alto')),
   modo_analise_ia TEXT CHECK(modo_analise_ia IN ('ignorar', 'simplificado', 'completo')),
-  hash_pontuacao TEXT,
-  cache_classificacao_usado BOOLEAN DEFAULT 0,
 
   -- Timestamps
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,

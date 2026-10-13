@@ -37,8 +37,6 @@ export const CreateEditalSchema = z.object({
   nivelPontuacao: z.enum(['baixo', 'medio', 'alto']).optional(),
   motivosPontuacao: z.array(z.string()).optional(),
   modoAnaliseIa: z.enum(['ignorar', 'simplificado', 'completo']).optional(),
-  hashPontuacao: z.string().optional(),
-  cacheClassificacaoUsado: z.boolean().optional(),
   categoriaArea: z.string().optional(),
 });
 

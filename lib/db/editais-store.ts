@@ -85,8 +85,6 @@ export interface Edital {
   nivelPontuacao?: 'baixo' | 'medio' | 'alto';
   motivosPontuacao?: string[];
   modoAnaliseIA?: 'ignorar' | 'simplificado' | 'completo';
-  hashPontuacao?: string;
-  cacheClassificacaoUsado?: boolean;
 
   analiseIA?: {
     resumo: string;
@@ -233,8 +231,6 @@ function dbToEdital(row: any, analise?: any): Edital {
     nivelPontuacao: row.nivelPontuacao ?? row.nivel_pontuacao ?? undefined,
     motivosPontuacao: safeJsonParse(row.motivosPontuacao ?? row.motivos_pontuacao),
     modoAnaliseIA: row.modoAnaliseIa ?? row.modo_analise_ia ?? undefined,
-    hashPontuacao: row.hashPontuacao ?? row.hash_pontuacao ?? undefined,
-    cacheClassificacaoUsado: row.cacheClassificacaoUsado ?? row.cache_classificacao_usado ?? undefined,
     confiancaPorCampo: safeJsonParse(row.confiancaPorCampo ?? row.confianca_por_campo) ?? undefined,
     statusAnalise: row.statusAnalise ?? row.status_analise ?? undefined,
     erroAnalise: row.erroAnalise ?? row.erro_analise ?? undefined,
@@ -327,8 +323,6 @@ function editalToDb(edital: Partial<Edital>): CreateEditalDTO {
     nivelPontuacao: edital.nivelPontuacao,
     motivosPontuacao: edital.motivosPontuacao,
     modoAnaliseIa: edital.modoAnaliseIA,
-    hashPontuacao: edital.hashPontuacao,
-    cacheClassificacaoUsado: edital.cacheClassificacaoUsado,
     confiancaPorCampo: edital.confiancaPorCampo,
     categoriaArea: edital.categoriaArea,
   };

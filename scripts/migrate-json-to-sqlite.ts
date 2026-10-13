@@ -83,8 +83,6 @@ async function migrate() {
             nivelPontuacao: (edital.nivelPontuacao || null) as any,
             motivosPontuacao: edital.motivosPontuacao ? JSON.stringify(edital.motivosPontuacao) : null,
             modoAnaliseIa: (edital.modoAnaliseIa || null) as any,
-            hashPontuacao: edital.hashPontuacao || null,
-            cacheClassificacaoUsado: !!edital.cacheClassificacaoUsado,
             criadoEm: edital.criadoEm || new Date().toISOString(),
             atualizadoEm: edital.atualizadoEm || new Date().toISOString(),
           })

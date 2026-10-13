@@ -62,7 +62,6 @@ describe('EditalRepository', () => {
       expect(result.scoreConfiancaIa).toBe(dto.scoreConfiancaIa);
       expect(result.scorePontuacao).toBe(dto.scorePontuacao);
       expect(result.nivelPontuacao).toBe(dto.nivelPontuacao);
-      expect(result.hashPontuacao).toBe(dto.hashPontuacao);
     });
 
     it('deve serializar arrays como JSON', async () => {
@@ -87,14 +86,12 @@ describe('EditalRepository', () => {
       const dto = makeEditalDTO({
         validadoPorIa: true,
         foraDoEscopo: false,
-        cacheClassificacaoUsado: true,
       });
 
       const result = await repo.create(dto);
 
       expect(result.validadoPorIa).toBe(true);
       expect(result.foraDoEscopo).toBe(false);
-      expect(result.cacheClassificacaoUsado).toBe(true);
     });
 
     it('deve retornar o registro criado', async () => {

@@ -82,6 +82,4 @@ export const EDITAL_FULL: Partial<CreateEditalDTO> = {
   nivelPontuacao: 'alto',
   motivosPontuacao: ['Relevante para TI', 'Bem estruturado'],
   modoAnaliseIa: 'completo',
-  hashPontuacao: 'abc123hash',
-  cacheClassificacaoUsado: false,
 };

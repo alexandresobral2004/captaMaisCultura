@@ -85,8 +85,6 @@ export function criarTabelas(sqlite: Database.Database) {
       nivel_pontuacao TEXT,
       motivos_pontuacao TEXT,
       modo_analise_ia TEXT,
-      hash_pontuacao TEXT,
-      cache_classificacao_usado INTEGER DEFAULT 0,
       confianca_por_campo TEXT,
       categoria_area TEXT NOT NULL DEFAULT 'Cultura',
       criado_em TEXT DEFAULT CURRENT_TIMESTAMP,

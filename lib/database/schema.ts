@@ -68,8 +68,6 @@ export const editais = sqliteTable('editais', {
   modoAnaliseIa: text('modo_analise_ia', {
     enum: ['ignorar', 'simplificado', 'completo']
   }),
-  hashPontuacao: text('hash_pontuacao'),
-  cacheClassificacaoUsado: integer('cache_classificacao_usado', { mode: 'boolean' }).default(false),
   confiancaPorCampo: text('confianca_por_campo'), // JSON object serializado
 
   // Timestamps
