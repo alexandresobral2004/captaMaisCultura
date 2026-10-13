@@ -5,6 +5,7 @@ import { Edital, isEditalExcluido, parseDateString } from '../db/editais-store';
 import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { PortalConfig, atualizarUltimoScan } from './config';
+import { tituloInstitucional } from './validacao-documento';
 
 /** Portais que já têm coletor próprio e não devem passar pelo genérico. */
 export const PORTAIS_COM_COLETOR_PROPRIO = ['prosas', 'capta', 'finep', 'cnpq', 'capes', 'mcti'];
@@ -55,6 +56,7 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
     }
     if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) return;
     if (titulo.length < 15 || titulo.length > 300 || LIXO_NAVEGACAO.test(titulo)) return;
+    if (tituloInstitucional(titulo, href)) return;
     if (!PALAVRAS_EDITAL.test(titulo) && !PALAVRAS_EDITAL.test(href)) return;
 
     let link: string;

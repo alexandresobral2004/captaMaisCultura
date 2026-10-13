@@ -4,6 +4,7 @@ import type { Edital } from '../db/editais-store';
 import { calcularPontuacaoEdital } from '../ai/scoring';
 import { analisarBlacklist } from '../filtros-ti';
 import { baixarELerPDFEdital } from './pdf-downloader';
+import { validarDocumentoEdital } from './validacao-documento';
 
 type ResultadoExtracao = Awaited<ReturnType<typeof baixarELerPDFEdital>>;
 
@@ -91,6 +92,25 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
   );
 
   const pdfEncontrado = resultado.fonte !== 'sem_pdf' && !!resultado.texto;
+
+  // Antes de pontuar, confere se o texto baixado é de um edital (palavras-chave + decisão do Jev)
+  if (pdfEncontrado) {
+    const validacao = await validarDocumentoEdital({ titulo: edital.titulo, orgao: edital.orgao, texto: resultado.texto });
+    if (!validacao.valido) {
+      try { if (fs.existsSync(resultado.caminhoArquivo)) fs.unlinkSync(resultado.caminhoArquivo); } catch { /* arquivo temporário */ }
+      return {
+        pdfEncontrado: false,
+        scoreFinal: 0,
+        texto: '',
+        campos: {
+          fonteConteudo: resultado.fonte,
+          statusAnalise: 'descartado',
+          erroAnalise: `Não parece um edital: ${validacao.motivo}.`,
+          motivosPontuacao: [`[VALIDAÇÃO] ${validacao.motivo}. Palavras encontradas: ${validacao.termos.join(', ') || 'nenhuma'}`],
+        },
+      };
+    }
+  }
   const pdfReal =
     ['pdf_s3', 'pdf_link'].includes(resultado.fonte) ||
     (resultado.fonte === 'html_link' && !!resultado.pdfUrlEncontrada);
