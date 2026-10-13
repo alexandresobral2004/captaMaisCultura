@@ -8,8 +8,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  // Só em desenvolvimento: preenche com os valores de .env.local (nunca vai para produção)
+  const dev = process.env.NODE_ENV === "development"
+  const [email, setEmail] = useState(dev ? process.env.NEXT_PUBLIC_DEV_LOGIN_EMAIL ?? "" : "")
+  const [password, setPassword] = useState(dev ? process.env.NEXT_PUBLIC_DEV_LOGIN_SENHA ?? "" : "")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -72,6 +74,8 @@ export default function LoginPage() {
                 </label>
                 <Input
                   type="email"
+                  name="email"
+                  autoComplete="username"
                   placeholder="nome@instituicao.gov.br"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -93,6 +97,8 @@ export default function LoginPage() {
                 </div>
                 <Input
                   type="password"
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="dark:bg-slate-950 dark:border-slate-800 dark:text-white"
