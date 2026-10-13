@@ -360,6 +360,7 @@ export default function EditaisPage() {
                 {editaisFiltrados.map((edital) => {
                   const isAnalisado = edital.statusAnalise === 'analisado';
                   const isErro = edital.statusAnalise === 'erro' || edital.statusAnalise === 'sem_pdf';
+                  const isDescartado = edital.statusAnalise === 'descartado';
                   const isPendente = edital.statusAnalise === 'pendente' || edital.statusAnalise === 'pdf_baixado';
                   const isUpload = edital.fonteConteudo === 'pdf_upload';
                   const score = edital.analiseIA?.scoreAdequacao;
@@ -391,6 +392,10 @@ export default function EditaisPage() {
                               title={edital.erroAnalise || 'Não foi possível analisar este edital'}
                             >
                               <AlertCircle style={{ width: '0.75rem', height: '0.75rem' }} /> {edital.statusAnalise === 'sem_pdf' ? 'Sem documento' : 'Falha na análise'}
+                            </Badge>
+                          ) : isDescartado ? (
+                            <Badge variant="default" title={edital.erroAnalise || 'O documento não parece um edital'} style={{ backgroundColor: 'transparent', color: 'var(--color-gray-600)', border: '1px solid var(--color-gray-300)' }}>
+                              Não parece edital
                             </Badge>
                           ) : isPendente ? (
                             <Badge variant="default" style={{ backgroundColor: 'transparent', color: 'var(--color-warning)', border: '1px solid var(--color-warning)' }}>

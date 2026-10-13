@@ -96,6 +96,7 @@ export default function EditaisCientificosPage() {
   const getDiasRestantes = (dateString: string) => {
     const hoje = new Date();
     const limite = new Date(dateString);
+    if (Number.isNaN(limite.getTime())) return null; // prazo "A consultar" ou data ilegível
     const diffTime = limite.getTime() - hoje.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -238,12 +239,14 @@ export default function EditaisCientificosPage() {
                             <Calendar className="h-4 w-4" />
                             Prazo: {formatDate(edital.dataLimite)}
                           </div>
-                          <div className={`flex items-center gap-1 ${diasRestantes <= 30 ? 'text-red-500 font-medium' : ''
+                          <div className={`flex items-center gap-1 ${diasRestantes !== null && diasRestantes <= 30 ? 'text-red-500 font-medium' : ''
                             }`}>
                             <Clock className="h-4 w-4" />
-                            {diasRestantes > 0
-                              ? `${diasRestantes} dias restantes`
-                              : 'Prazo encerrado'}
+                            {diasRestantes === null
+                              ? 'Prazo a confirmar'
+                              : diasRestantes > 0
+                                ? `${diasRestantes} dias restantes`
+                                : 'Prazo encerrado'}
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2">

@@ -113,7 +113,9 @@ async function baixarArquivo(url: string): Promise<Buffer> {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'Accept': 'application/pdf'
     },
-    timeout: 15000
+    timeout: 15000,
+    // Aborta o download de arquivos grandes demais (livros, anuários) sem ler tudo
+    maxContentLength: 40 * 1024 * 1024,
   });
   return Buffer.from(response.data);
 }
