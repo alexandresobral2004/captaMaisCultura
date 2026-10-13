@@ -3,6 +3,7 @@ import { buscarEditaisPortais } from '@/lib/scraper/fetcher';
 import { prepararEdital } from '@/lib/scraper/preparar-edital';
 import { saveEdital, getEditalPorId } from '@/lib/db/editais-store';
 import { getRawDb } from '@/lib/database/db';
+import { comecarColeta, comecarProcessamento, registrarItem, terminarBusca, resultadoDoItem } from '@/lib/scraper/progresso-busca';
 import { iniciarBusca, finalizarBusca, situacaoDaBusca, editalJaProcessado } from '@/lib/scraper/controle-busca';
 import { verificarAdmin } from '@/lib/api/auth';
 import { pipelineLogger } from '@/lib/scraper/pipeline-logger';
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
     );
   }
   let jaExistentes = 0;
+  comecarColeta();
 
   try {
     const tempoInicio = Date.now();
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
     pipelineLogger.logBusca('Iniciando busca consolidada de editais...');
     const novosEditais = await buscarEditaisPortais();
     
+    comecarProcessamento(novosEditais.length);
     console.log(`\n📊 API: ${novosEditais.length} editais localizados. Iniciando download de PDFs e análise IA...`);
     pipelineLogger.logBusca(`Encontrados ${novosEditais.length} editais válidos nos portais. Iniciando processamento...`);
     const editaisAnalisados = [];
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
         const existente = await getEditalPorId(edital.id);
         if (existente && editalJaProcessado(existente)) {
           jaExistentes++;
+          registrarItem('ja_existia', edital.titulo);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Já existe no banco');
           continue;
         }
@@ -58,6 +62,7 @@ export async function POST(request: NextRequest) {
           console.log(`⏭️ [${edital.id}] Fora do escopo. Pulando.`);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Fora do escopo');
           erroCount++;
+          registrarItem('descartado', edital.titulo);
           continue;
         }
         const preparado = await prepararEdital(edital);
@@ -70,6 +75,7 @@ export async function POST(request: NextRequest) {
         pipelineLogger.logResultado(edital.id, edital.titulo, 'salvo', `Salvo como PENDENTE (Score: ${preparado.scoreFinal}) | Fonte: ${preparado.campos.fonteConteudo}`);
         editaisAnalisados.push(editalSalvo);
         sucessoCount++;
+        registrarItem(resultadoDoItem(editalSalvo.statusAnalise, preparado.scoreFinal), edital.titulo);
       } catch (err) {
         console.error(`❌ Erro ao processar edital [${edital.id}]:`, err);
         pipelineLogger.logErro(edital.id, `Erro de processamento: ${(err as Error).message}`);
@@ -79,6 +85,7 @@ export async function POST(request: NextRequest) {
         await saveEdital(edital);
         editaisAnalisados.push(edital);
         erroCount++;
+        registrarItem('descartado', edital.titulo);
       }
     }
 
@@ -103,6 +110,7 @@ export async function POST(request: NextRequest) {
     const descartados = editaisAnalisados.filter(e => e.statusAnalise === 'descartado').length;
     const novos = sucessoCount - descartados;
     finalizarBusca(getRawDb(), inicio.id, { novos, jaExistentes, descartados, comErro: erroCount });
+    terminarBusca();
 
     return NextResponse.json({
       success: true,
@@ -115,6 +123,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Erro na API de busca de editais:', error);
+    terminarBusca(true);
     // Busca que falhou não gasta o limite semanal
     finalizarBusca(getRawDb(), inicio.id, { novos: 0, jaExistentes, descartados: 0, comErro: 0, mensagem: (error as Error).message }, true);
     return NextResponse.json(

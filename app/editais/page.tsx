@@ -15,6 +15,7 @@ import { filtrarEOrdenarEditais, FILTROS_INICIAIS, type FiltrosEditais } from "@
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AnaliseEditalDrawer } from "@/components/editais/AnaliseEditalDrawer";
 import type { Edital } from "@/components/editais/tipos";
+import { ProgressoBuscaEditais } from "@/components/editais/ProgressoBuscaEditais";
 import { UploadPdfModal } from "@/components/editais/UploadPdfModal";
 import { formatarDataBr } from '@/lib/utils/formatar-data';
 import type { SituacaoBusca } from '@/lib/scraper/controle-busca';
@@ -627,6 +628,8 @@ export default function EditaisPage() {
       />
       <UploadPdfModal aberto={showUploadModal} onFechar={() => setShowUploadModal(false)} onProcessado={fetchEditais} />
       
+      <ProgressoBuscaEditais ativo={searching} />
+
       <ProcessingOverlay
         isOpen={analyzing !== null || reanalyzing !== null}
         title={reanalyzing !== null ? "Re-analisando Edital com IA..." : "Analisando Edital com IA..."}
