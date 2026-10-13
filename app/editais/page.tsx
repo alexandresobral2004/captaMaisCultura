@@ -17,6 +17,7 @@ import { AnaliseEditalDrawer } from "@/components/editais/AnaliseEditalDrawer";
 import type { Edital } from "@/components/editais/tipos";
 import { UploadPdfModal } from "@/components/editais/UploadPdfModal";
 import { formatarDataBr } from '@/lib/utils/formatar-data';
+import type { SituacaoBusca } from '@/lib/scraper/controle-busca';
 
 function stripHtmlTags(html: string): string {
   if (!html) return '';
@@ -88,20 +89,40 @@ export default function EditaisPage() {
   }, []);
 
 
-  // Dispara busca ativa / IA scraper
+  // Busca de novos editais: no máximo 2 por semana (controlado no servidor)
+  const [situacaoBusca, setSituacaoBusca] = useState<SituacaoBusca | null>(null);
+  const [resumoBusca, setResumoBusca] = useState<string | null>(null);
+
+  const carregarSituacaoBusca = useCallback(async () => {
+    try {
+      const res = await fetch('/api/editais/busca/situacao', { cache: 'no-store' });
+      if (res.ok) setSituacaoBusca(await res.json());
+    } catch {
+      /* o botão fica sem contador */
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarSituacaoBusca();
+  }, [carregarSituacaoBusca]);
+
   const handleBuscarEditais = async () => {
     setSearching(true);
     setError(null);
+    setResumoBusca(null);
     try {
       const res = await fetch('/api/editais/busca', { method: 'POST' });
-      if (!res.ok) throw new Error('Erro no processo de busca ativa.');
-      const data = await res.json();
-      if (data.success) {
-        setEditais(data.editais);
-        fetchEditais(); // Atualiza para pegar as mudanças de status da IA no backend
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.situacao) setSituacaoBusca(data.situacao);
+        throw new Error(typeof data.error === 'string' ? data.error : 'Não foi possível buscar novos editais.');
       }
+      if (data.situacao) setSituacaoBusca(data.situacao);
+      if (data.resumo) setResumoBusca(`${data.resumo.novos} novos, ${data.resumo.jaExistentes} já estavam no sistema, ${data.resumo.descartados} descartados.`);
+      await fetchEditais();
     } catch (err) {
       setError((err as Error).message);
+      carregarSituacaoBusca();
     } finally {
       setSearching(false);
     }
@@ -243,23 +264,28 @@ export default function EditaisPage() {
               Atualizar
             </Button>
             
-            {/* Botão de Busca Inteligente desativado */}
-            {/* <Button 
-              onClick={handleBuscarEditais} 
-              disabled={searching}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
-                background: 'linear-gradient(135deg, var(--color-primary), #4f46e5)',
-                color: 'white',
-                border: 'none',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
-              }}
-            >
-              <RefreshCw className={searching ? "animate-spin" : ""} style={{ width: '0.875rem', height: '0.875rem' }} />
-              {searching ? 'Buscando & Analisando IA...' : 'Disparar Busca Inteligente'}
-            </Button> */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+              <Button
+                onClick={handleBuscarEditais}
+                disabled={searching || (situacaoBusca !== null && !situacaoBusca.podeBuscar)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <Search className={searching ? 'animate-pulse' : ''} style={{ width: '0.875rem', height: '0.875rem' }} />
+                {searching ? 'Buscando novos editais...' : 'Buscar novos editais'}
+              </Button>
+              {situacaoBusca && (
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                  {situacaoBusca.emAndamento
+                    ? 'Uma busca está em andamento.'
+                    : situacaoBusca.restantes > 0
+                      ? `${situacaoBusca.restantes} de ${situacaoBusca.limite} buscas disponíveis esta semana`
+                      : `Limite da semana atingido. Libera em ${formatarDataBr(situacaoBusca.liberadaEm)}.`}
+                </span>
+              )}
+              {resumoBusca && (
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-success, #16a34a)' }}>{resumoBusca}</span>
+              )}
+            </div>
           </div>
         </div>
 

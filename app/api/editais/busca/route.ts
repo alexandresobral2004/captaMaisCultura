@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buscarEditaisPortais } from '@/lib/scraper/fetcher';
 import { prepararEdital } from '@/lib/scraper/preparar-edital';
-import { saveEdital } from '@/lib/db/editais-store';
+import { saveEdital, getEditalPorId } from '@/lib/db/editais-store';
+import { getRawDb } from '@/lib/database/db';
+import { iniciarBusca, finalizarBusca, situacaoDaBusca, editalJaProcessado } from '@/lib/scraper/controle-busca';
 import { verificarAdmin } from '@/lib/api/auth';
 import { pipelineLogger } from '@/lib/scraper/pipeline-logger';
 
@@ -11,6 +13,21 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) {
     return auth.response;
   }
+
+  // Limite de 2 buscas por semana, conferido e registrado antes de qualquer trabalho
+  const inicio = iniciarBusca(getRawDb());
+  if (!inicio.ok) {
+    return NextResponse.json(
+      {
+        error: inicio.motivo === 'em_andamento'
+          ? 'Já existe uma busca em andamento. Aguarde terminar.'
+          : 'Limite de 2 buscas por semana atingido.',
+        situacao: inicio.situacao,
+      },
+      { status: 429 }
+    );
+  }
+  let jaExistentes = 0;
 
   try {
     const tempoInicio = Date.now();
@@ -28,6 +45,14 @@ export async function POST(request: NextRequest) {
       try {
         pipelineLogger.logBusca(`Processando edital: "${edital.titulo}"`);
         
+        // Já baixado ou avaliado em buscas anteriores: não baixa de novo
+        const existente = await getEditalPorId(edital.id);
+        if (existente && editalJaProcessado(existente)) {
+          jaExistentes++;
+          pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Já existe no banco');
+          continue;
+        }
+
         // ✨ NOVO: Skip se edital está fora do escopo
         if (edital.foraDoEscopo === true) {
           console.log(`⏭️ [${edital.id}] Fora do escopo. Pulando.`);
@@ -75,15 +100,23 @@ export async function POST(request: NextRequest) {
       estatisticas.porTecnologia[tech] = (estatisticas.porTecnologia[tech] || 0) + 1;
     }
 
+    const descartados = editaisAnalisados.filter(e => e.statusAnalise === 'descartado').length;
+    const novos = sucessoCount - descartados;
+    finalizarBusca(getRawDb(), inicio.id, { novos, jaExistentes, descartados, comErro: erroCount });
+
     return NextResponse.json({
       success: true,
-      mensagem: `✅ Busca consolidada concluída: ${sucessoCount} editais analisados em ${tempoTotal} minutos`,
+      mensagem: `Busca concluída: ${novos} novos, ${jaExistentes} já existiam, ${descartados} descartados`,
+      resumo: { novos, jaExistentes, descartados, comErro: erroCount },
+      situacao: situacaoDaBusca(getRawDb()),
       estatisticas,
       quantidade: editaisAnalisados.length,
       editais: editaisAnalisados
     });
   } catch (error) {
     console.error('Erro na API de busca de editais:', error);
+    // Busca que falhou não gasta o limite semanal
+    finalizarBusca(getRawDb(), inicio.id, { novos: 0, jaExistentes, descartados: 0, comErro: 0, mensagem: (error as Error).message }, true);
     return NextResponse.json(
       { error: 'Erro no processo de busca/download/análise: ' + (error as Error).message },
       { status: 500 }

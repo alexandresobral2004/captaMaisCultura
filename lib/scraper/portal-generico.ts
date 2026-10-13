@@ -1,7 +1,8 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import * as cheerio from 'cheerio';
-import { Edital, isEditalExcluido, parseDateString } from '../db/editais-store';
+import { Edital, isEditalExcluido, parseDateString, getEditalPorId } from '../db/editais-store';
+import { editalJaProcessado } from './controle-busca';
 import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { PortalConfig, atualizarUltimoScan } from './config';
@@ -163,6 +164,9 @@ export async function buscarEditaisPortalGenerico(portal: PortalConfig): Promise
   for (const item of itens) {
     const id = gerarId(portal.id, item.link);
     if (await isEditalExcluido(id, item.link)) continue;
+    // Já processado em buscas anteriores: não gasta consulta ao Jev nem novo download
+    const existente = await getEditalPorId(id);
+    if (existente && editalJaProcessado(existente)) continue;
 
     if (item.dataLimite === 'A consultar') {
       const prazo = await descobrirPrazo(item.link);

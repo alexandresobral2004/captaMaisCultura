@@ -627,6 +627,21 @@ export function migrarSchema(sqlite: Database.Database) {
     `);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_projetos_cientificos_status ON projetos_cientificos(status)`);
 
+    // Histórico das buscas por novos editais (limite de 2 por semana, ver lib/scraper/controle-busca.ts)
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS buscas_editais (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        iniciada_em TEXT NOT NULL,
+        concluida_em TEXT,
+        status TEXT NOT NULL DEFAULT 'em_andamento',
+        novos INTEGER DEFAULT 0,
+        ja_existentes INTEGER DEFAULT 0,
+        descartados INTEGER DEFAULT 0,
+        com_erro INTEGER DEFAULT 0,
+        mensagem TEXT
+      )
+    `);
+
   } catch (error: any) {
     // Coluna já existe ou outro erro irrelevante — silenciar
     if (!error.message?.includes('duplicate column')) {
