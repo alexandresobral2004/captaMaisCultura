@@ -7,7 +7,8 @@ const service = new PortalService();
 let migrationChecked = false;
 
 const CreatePortalSchema = z.object({
-  id: z.string().min(1).optional(),
+  // O formulário manda id vazio ao criar; vazio vale como "gerar automaticamente"
+  id: z.preprocess(v => (v === '' || v === null ? undefined : v), z.string().min(1).optional()),
   nome: z.string().min(1, 'Nome é obrigatório'),
   urlBusca: z.string().url('URL inválida'),
   urlsFallback: z.array(z.string().url()).optional(),
@@ -15,7 +16,7 @@ const CreatePortalSchema = z.object({
   categoria: z.string().min(1, 'Categoria é obrigatória'),
   eixo: z.enum(['auto', 'Cultura', 'Pesquisa']).default('auto'),
   ativo: z.boolean().default(true),
-  scraperModule: z.string().optional(),
+  scraperModule: z.preprocess(v => (v === '' || v === null ? undefined : v), z.string().optional()),
   intervaloMinutos: z.number().min(15).default(60),
   credEmail: z.string().email().optional().or(z.literal('')),
 });

@@ -38,6 +38,32 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** Limite por chamada: uma seleção maior que isto vem em mais de uma requisição. */
+const MAXIMO_POR_EXCLUSAO = 500;
+
+/**
+ * DELETE /api/v1/editais  body: { ids: string[] }
+ * Exclui em lote (soft-delete). Os de prazo vencido ficam bloqueados e as buscas não os baixam de novo;
+ * os demais podem voltar se reaparecerem num portal.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => null);
+    const ids: unknown = body?.ids;
+    if (!Array.isArray(ids) || ids.length === 0 || !ids.every(id => typeof id === 'string' && id.length > 0)) {
+      return NextResponse.json(errorResponse('VALIDATION_ERROR', 'Envie "ids" como uma lista de ids de editais'), { status: 400 });
+    }
+    if (ids.length > MAXIMO_POR_EXCLUSAO) {
+      return NextResponse.json(errorResponse('VALIDATION_ERROR', `No máximo ${MAXIMO_POR_EXCLUSAO} editais por vez`), { status: 400 });
+    }
+
+    const resultado = await service.deletarVarios(ids as string[]);
+    return NextResponse.json(successResponse(resultado));
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

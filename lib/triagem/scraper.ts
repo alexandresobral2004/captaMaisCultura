@@ -1,5 +1,7 @@
 import type { Edital } from '../db/editais-store';
 import { PortalService } from '../database/services/portal.service';
+import { tituloInstitucional } from '../scraper/validacao-documento';
+import { registrarDecisao } from '../scraper/funil';
 import { triarEdital, type EixoPortal, type ResultadoTriagem, type EntradaTriagem } from './index';
 
 /**
@@ -31,8 +33,22 @@ export async function triarEditalDoPortal(
   portalId: string,
   entrada: Omit<EntradaTriagem, 'eixoPortal'>
 ): Promise<ResultadoTriagem> {
+  // Etapa 0: item de menu ou página institucional do portal, sem gastar consulta ao Jev
+  if (tituloInstitucional(entrada.titulo)) {
+    registrarDecisao({ portal: portalId, titulo: entrada.titulo, etapa: 'triagem', resultado: 'descartado', motivo: '[menu] Parece item de menu ou página institucional' });
+    return { aceito: false, incerto: false, categoriaArea: null, etapa: 'eixo', motivo: 'Parece item de menu ou página institucional do portal', termosBranco: [] };
+  }
   try {
-    return await triarEdital({ ...entrada, eixoPortal: await obterEixoPortal(portalId) });
+    const resultado = await triarEdital({ ...entrada, eixoPortal: await obterEixoPortal(portalId) });
+    registrarDecisao({
+      portal: portalId,
+      titulo: entrada.titulo,
+      etapa: 'triagem',
+      resultado: !resultado.aceito ? 'descartado' : resultado.incerto ? 'duvida' : 'passou',
+      motivo: `[${resultado.etapa}] ${resultado.motivo}${resultado.pontuacao ? ` | ${resultado.pontuacao.resumo}` : ''}`,
+      probabilidade: resultado.pontuacao ? resultado.pontuacao.nota.notaFinal / 100 : undefined,
+    });
+    return resultado;
   } catch (erro) {
     const msg = (erro as Error).message;
     console.warn(`   ⚠️ Triagem falhou para "${entrada.titulo.substring(0, 40)}": ${msg}`);

@@ -57,6 +57,9 @@ export default function EditaisPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [paraExcluir, setParaExcluir] = useState<{ id: string; titulo: string } | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [confirmarLote, setConfirmarLote] = useState<"excluir" | null>(null);
+  const [excluindoLote, setExcluindoLote] = useState(false);
   
   const [filtros, setFiltros] = useState<FiltrosEditais>(FILTROS_INICIAIS);
 
@@ -185,6 +188,7 @@ export default function EditaisPage() {
     setParaExcluir({ id, titulo });
   };
 
+  // Vencido não volta mais; os demais podem voltar numa busca futura se reaparecerem num portal
   const confirmarExclusao = async () => {
     if (!paraExcluir) return;
     const { id } = paraExcluir;
@@ -212,6 +216,42 @@ export default function EditaisPage() {
     }
   };
 
+  const alternarSelecao = (id: string) => {
+    setSelecionados(prev => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  };
+
+  // Exclui todos os selecionados de uma vez
+  const confirmarExclusaoLote = async () => {
+    const ids = selecionadosVisiveis;
+    if (ids.length === 0 || !confirmarLote) return;
+    setExcluindoLote(true);
+    try {
+      const res = await fetch('/api/v1/editais', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error?.message || 'Erro ao excluir os editais selecionados.');
+        return;
+      }
+      const falhas: { id: string }[] = data.data?.falhas ?? [];
+      setError(falhas.length > 0 ? `${falhas.length} edital(is) não puderam ser excluídos.` : null);
+      setSelecionados(new Set(falhas.map(f => f.id)));
+      await fetchEditais();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExcluindoLote(false);
+      setConfirmarLote(null);
+    }
+  };
+
   const handleUpdateCategoriaArea = async (id: string, novaCategoria: string) => {
     try {
       const res = await fetch(`/api/v1/editais/${id}`, {
@@ -231,6 +271,13 @@ export default function EditaisPage() {
   };
 
   const editaisFiltrados = filtrarEOrdenarEditais(editais, filtros);
+  // Só conta a seleção do que está visível com os filtros atuais
+  const idsVisiveis = editaisFiltrados.map(e => e.id);
+  const selecionadosVisiveis = idsVisiveis.filter(id => selecionados.has(id));
+  const todosVisiveisSelecionados = idsVisiveis.length > 0 && selecionadosVisiveis.length === idsVisiveis.length;
+  const alternarTodos = () => {
+    setSelecionados(todosVisiveisSelecionados ? new Set() : new Set(idsVisiveis));
+  };
 
   return (
     <MainLayout>
@@ -383,6 +430,35 @@ export default function EditaisPage() {
                 </p>
               </Card>
             ) : (
+              <>
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem',
+                  marginBottom: '1rem', padding: '0.5rem 0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={todosVisiveisSelecionados}
+                    ref={el => { if (el) el.indeterminate = selecionadosVisiveis.length > 0 && !todosVisiveisSelecionados; }}
+                    onChange={alternarTodos}
+                    aria-label="Selecionar todos os editais da lista"
+                  />
+                  {selecionadosVisiveis.length > 0
+                    ? `${selecionadosVisiveis.length} de ${idsVisiveis.length} selecionados`
+                    : `Selecionar todos (${idsVisiveis.length})`}
+                </label>
+                <Button
+                  variant="outline"
+                  disabled={selecionadosVisiveis.length === 0 || excluindoLote}
+                  onClick={() => setConfirmarLote('excluir')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-danger)' }}
+                >
+                  <Trash2 style={{ width: '0.875rem', height: '0.875rem' }} />
+                  Excluir selecionados
+                </Button>
+              </div>
 <div className="editais-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
                 {editaisFiltrados.map((edital) => {
                   const isAnalisado = edital.statusAnalise === 'analisado';
@@ -397,6 +473,13 @@ export default function EditaisPage() {
                       <CardHeader>
                         <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={selecionados.has(edital.id)}
+                              onChange={() => alternarSelecao(edital.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Selecionar "${edital.titulo}"`}
+                            />
                             <Badge variant="success">
                               {edital.status}
                             </Badge>
@@ -596,6 +679,7 @@ export default function EditaisPage() {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
 
@@ -619,12 +703,22 @@ export default function EditaisPage() {
       <ConfirmDialog
         aberto={paraExcluir !== null}
         titulo="Excluir edital"
-        mensagem={`Tem certeza que deseja excluir "${paraExcluir?.titulo ?? ''}"? Isso também removerá o PDF.`}
+        mensagem={`Excluir "${paraExcluir?.titulo ?? ''}"? O PDF também será removido. Se o prazo já venceu, ele não volta mais; senão, pode voltar numa busca futura se reaparecer num portal.`}
         textoConfirmar="Excluir"
         perigoso
         carregando={deleting !== null}
-        onConfirmar={confirmarExclusao}
+        onConfirmar={() => confirmarExclusao()}
         onCancelar={() => setParaExcluir(null)}
+      />
+      <ConfirmDialog
+        aberto={confirmarLote !== null}
+        titulo="Excluir editais selecionados"
+        mensagem={`Excluir ${selecionadosVisiveis.length} edital(is)? Os PDFs serão removidos. Os já vencidos não voltam mais; os demais podem voltar numa busca futura se reaparecerem num portal.`}
+        textoConfirmar={`Excluir ${selecionadosVisiveis.length}`}
+        perigoso
+        carregando={excluindoLote}
+        onConfirmar={confirmarExclusaoLote}
+        onCancelar={() => setConfirmarLote(null)}
       />
       <UploadPdfModal aberto={showUploadModal} onFechar={() => setShowUploadModal(false)} onProcessado={fetchEditais} />
       

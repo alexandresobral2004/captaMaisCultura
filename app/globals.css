@@ -114,6 +114,7 @@
   --color-success: #34D399;
   --color-warning: #FCD34D;
   --color-danger:  #F87171;
+  --color-danger-light: rgba(239, 68, 68, 0.15);
 
   /* Surface */
   --color-background: #0F172A;

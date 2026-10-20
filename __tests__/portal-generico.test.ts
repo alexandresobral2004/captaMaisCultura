@@ -22,6 +22,13 @@ describe('extrairItensDePagina', () => {
     expect(itens[0].dataLimite).toBe('30/11/2026');
     expect(itens[1].dataLimite).toBe('A consultar');
   });
+
+  it('guarda o texto do bloco em volta do link para a triagem não depender só do título', () => {
+    const html = `<ul><li><a href="/chamada-ia-2026">Chamada pública de Inteligência Artificial 2026</a> Inscrições até 30/11/2026 para pesquisadores</li></ul>`;
+    const [item] = extrairItensDePagina(html, 'https://exemplo.org/listagem', agora);
+    expect(item.trecho).toContain('para pesquisadores');
+    expect(item.trecho!.length).toBeLessThanOrEqual(600);
+  });
 });
 
 describe('filtros de título', () => {

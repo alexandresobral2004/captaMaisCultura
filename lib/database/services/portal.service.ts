@@ -48,7 +48,7 @@ export class PortalService {
 
   async criar(data: PortalDTO): Promise<Portal> {
     const now = new Date().toISOString();
-    const id = data.id || this.generateId(data.nome);
+    const id = data.id || (await this.idDisponivel(this.generateId(data.nome)));
 
     await db.insert(portais).values({
       id,
@@ -127,6 +127,14 @@ export class PortalService {
     await db.update(portais)
       .set({ ultimoScan: new Date().toISOString() })
       .where(eq(portais.id, id));
+  }
+
+  /** Se o id gerado já existe (nomes parecidos), acrescenta -2, -3... em vez de falhar na chave primária. */
+  private async idDisponivel(base: string): Promise<string> {
+    const raiz = base || 'portal';
+    let id = raiz;
+    for (let n = 2; await this.buscarPorId(id); n++) id = `${raiz.substring(0, 27)}-${n}`;
+    return id;
   }
 
   private generateId(nome: string): string {

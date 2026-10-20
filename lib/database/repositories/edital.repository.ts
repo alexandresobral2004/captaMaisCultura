@@ -34,6 +34,9 @@ export interface CreateEditalDTO {
   status?: string;
   statusAnalise?: string;
   erroAnalise?: string;
+  statusRevisao?: 'pendente' | 'aprovado' | 'rejeitado';
+  validadoManualmente?: boolean;
+  dataAprovacao?: string;
   modalidade?: string;
   abrangencia?: string;
   tipoProponente?: string[];
@@ -217,6 +220,9 @@ export class EditalRepository extends BaseRepository {
       status: (data.status || 'Aberto') as any,
       statusAnalise: (data.statusAnalise || 'pendente') as any,
       erroAnalise: data.erroAnalise || null,
+      statusRevisao: data.statusRevisao ?? null,
+      validadoManualmente: data.validadoManualmente ?? null,
+      dataAprovacao: data.dataAprovacao ?? null,
       modalidade: data.modalidade || null,
       abrangencia: data.abrangencia || null,
       tipoProponente: data.tipoProponente ? JSON.stringify(data.tipoProponente) : null,
@@ -264,6 +270,9 @@ export class EditalRepository extends BaseRepository {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.statusAnalise !== undefined) updateData.statusAnalise = data.statusAnalise;
     if (data.erroAnalise !== undefined) updateData.erroAnalise = data.erroAnalise;
+    if (data.statusRevisao !== undefined) updateData.statusRevisao = data.statusRevisao;
+    if (data.validadoManualmente !== undefined) updateData.validadoManualmente = data.validadoManualmente;
+    if (data.dataAprovacao !== undefined) updateData.dataAprovacao = data.dataAprovacao;
     if (data.modalidade !== undefined) updateData.modalidade = data.modalidade;
     if (data.abrangencia !== undefined) updateData.abrangencia = data.abrangencia;
     if (data.descricao !== undefined) updateData.descricao = data.descricao;
@@ -374,11 +383,11 @@ export class EditalRepository extends BaseRepository {
     return result[0] || null;
   }
 
-  async softDelete(id: string) {
+  async softDelete(id: string, bloqueado = false) {
     const now = new Date().toISOString();
     await this.database
       .update(editais)
-      .set({ deletedAt: now })
+      .set({ deletedAt: now, bloqueado })
       .where(eq(editais.id, id));
   }
 

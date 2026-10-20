@@ -1,0 +1,93 @@
+{
+  "_ajuda": "Regras da pontuação em camadas (lib/triagem/pontuacao.ts). Cada regra tem 'termo' (casa só palavra inteira) ou 'regex', e um 'peso'. Cada regra conta uma vez. O limite de cada camada está em 'maximo'. Os cortes (liberar/bloquear) e os pesos regex/Jev ficam em lib/triagem/limiares.ts.",
+
+  "chamada": {
+    "_ajuda": "C1: o texto parece uma chamada com inscrição, e não notícia, resultado ou página do site. Os termos de data/vencimento ficam de fora de propósito.",
+    "maximo": 40,
+    "positivos": [
+      { "termo": "edital", "peso": 10 },
+      { "regex": "\\b(edital|chamada|chamamento)\\s+(\\w+\\s+)?n[ºo°.]\\s*\\d+", "peso": 6, "rotulo": "edital numerado" },
+      { "termo": "chamada pública", "peso": 12 },
+      { "regex": "\\bchamadas?\\b(?!\\s+p[úu]blica)", "peso": 6, "rotulo": "chamada" },
+      { "termo": "chamamento", "peso": 10 },
+      { "termo": "convocatória", "peso": 10 },
+      { "termo": "inscrições", "peso": 10 },
+      { "termo": "inscrição", "peso": 8 },
+      { "termo": "submissão de propostas", "peso": 12 },
+      { "termo": "envio de propostas", "peso": 10 },
+      { "termo": "propostas", "peso": 5 },
+      { "termo": "prazo", "peso": 5 },
+      { "termo": "bolsa", "peso": 8 },
+      { "termo": "fomento", "peso": 8 },
+      { "termo": "seleção", "peso": 8 },
+      { "termo": "concurso", "peso": 6 },
+      { "termo": "prêmio", "peso": 6 },
+      { "termo": "subvenção", "peso": 8 },
+      { "termo": "apoio financeiro", "peso": 6 }
+    ],
+    "negativos": [
+      { "termo": "resultado", "peso": -10 },
+      { "termo": "errata", "peso": -15 },
+      { "termo": "retificação", "peso": -10 },
+      { "termo": "adendo", "peso": -10 },
+      { "termo": "ata", "peso": -10 },
+      { "termo": "classificados", "peso": -15 },
+      { "termo": "relatório", "peso": -10 },
+      { "termo": "prestação de contas", "peso": -15 },
+      { "termo": "reportagem", "peso": -15 },
+      { "termo": "inaugura", "peso": -10 }
+    ],
+    "institucional": -40,
+    "excluir_cultura": -15
+  },
+
+  "eixo": {
+    "_ajuda": "C2: termos fortes do eixo somam 'peso_forte' (distintos); os genéricos só contam se houver pelo menos um forte. A blacklist de TI desconta no eixo Pesquisa.",
+    "maximo": 40,
+    "peso_forte": 10,
+    "peso_generico": 3,
+    "maximo_genericos": 9,
+    "bonus_titulo": 5,
+    "limite_blacklist": 30,
+    "genericos": {
+      "Cultura": ["tradicional", "festival", "livro", "leitura", "evento", "eventos"],
+      "Pesquisa": [
+        "chamada", "chamada pública", "carta", "estudo", "estudo de caso", "evento", "eventos", "dados", "desenvolvimento",
+        "aplicação", "capacitação", "código", "cultura", "esporte", "financiamento", "parceria", "investimento",
+        "programa de apoio", "saúde", "app", "automação", "ágil", "análise técnica", "container", "currículo de ti",
+        "sistema", "sistemas", "segurança", "vulnerabilidade", "plataforma", "informação"
+      ]
+    },
+    "extras": {
+      "_ajuda": "Termos fortes que as listas de cultura e de TI não trazem (institutos federais, pós-graduação, extensão…).",
+      "Cultura": [],
+      "Pesquisa": ["ifce", "instituto federal", "institutos federais", "pesquisador", "pesquisadores", "extensão", "pós-graduação", "iniciação científica", "docente", "bolsista", "pesquisa"]
+    }
+  },
+
+  "regiao": {
+    "_ajuda": "C3: o veto de outro estado/município vem de lib/triagem/regiao.ts (inclui as FAPs de outros estados e município do Ceará, como hoje). Aqui só entram os pontos de abrangência.",
+    "maximo": 20,
+    "peso_aberto": 20,
+    "peso_neutro": 10,
+    "peso_restrito": -60,
+    "abertos": [
+      { "termo": "ceará" },
+      { "termo": "funcap" },
+      { "termo": "nordeste" },
+      { "termo": "nacional" },
+      { "termo": "todo o brasil" },
+      { "termo": "todo o país" },
+      { "termo": "todo o território nacional" },
+      { "termo": "âmbito nacional" }
+    ]
+  },
+
+  "documento": {
+    "_ajuda": "C4: com o texto do PDF, cada grupo distinto de palavras (GRUPOS em validacao-documento.ts) soma pontos; sem nenhum grupo forte o documento perde pontos.",
+    "maximo": 30,
+    "peso_forte": 10,
+    "peso_comum": 5,
+    "sem_forte": -15
+  }
+}

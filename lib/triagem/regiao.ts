@@ -13,7 +13,10 @@ const ESTADOS: Record<string, string> = {
 };
 
 /** Fundações estaduais de amparo à pesquisa de fora do Ceará (a FUNCAP é do Ceará e não entra aqui). */
-const FAPS_OUTROS_ESTADOS = /\b(FAPESP|FAPEMIG|FAPERJ|FACEPE|FAPEAM|FAPES|FAPEMA|FAPESPA|FAPESB|FAPESC|FAPEG|FAPESQ|FAPEAL|FAPEMAT|FAPEPI|FAPERN|FAPERGS|FAPITEC|FUNDECT|FAPDF|Funda[cç][aã]o Arauc[aá]ria)\b/;
+const FAPS_OUTROS_ESTADOS = /\b(FAPESP|FAPEMIG|FAPERJ|FACEPE|FAPEAM|FAPES|FAPEMA|FAPESPA|FAPESB|FAPESC|FAPEG|FAPESQ|FAPEAL|FAPEMAT|FAPEPI|FAPERN|FAPERGS|FAPITEC|FUNDECT|FAPDF|FAPEAP|FAPERO|FAPEAC|FAPT|Funda[cç][aã]o Arauc[aá]ria)\b/;
+
+/** Principais municípios cearenses: edital municipal deles é aberto a quem está no Ceará. */
+const MUNICIPIOS_CEARA = /\b(Fortaleza|Sobral|Juazeiro do Norte|Caucaia|Maracana[uú]|Crato|Itapipoca|Maranguape|Iguatu|Quixad[aá]|Pacatuba|Aquiraz|Canind[eé]|Russas|Tiangu[aá]|Crate[uú]s|Aracati|Cascavel|Pacajus|Barbalha)\b/i;
 
 const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -32,15 +35,22 @@ function cabeca(titulo: string): string {
 function estadoCitado(texto: string): string | null {
   // Só casa com a grafia capitalizada ou em maiúsculas, para "para" (preposição) não virar "Pará"
   for (const [uf, nome] of Object.entries(ESTADOS)) {
-    const variantes = [nome, nome.toUpperCase(), semAcento(nome).toUpperCase()].join('|');
+    // "PARA" sem acento é a preposição em títulos em caixa alta, então Pará só casa acentuado
+    const variantes = [nome, nome.toUpperCase(), ...(uf === 'PA' ? [] : [semAcento(nome).toUpperCase()])].join('|');
     if (new RegExp(`(?<![\\p{L}])(${variantes})(?![\\p{L}])`, 'u').test(texto)) return uf;
   }
   return null;
 }
 
 function siglaCitada(texto: string): string | null {
-  const m = texto.match(/(?:^|[\s/(,-])(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)(?=$|[\s/),.-])/);
-  return m ? m[1] : null;
+  const regex = /(?:^|[\s/(,-])(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)(?=$|[\s/),.-])/g;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(texto))) {
+    // "SE" seguido de outra palavra é o pronome ("ARTISTAS QUE SE DESTACAM"), não Sergipe
+    if (m[1] === 'SE' && /^\s+[A-Za-zÀ-ÿ]/.test(texto.slice(m.index + m[0].length))) continue;
+    return m[1];
+  }
+  return null;
 }
 
 export function restritoAOutraRegiao(entrada: { titulo: string; orgao?: string; descricao?: string }): ResultadoRegiao {
@@ -51,13 +61,14 @@ export function restritoAOutraRegiao(entrada: { titulo: string; orgao?: string; 
   // Município: "CARATINGA MG - ...", "FORTALEZA/CE - ..." ou órgão municipal
   const sigla = siglaCitada(topo);
   const estadoNome = estadoCitado(topo);
-  if (sigla) {
+  if (sigla && !SINAIS_ABERTOS.test(titulo)) {
     const antes = topo.split(new RegExp(`[\\s/(,-]${sigla}(?=$|[\\s/),.-])`))[0].replace(/[/\s-]+$/, '').trim();
-    if (antes.length > 0 && !estadoCitado(antes)) {
+    if (sigla !== 'CE' && antes.length > 0 && !estadoCitado(antes)) {
       return { restrito: true, motivo: `Restrito ao município de ${antes} (${sigla})` };
     }
   }
-  if (/prefeitura|c[aâ]mara municipal|secretaria municipal|\bmunic[ií]pio de\b/i.test(orgao) && !SINAIS_ABERTOS.test(titulo)) {
+  const municipalDoCeara = MUNICIPIOS_CEARA.test(orgao) || MUNICIPIOS_CEARA.test(topo);
+  if (/prefeitura|c[aâ]mara municipal|secretaria municipal|\bmunic[ií]pio de\b/i.test(orgao) && !SINAIS_ABERTOS.test(titulo) && !municipalDoCeara) {
     return { restrito: true, motivo: 'Edital municipal' };
   }
 

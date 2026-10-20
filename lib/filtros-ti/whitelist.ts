@@ -1,4 +1,5 @@
 import { loadWhitelist } from '../scraper/filtros/loaders';
+import { contemTermo } from '../scraper/filtros/termos';
 
 export function validarWhitelistTI(titulo: string, descricao: string): {
   válido: boolean;
@@ -12,7 +13,7 @@ export function validarWhitelistTI(titulo: string, descricao: string): {
   const termosBranco: string[] = [];
 
   for (const termo of whitelist.tecnologia) {
-    if (textoCompleto.includes(termo.toLowerCase())) {
+    if (contemTermo(textoCompleto, termo)) {
       termosBranco.push(termo);
     }
   }
@@ -38,7 +39,7 @@ export function validarWhitelistTI(titulo: string, descricao: string): {
   }
 
   for (const termo of whitelist.contexto_institucional) {
-    if (textoCompleto.includes(termo.toLowerCase())) {
+    if (contemTermo(textoCompleto, termo)) {
       termosBranco.push(termo);
       return {
         válido: true,
@@ -51,7 +52,7 @@ export function validarWhitelistTI(titulo: string, descricao: string): {
   }
 
   for (const termo of whitelist.contexto_geral) {
-    if (textoCompleto.includes(termo.toLowerCase())) {
+    if (contemTermo(textoCompleto, termo)) {
       termosBranco.push(termo);
       return {
         válido: true,

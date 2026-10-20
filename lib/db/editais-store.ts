@@ -234,6 +234,9 @@ function dbToEdital(row: any, analise?: any): Edital {
     confiancaPorCampo: safeJsonParse(row.confiancaPorCampo ?? row.confianca_por_campo) ?? undefined,
     statusAnalise: row.statusAnalise ?? row.status_analise ?? undefined,
     erroAnalise: row.erroAnalise ?? row.erro_analise ?? undefined,
+    statusRevisao: row.statusRevisao ?? row.status_revisao ?? undefined,
+    validadoManualmente: Boolean(row.validadoManualmente ?? row.validado_manualmente) || undefined,
+    dataAprovacao: (row.dataAprovacao ?? row.data_aprovacao) ? new Date(row.dataAprovacao ?? row.data_aprovacao) : undefined,
     tipoEdital: row.tipoEdital ?? row.tipo_edital ?? undefined,
     scoreValidacaoKeywords: row.scoreValidacaoKeywords ?? row.score_validacao_keywords ?? undefined,
     contadorPalavrasChave: row.contadorPalavrasChave ?? row.contador_palavras_chave ?? undefined,
@@ -299,6 +302,9 @@ function editalToDb(edital: Partial<Edital>): CreateEditalDTO {
     status: edital.status,
     statusAnalise: edital.statusAnalise,
     erroAnalise: edital.erroAnalise,
+    statusRevisao: edital.statusRevisao,
+    validadoManualmente: edital.validadoManualmente,
+    dataAprovacao: edital.dataAprovacao ? new Date(edital.dataAprovacao).toISOString() : undefined,
     modalidade: edital.modalidade,
     abrangencia: classificarAbrangencia({ titulo: edital.titulo || '', orgao: edital.orgao, abrangencia: edital.abrangencia }),
     tipoProponente: edital.tipoProponente,
@@ -382,18 +388,24 @@ export async function saveEdital(edital: Partial<Edital> & { id: string }): Prom
     const dbData = editalToDb(edital);
 
     // Buscar existente no banco (incluindo deletados)
-    let existente = await repo.findById(edital.id);
+    let existente: Awaited<ReturnType<typeof repo.findById>> | null = await repo.findById(edital.id);
 
     // Se não encontrou por ID, tentar por link (para scrapers que geram ID por hash do link)
     if (!existente && dbData.link) {
       existente = await repo.findByLink(dbData.link);
     }
 
-    // Se o edital já foi excluído/inativo, ignoramos e não fazemos nada
-    if (existente && existente.deletedAt !== null) {
-      console.log(`ℹ️ Edital ${edital.id} já está excluído/inativo no banco de dados. Ignorando atualização/inserção.`);
+    // Excluído com prazo vencido (bloqueado): ignoramos
+    if (existente && existente.deletedAt !== null && existente.bloqueado) {
+      console.log(`ℹ️ Edital ${edital.id} foi excluído com prazo vencido. Ignorando atualização/inserção.`);
       const analise = await analiseRepo.findByEditalId(existente.id);
       return dbToEdital(existente, analise);
+    }
+
+    // Excluído sem bloqueio que reapareceu numa busca: entra de novo como edital novo
+    if (existente && existente.deletedAt !== null) {
+      await repo.delete(existente.id);
+      existente = null;
     }
 
     let resultado: any;
@@ -483,15 +495,16 @@ export async function deleteEdital(id: string): Promise<boolean> {
   }
 }
 
+/** Verdadeiro só para excluídos bloqueados (prazo vencido); um excluído com prazo em aberto pode ser baixado de novo. */
 export async function isEditalExcluido(id: string, link?: string): Promise<boolean> {
   try {
     const existente = await repo.findById(id);
-    if (existente && existente.deletedAt !== null) {
+    if (existente && existente.deletedAt !== null && existente.bloqueado) {
       return true;
     }
     if (link) {
       const existentePorLink = await repo.findByLink(link);
-      if (existentePorLink && existentePorLink.deletedAt !== null) {
+      if (existentePorLink && existentePorLink.deletedAt !== null && existentePorLink.bloqueado) {
         return true;
       }
     }

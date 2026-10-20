@@ -43,7 +43,7 @@ export function AnaliseEditalDrawer({ edital, excluindo, onFechar, onExcluir }: 
             padding: '1.5rem'
           }}>
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--color-surface)',
               borderRadius: 'var(--radius-lg)',
               width: '100%',
               maxWidth: '900px',
@@ -118,7 +118,7 @@ export function AnaliseEditalDrawer({ edital, excluindo, onFechar, onExcluir }: 
                     dangerouslySetInnerHTML={{ __html: sanitizarHtml(edital.analiseIA?.resumo || edital.descricao) }}
                   />
                   {edital.analiseIA?.objetivo && (
-                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
+                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
                       <strong>Objetivo:</strong> {edital.analiseIA.objetivo}
                     </div>
                   )}
@@ -333,7 +333,7 @@ export function AnaliseEditalDrawer({ edital, excluindo, onFechar, onExcluir }: 
 
                 {/* Documentos e Alertas */}
                 {edital.analiseIA?.pontosFracos && edital.analiseIA.pontosFracos.length > 0 && (
-                  <div style={{ backgroundColor: '#fef2f2', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid #fee2e2' }}>
+                  <div style={{ backgroundColor: 'var(--color-danger-light)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                     <h4 style={{ fontWeight: 600, color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                       <AlertTriangle style={{ width: '1.1rem', height: '1.1rem' }} />
                       Pontos de Atenção / Alertas

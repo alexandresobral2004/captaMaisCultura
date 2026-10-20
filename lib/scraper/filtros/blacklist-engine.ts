@@ -1,4 +1,5 @@
 import { loadBlacklist } from './loaders';
+import { contarTermo } from './termos';
 
 export interface BlacklistTermMatch {
   termo: string;
@@ -15,20 +16,8 @@ export interface BlacklistResult {
   motivos: string[];
 }
 
-/**
- * Função utilitária para contar ocorrências de uma substring em um texto
- */
-function contarOcorrencias(texto: string, termo: string): number {
-  if (!texto || !termo) return 0;
-  
-  // Escapa caracteres especiais para segurança no Regex
-  const termoEscapado = termo.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-  // Procura o termo respeitando limites de palavras (word boundaries) quando aplicável
-  // Usamos limite flexível para lidar com acentuação em português
-  const regex = new RegExp(termoEscapado, 'gi');
-  const matches = texto.match(regex);
-  return matches ? matches.length : 0;
-}
+/** Conta ocorrências do termo como palavra inteira ("moda" não casa em "modalidade"). */
+const contarOcorrencias = contarTermo;
 
 /**
  * Processa o título e a descrição de um edital contra as regras da blacklist.

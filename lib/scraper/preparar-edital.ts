@@ -5,6 +5,9 @@ import { calcularPontuacaoEdital } from '../ai/scoring';
 import { analisarBlacklist } from '../filtros-ti';
 import { baixarELerPDFEdital } from './pdf-downloader';
 import { validarDocumentoEdital } from './validacao-documento';
+import { registrarDecisao } from './funil';
+import { camadaDocumento } from '../triagem/pontuacao';
+import { SCORE_ALTO, SCORE_MEDIO } from '../triagem/limiares';
 
 type ResultadoExtracao = Awaited<ReturnType<typeof baixarELerPDFEdital>>;
 
@@ -94,10 +97,21 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
   const pdfEncontrado = resultado.fonte !== 'sem_pdf' && !!resultado.texto;
   let documentoConfirmado = false;
   let emDuvida: string | null = null;
+  // A dúvida da triagem (eixo ou relevância) não some só porque o documento é mesmo um edital
+  const duvidaDaTriagem = edital.statusAnalise === 'duvida';
 
   // Antes de pontuar, confere se o texto baixado é de um edital (palavras-chave + decisão do Jev)
   if (pdfEncontrado) {
     const validacao = await validarDocumentoEdital({ titulo: edital.titulo, orgao: edital.orgao, texto: resultado.texto });
+    const c4 = camadaDocumento(validacao.grupos);
+    registrarDecisao({
+      editalId: edital.id,
+      titulo: edital.titulo,
+      etapa: 'documento',
+      resultado: validacao.decisao === 'valido' ? 'passou' : validacao.decisao,
+      motivo: `${validacao.motivo} [C4 documento ${c4.pontos > 0 ? '+' : ''}${c4.pontos}: ${c4.achados.join('; ') || 'nada'}]`,
+      probabilidade: validacao.probabilidade,
+    });
     if (validacao.decisao === 'descartado') {
       try { if (fs.existsSync(resultado.caminhoArquivo)) fs.unlinkSync(resultado.caminhoArquivo); } catch { /* arquivo temporário */ }
       return {
@@ -139,10 +153,11 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
   const blacklist = eixo === 'Cultura' ? null : analisarBlacklist(edital.titulo, edital.descricao);
   const penalidade = blacklist?.scoreNegativo ?? 0; // informativo: não reduz a nota
   const scoreFinal = pontuacao.scoreFinal;
-  const nivel = scoreFinal >= 80 ? 'alto' : scoreFinal >= 60 ? 'medio' : 'baixo';
+  const nivel = scoreFinal >= SCORE_ALTO ? 'alto' : scoreFinal >= SCORE_MEDIO ? 'medio' : 'baixo';
 
   const motivos = [...(pontuacao.motivos || [])];
   if (emDuvida) motivos.unshift(`[VALIDAÇÃO] ${emDuvida}`);
+  if (duvidaDaTriagem) motivos.unshift(...(edital.motivosPontuacao ?? []));
   if (blacklist && penalidade > 0) motivos.push(...blacklist.motivos.map(m => `${m} (informativo)`));
   if (blacklist && pontuacao.whitelist.válido && (blacklist.recomendacao === 'revisar' || blacklist.recomendacao === 'bloquear')) {
     motivos.push(
@@ -168,7 +183,7 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
 
   return {
     // Em dúvida, o texto fica guardado mas a análise automática espera a revisão de uma pessoa
-    pdfEncontrado: pdfEncontrado && !emDuvida,
+    pdfEncontrado: pdfEncontrado && !emDuvida && !duvidaDaTriagem,
     scoreFinal,
     texto: resultado.texto || '',
     campos: {
@@ -178,7 +193,7 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
       nivelPontuacao: nivel,
       motivosPontuacao: motivos,
       modoAnaliseIA: 'completo',
-      statusAnalise: emDuvida ? 'duvida' : pdfEncontrado ? 'pendente' : 'sem_pdf',
+      statusAnalise: emDuvida || duvidaDaTriagem ? 'duvida' : pdfEncontrado ? 'pendente' : 'sem_pdf',
     },
   };
 }

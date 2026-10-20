@@ -20,8 +20,7 @@ export type Eixo = 'Cultura' | 'Pesquisa';
 
 /** Abaixo desta certeza (0-100) o Jev não decide sozinho e o caso sobe para a OpenAI/revisão. */
 export function confiancaMinimaJev(): number {
-  const valor = Number(process.env.JEV_CONFIANCA_MINIMA);
-  return Number.isFinite(valor) && valor > 0 ? valor : 75;
+  return jevConfiancaMinima();
 }
 
 /**
@@ -29,9 +28,10 @@ export function confiancaMinimaJev(): number {
  * e este valor o edital vai para revisão ("dúvida"), em vez de ser rejeitado.
  */
 export function confiancaParaDescartar(): number {
-  const valor = Number(process.env.JEV_CONFIANCA_DESCARTE);
-  return Number.isFinite(valor) && valor > 0 ? valor : 90;
+  return jevConfiancaDescarte();
 }
+
+import { jevConfiancaMinima, jevConfiancaDescarte } from '../triagem/limiares';
 
 const PERGUNTAS = {
   eixo: {
@@ -52,7 +52,7 @@ const PERGUNTAS = {
       'O texto descreve uma chamada pública, edital, seleção, bolsa, fomento ou evento com inscrição/submissão de propostas?',
     criteria: {
       true: 'Oferece oportunidade com processo de inscrição, submissão ou seleção (edital, chamada, fomento, congresso com submissão)',
-      false: 'Notícia, resultado final, blog, curso, tutorial, página institucional ou conteúdo sem processo seletivo',
+      false: 'Notícia, resultado final, blog, curso, tutorial, página institucional, item de menu ou seção de site (ex.: Governança, Corregedoria, Dados Abertos, Servidores, Perguntas Frequentes) ou conteúdo sem processo seletivo',
     },
   },
   relevante_ti: {
@@ -154,14 +154,19 @@ export function resultadoTIDasRespostas(
 ): AiClassificationResult | null {
   const pChamada = r.eh_chamada.noul;
   const pRelevante = r.relevante_ti.noul;
-  const confianca = Math.round(Math.min(certeza(pChamada), certeza(pRelevante)));
+  const niveis = r.grau_relevancia.legend ? Object.keys(r.grau_relevancia.legend).length : 5;
+
+  // A confiança é a certeza de "relevante para TI" (a dúvida sobre ser chamada é tratada à parte, na nota
+  // do Jev e no filtro de "não é chamada"). Se o grau de relevância discorda, o julgamento fica incerto.
+  const grauDiscorda = (pRelevante >= 0.5) !== (r.grau_relevancia.score >= Math.ceil((niveis - 1) / 2));
+  const certezaRelevante = Math.round(certeza(pRelevante));
+  const confianca = grauDiscorda ? Math.min(certezaRelevante, confiancaMinimaJev() - 1) : certezaRelevante;
 
   if (confianca < confiancaMinimaJev() && !opcoes.aceitarIncerto) {
     console.log(`   Jev incerto (${confianca}%) para "${titulo.substring(0, 40)}...", escalando.`);
     return null;
   }
 
-  const niveis = r.grau_relevancia.legend ? Object.keys(r.grau_relevancia.legend).length : 5;
   const score = Math.round((r.grau_relevancia.score / Math.max(niveis - 1, 1)) * 100);
   const tecnologia = normalizarTecnologia(r.tecnologia.choice);
   const tipo = normalizarTipo(r.tipo.choice);

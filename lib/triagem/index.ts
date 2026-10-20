@@ -12,15 +12,17 @@ import {
 import { validarComOpenAI, type AiClassificationResult } from '../filtros-ti/openai-classifier';
 import { validarWhitelistTI } from '../filtros-ti/whitelist';
 import { analisarBlacklist } from '../filtros-ti/blacklist';
-import { termosCulturaEncontrados, pareceNaoEdital } from './cultura';
+import { termosCulturaEncontrados } from './cultura';
 import { restritoAOutraRegiao } from './regiao';
+import { REGIAO_REJEITAR } from './limiares';
+import { pontuar, comporNota, notaDoJev, descreverPontuacao, type Pontuacao, type Nota } from './pontuacao';
 
 export type { Eixo } from '../filtros-ti/jev-classifier';
 
 /** Eixo configurado no portal: fixo (Cultura/Pesquisa) ou decidido edital a edital (auto). */
 export type EixoPortal = 'auto' | Eixo;
 
-export type EtapaTriagem = 'eixo' | 'whitelist' | 'ia' | 'blacklist' | 'cultura' | 'regiao';
+export type EtapaTriagem = 'eixo' | 'whitelist' | 'ia' | 'blacklist' | 'cultura' | 'regiao' | 'pontuacao';
 
 export interface ResultadoTriagem {
   aceito: boolean;
@@ -32,6 +34,8 @@ export interface ResultadoTriagem {
   termosBranco: string[];
   /** Classificação de TI (tecnologia, tipo, score) quando o eixo é Pesquisa. */
   validacaoIA?: AiClassificationResult;
+  /** Notas e achados por camada, quando a decisão passou pela pontuação (ver pontuacao.ts). */
+  pontuacao?: { nota: Nota; resumo: string };
 }
 
 export interface EntradaTriagem extends EntradaEdital {
@@ -59,6 +63,14 @@ function eixoPorTermos(entrada: EntradaEdital): { eixo: Eixo | null; termosTI: s
   return { eixo: termosCultura.length > termosTI.length ? 'Cultura' : 'Pesquisa', termosTI, termosCultura };
 }
 
+/** Resultado de uma decisão tomada pela nota: carrega as notas e o resumo por camada para o registro do funil. */
+function comNota(r: ResultadoTriagem, pont: Pontuacao, nota: Nota): ResultadoTriagem {
+  return { ...r, pontuacao: { nota, resumo: descreverPontuacao(pont, nota) } };
+}
+
+/** Rótulo curto da nota para o motivo ("nota 72"). */
+const rotuloNota = (nota: Nota) => `nota ${nota.notaFinal}`;
+
 async function triarPesquisa(
   entrada: EntradaEdital,
   respostas: RespostasEdital | null,
@@ -67,15 +79,24 @@ async function triarPesquisa(
   const whitelist = validarWhitelistTI(entrada.titulo, entrada.descricao);
   const termosBranco = whitelist.termosBranco;
 
-  // Julgamento do Jev já em mãos: evita nova consulta; incerto escala para a OpenAI (reserva)
-  let validacaoIA: AiClassificationResult | null = respostas
-    ? resultadoTIDasRespostas(respostas, entrada.titulo)
-    : null;
-  const doJev = validacaoIA !== null;
+  const pont = pontuar({ titulo: entrada.titulo, descricao: entrada.descricao, orgao: entrada.orgao, eixo: 'Pesquisa' });
+  // Jev em mãos: classificação de tecnologia e probabilidades vêm da mesma consulta, sem nova chamada
+  const doJev = respostas ? resultadoTIDasRespostas(respostas, entrada.titulo, { aceitarIncerto: true }) : null;
+  const notaJev = respostas ? notaDoJev(respostas.eh_chamada.noul, respostas.relevante_ti.noul) : null;
+  const nota = comporNota(pont.notaRegex, notaJev);
+  // Sem Jev e sem nenhum termo forte de TI/Pesquisa não há o que pontuar: cai direto no bloqueio
+  const faixa = !respostas && pont.eixo.fortes === 0 ? 'bloquear' : nota.faixa;
+  const notaFinal: Nota = { ...nota, faixa };
 
-  // A whitelist não rejeita mais sozinha: ela só vira informação para as IAs
-  if (!validacaoIA) {
-    validacaoIA = await validarComOpenAI(
+  if (faixa === 'bloquear') {
+    return comNota({ ...rejeitar('pontuacao', `Nota baixa (${rotuloNota(nota)}): sem sinais de TI/Pesquisa${respostas ? ' e o Jev confirma' : ''}`, 'Pesquisa', termosBranco), validacaoIA: doJev ?? undefined }, pont, notaFinal);
+  }
+
+  // Zona cinzenta (ou liberada sem Jev): a OpenAI, reserva já existente, desempata e completa a classificação
+  let validacaoIA: AiClassificationResult | null = doJev;
+  let desempate: AiClassificationResult | null = null;
+  if (faixa === 'cinza' || !respostas) {
+    desempate = await validarComOpenAI(
       entrada.titulo,
       entrada.descricao,
       entrada.valor,
@@ -84,63 +105,74 @@ async function triarPesquisa(
       entrada.tipoEdital,
       { pularJev: respostas !== null }
     );
-    // Nenhuma IA respondeu e não há nenhum termo de TI: nada que sustente aceitar o edital
-    if (!validacaoIA.ok && !whitelist.válido) {
-      return rejeitar('whitelist', 'Sem termo de TI/Pesquisa e nenhuma IA disponível', 'Pesquisa');
-    }
+    if (desempate.ok) validacaoIA = desempate;
   }
 
-  if (validacaoIA.ok && !validacaoIA.válido) {
-    const certeza = validacaoIA.confianca ?? validacaoIA.confiança ?? 0;
-    if (certeza >= confiancaParaDescartar()) {
-      return { ...rejeitar('ia', validacaoIA.razão, 'Pesquisa', termosBranco), validacaoIA };
-    }
-    return { ...emDuvida('ia', `Pouca certeza de que não é relevante (${certeza}%): ${validacaoIA.razão}`, 'Pesquisa', termosBranco), validacaoIA };
+  const nota3 = suspeitos.length > 0 ? ` Termos suspeitos: ${suspeitos.slice(0, 3).join(', ')}.` : '';
+  const base = { categoriaArea: 'Pesquisa' as const, termosBranco, ...(validacaoIA ? { validacaoIA } : {}) };
+
+  if (desempate?.ok && !desempate.válido) {
+    const certeza = desempate.confianca ?? desempate.confiança ?? 0;
+    return comNota(
+      certeza >= confiancaParaDescartar()
+        ? { ...rejeitar('ia', desempate.razão, 'Pesquisa', termosBranco), ...base }
+        : { ...emDuvida('ia', `Pouca certeza de que não é relevante (${certeza}%): ${desempate.razão}`, 'Pesquisa', termosBranco), ...base },
+      pont, notaFinal
+    );
   }
 
-  // Termos da blacklist não rejeitam: com o Jev seguro só ficam no motivo; sem ele, vão para revisão
-  const nota = suspeitos.length > 0 ? ` Termos suspeitos: ${suspeitos.slice(0, 3).join(', ')}.` : '';
-  return {
-    aceito: true,
-    incerto: !validacaoIA.ok || (suspeitos.length > 0 && !doJev),
-    categoriaArea: 'Pesquisa',
-    etapa: 'ia',
-    motivo: (validacaoIA.ok ? validacaoIA.razão : `Classificação indisponível: ${validacaoIA.mensagem}`) + nota,
-    termosBranco,
-    validacaoIA,
-  };
+  if (faixa === 'liberar') {
+    // Sem Jev a regra aceita, mas só a OpenAI confirmando tira a marca de incerto; termos suspeitos pedem revisão
+    const confirmado = respostas !== null || desempate?.ok === true;
+    return comNota({
+      aceito: true,
+      incerto: !confirmado || (suspeitos.length > 0 && !respostas),
+      etapa: 'pontuacao',
+      motivo: `Aprovado pela pontuação (${rotuloNota(nota)})${desempate?.ok ? `: ${desempate.razão}` : ''}.${nota3}`,
+      ...base,
+    }, pont, notaFinal);
+  }
+
+  // Zona cinzenta: só vale aceitar se a OpenAI confirmou com confiança; senão, Revisão Humana
+  if (desempate?.ok && desempate.válido && (desempate.confianca ?? desempate.confiança ?? 0) >= confiancaMinimaJev()) {
+    return comNota({
+      aceito: true,
+      incerto: false,
+      etapa: 'ia',
+      motivo: `${desempate.razão} (${rotuloNota(nota)}, desempate da OpenAI).${nota3}`,
+      ...base,
+    }, pont, notaFinal);
+  }
+  return comNota({
+    ...emDuvida('pontuacao', `Pontuação indecisa (${rotuloNota(nota)}) e sem confirmação da IA: revisar.${nota3}`, 'Pesquisa', termosBranco),
+    ...(validacaoIA ? { validacaoIA } : {}),
+  }, pont, notaFinal);
 }
 
 function triarCultura(entrada: EntradaEdital, respostas: RespostasEdital | null): ResultadoTriagem {
   const termosBranco = termosCulturaEncontrados(entrada.titulo, entrada.descricao);
+  const pont = pontuar({ titulo: entrada.titulo, descricao: entrada.descricao, orgao: entrada.orgao, eixo: 'Cultura' });
+  const notaJev = respostas ? notaDoJev(respostas.eh_chamada.noul, respostas.relevante_cultura.noul) : null;
+  const nota = comporNota(pont.notaRegex, notaJev);
+  // Sem Jev e sem nenhum termo forte de cultura não há o que pontuar: cai direto no bloqueio
+  const faixa = !respostas && pont.eixo.fortes === 0 ? 'bloquear' : nota.faixa;
+  const notaFinal: Nota = { ...nota, faixa };
+  const razaoJev = respostas ? julgamentoCulturaDasRespostas(respostas).razao : 'sem confirmação da IA';
 
-  if (respostas) {
-    const j = julgamentoCulturaDasRespostas(respostas);
-    if (j.confianca >= confiancaMinimaJev()) {
-      if (j.valido) return { aceito: true, incerto: false, categoriaArea: 'Cultura', etapa: 'cultura', motivo: j.razao, termosBranco };
-      return j.confianca >= confiancaParaDescartar()
-        ? rejeitar('cultura', j.razao, 'Cultura', termosBranco)
-        : emDuvida('cultura', `Pouca certeza de que não é relevante (${j.confianca}%): ${j.razao}`, 'Cultura', termosBranco);
-    }
-    // Jev incerto: segue para a regra por termos, aceitando com ressalva
+  if (faixa === 'bloquear') {
+    return comNota(rejeitar('pontuacao', `Nota baixa (${rotuloNota(nota)}): ${respostas ? razaoJev : 'sem termos de cultura'}`, 'Cultura', termosBranco), pont, notaFinal);
   }
-
-  if (pareceNaoEdital(entrada.titulo, entrada.descricao)) {
-    return rejeitar('cultura', 'Parece notícia/resultado, não edital', 'Cultura', termosBranco);
+  if (faixa === 'liberar') {
+    return comNota({
+      aceito: true,
+      incerto: !respostas,
+      categoriaArea: 'Cultura',
+      etapa: 'cultura',
+      motivo: respostas ? `${razaoJev} (${rotuloNota(nota)})` : `Aceito por termos de cultura (${termosBranco.slice(0, 3).join(', ')}), ${razaoJev} (${rotuloNota(nota)})`,
+      termosBranco,
+    }, pont, notaFinal);
   }
-  if (termosBranco.length === 0) {
-    return respostas
-      ? emDuvida('cultura', 'Jev incerto e sem termos de cultura: revisar', 'Cultura')
-      : rejeitar('whitelist', 'Sem termo de cultura', 'Cultura');
-  }
-  return {
-    aceito: true,
-    incerto: true,
-    categoriaArea: 'Cultura',
-    etapa: 'cultura',
-    motivo: `Aceito por termos de cultura (${termosBranco.slice(0, 3).join(', ')}), sem confirmação da IA`,
-    termosBranco,
-  };
+  return comNota(emDuvida('cultura', `Pontuação indecisa (${rotuloNota(nota)}), ${razaoJev}: revisar`, 'Cultura', termosBranco), pont, notaFinal);
 }
 
 /**
@@ -162,8 +194,19 @@ export async function triarEdital(entrada: EntradaTriagem): Promise<ResultadoTri
 
   // Segunda camada (Jev): restrição territorial que as palavras do título não revelam
   const pRestrito = respostas?.restrito_a_outra_regiao?.noul;
-  if (pRestrito !== undefined && pRestrito >= 0.8) {
+  if (pRestrito !== undefined && pRestrito >= REGIAO_REJEITAR) {
     return rejeitar('regiao', `Jev: restrito a outra região (${Math.round(pRestrito * 100)}%)`, null);
+  }
+
+  // Primeiro filtro do Jev, comum aos dois eixos: precisa ser uma chamada com inscrição, não uma página do site
+  if (respostas) {
+    const pChamada = respostas.eh_chamada.noul;
+    const certezaNaoChamada = Math.round((1 - pChamada) * 100);
+    if (pChamada < 0.5 && certezaNaoChamada >= confiancaMinimaJev()) {
+      return certezaNaoChamada >= confiancaParaDescartar()
+        ? rejeitar('eixo', `Jev: não é chamada/edital, parece página do site (${certezaNaoChamada}%)`, null)
+        : emDuvida('eixo', `Jev: possivelmente não é chamada/edital (${certezaNaoChamada}%), revisar`, null);
+    }
   }
 
   let eixo: Eixo | null = eixoPortal === 'auto' ? null : eixoPortal;

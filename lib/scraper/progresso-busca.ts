@@ -1,3 +1,5 @@
+import { SCORE_MEDIO } from '../triagem/limiares';
+
 /**
  * Andamento da busca por novos editais, lido pela tela enquanto a busca roda.
  * Fica em memória do servidor (globalThis, para sobreviver ao recarregamento de módulos do Next).
@@ -74,5 +76,5 @@ export function terminarBusca(falhou = false) {
 export function resultadoDoItem(statusAnalise: string | undefined, score: number): ResultadoItem {
   if (statusAnalise === 'descartado') return 'descartado';
   if (statusAnalise === 'duvida') return 'edital_revisar';
-  return score >= 60 && statusAnalise !== 'sem_pdf' ? 'edital_util' : 'edital';
+  return score >= SCORE_MEDIO && statusAnalise !== 'sem_pdf' ? 'edital_util' : 'edital';
 }

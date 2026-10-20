@@ -82,7 +82,7 @@ describe('triarEdital', () => {
     it('cultura que o Jev considera não-edital é rejeitada', async () => {
       jevComResposta(respostaJev({ eixo: 'Cultura', chamada: 0.02, cultura: 0.9 }));
       const r = await triarEdital({ titulo: 'Exposição de arte inaugurada', descricao: 'Reportagem sobre a mostra' });
-      expect(r).toMatchObject({ aceito: false, categoriaArea: 'Cultura', etapa: 'cultura' });
+      expect(r).toMatchObject({ aceito: false, etapa: 'eixo' });
     });
   });
 
@@ -100,7 +100,7 @@ describe('triarEdital', () => {
     it('portal Pesquisa sem Jev, sem OpenAI e sem termo de TI rejeita', async () => {
       process.env.TYPESAFE_API_KEY = '';
       const r = await triarEdital({ titulo: 'Festival de teatro', descricao: 'Apoio a grupos', eixoPortal: 'Pesquisa' });
-      expect(r).toMatchObject({ aceito: false, etapa: 'whitelist', categoriaArea: 'Pesquisa' });
+      expect(r).toMatchObject({ aceito: false, etapa: 'pontuacao', categoriaArea: 'Pesquisa' });
     });
   });
 
@@ -128,14 +128,14 @@ describe('triarEdital', () => {
         descricao: 'Entrevista com a diretora do museu',
         eixoPortal: 'Cultura',
       });
-      expect(r).toMatchObject({ aceito: false, etapa: 'cultura' });
+      expect(r).toMatchObject({ aceito: false, etapa: 'pontuacao' });
     });
   });
   describe('dúvida em vez de rejeição', () => {
     it('Jev com pouca certeza de que é irrelevante manda para revisão', async () => {
       jevComResposta(respostaJev({ eixo: 'Cultura', chamada: 0.2, cultura: 0.9 })); // certeza 80%
       const r = await triarEdital({ titulo: 'Mostra de arte em debate', descricao: 'Texto ambíguo' });
-      expect(r).toMatchObject({ aceito: true, incerto: true, categoriaArea: 'Cultura' });
+      expect(r).toMatchObject({ aceito: true, incerto: true, etapa: 'eixo' });
     });
 
     it('fora do escopo com certeza média vai para revisão', async () => {
@@ -149,5 +149,33 @@ describe('triarEdital', () => {
       const r = await triarEdital({ titulo: 'Aviso de licitação de merenda', descricao: 'Compra de alimentos' });
       expect(r).toMatchObject({ aceito: true, incerto: true, etapa: 'eixo' });
     });
+  });
+});
+
+describe('triarEdital: Jev incerto nunca vira rejeição direta', () => {
+  beforeEach(() => {
+    process.env.TYPESAFE_API_KEY = 'tsk-teste';
+  });
+  afterEach(() => {
+    process.env.TYPESAFE_API_KEY = '';
+    vi.unstubAllGlobals();
+  });
+
+  it('Pesquisa: Jev incerto, OpenAI fora e sem termo de TI vai para revisão', async () => {
+    jevComResposta(respostaJev({ eixo: 'Pesquisa', chamada: 0.97, ti: 0.6 }));
+    const r = await triarEdital({ titulo: 'Seleção de propostas 2026', descricao: '', eixoPortal: 'Pesquisa' });
+    expect(r).toMatchObject({ aceito: true, incerto: true });
+  });
+
+  it('Pesquisa: sem Jev, sem OpenAI e sem termo de TI continua rejeitado', async () => {
+    process.env.TYPESAFE_API_KEY = '';
+    const r = await triarEdital({ titulo: 'Seleção de propostas 2026', descricao: '', eixoPortal: 'Pesquisa' });
+    expect(r).toMatchObject({ aceito: false, etapa: 'pontuacao' });
+  });
+
+  it('Cultura: Jev incerto e palavra de notícia vai para revisão, não para o lixo', async () => {
+    jevComResposta(respostaJev({ eixo: 'Cultura', chamada: 0.97, cultura: 0.6 }));
+    const r = await triarEdital({ titulo: 'Edital de teatro', descricao: 'Resultado final previsto para dezembro', eixoPortal: 'Cultura' });
+    expect(r).toMatchObject({ aceito: true, incerto: true, etapa: 'cultura' });
   });
 });

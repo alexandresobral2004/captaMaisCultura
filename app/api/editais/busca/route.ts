@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buscarEditaisPortais } from '@/lib/scraper/fetcher';
 import { prepararEdital } from '@/lib/scraper/preparar-edital';
-import { saveEdital, getEditalPorId } from '@/lib/db/editais-store';
+import { saveEdital, getEditalPorId, isEditalExcluido } from '@/lib/db/editais-store';
 import { getRawDb } from '@/lib/database/db';
 import { comecarColeta, comecarProcessamento, registrarItem, terminarBusca, resultadoDoItem } from '@/lib/scraper/progresso-busca';
 import { iniciarBusca, finalizarBusca, situacaoDaBusca, editalJaProcessado } from '@/lib/scraper/controle-busca';
 import { verificarAdmin } from '@/lib/api/auth';
+import { registrarDecisao } from '@/lib/scraper/funil';
 import { pipelineLogger } from '@/lib/scraper/pipeline-logger';
 
 export async function POST(request: NextRequest) {
@@ -48,10 +49,20 @@ export async function POST(request: NextRequest) {
       try {
         pipelineLogger.logBusca(`Processando edital: "${edital.titulo}"`);
         
+        // Excluído pelo usuário: não baixa de novo (getEditalPorId não enxerga excluídos)
+        if (await isEditalExcluido(edital.id, edital.link)) {
+          jaExistentes++;
+          registrarDecisao({ editalId: edital.id, titulo: edital.titulo, etapa: 'duplicado', resultado: 'duplicado', motivo: 'Excluído pelo usuário' });
+          registrarItem('ja_existia', edital.titulo);
+          pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Excluído pelo usuário');
+          continue;
+        }
+
         // Já baixado ou avaliado em buscas anteriores: não baixa de novo
         const existente = await getEditalPorId(edital.id);
         if (existente && editalJaProcessado(existente)) {
           jaExistentes++;
+          registrarDecisao({ editalId: edital.id, titulo: edital.titulo, etapa: 'duplicado', resultado: 'duplicado', motivo: 'Já existe no banco' });
           registrarItem('ja_existia', edital.titulo);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Já existe no banco');
           continue;
@@ -62,6 +73,7 @@ export async function POST(request: NextRequest) {
           console.log(`⏭️ [${edital.id}] Fora do escopo. Pulando.`);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Fora do escopo');
           erroCount++;
+          registrarDecisao({ editalId: edital.id, titulo: edital.titulo, etapa: 'fora_escopo', resultado: 'descartado', motivo: 'Marcado fora do escopo' });
           registrarItem('descartado', edital.titulo);
           continue;
         }
@@ -75,6 +87,14 @@ export async function POST(request: NextRequest) {
         pipelineLogger.logResultado(edital.id, edital.titulo, 'salvo', `Salvo como PENDENTE (Score: ${preparado.scoreFinal}) | Fonte: ${preparado.campos.fonteConteudo}`);
         editaisAnalisados.push(editalSalvo);
         sucessoCount++;
+        registrarDecisao({
+          editalId: edital.id,
+          titulo: edital.titulo,
+          etapa: 'pontuacao',
+          resultado: editalSalvo.statusAnalise === 'descartado' ? 'descartado' : editalSalvo.statusAnalise === 'duvida' ? 'duvida' : 'passou',
+          motivo: `Score ${preparado.scoreFinal}, status ${editalSalvo.statusAnalise}`,
+          probabilidade: preparado.scoreFinal / 100,
+        });
         registrarItem(resultadoDoItem(editalSalvo.statusAnalise, preparado.scoreFinal), edital.titulo);
       } catch (err) {
         console.error(`❌ Erro ao processar edital [${edital.id}]:`, err);

@@ -86,13 +86,24 @@ describe('validarComJev', () => {
   });
 
   it('resultado incerto escala (null), mas é aceito quando não há alternativa', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.6, relevante: 0.9 })));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.9, relevante: 0.6 })));
     expect(await validarComJev('Talvez', 'Descrição')).toBeNull();
 
     const aceito = await validarComJev('Talvez', 'Descrição', undefined, undefined, undefined, undefined, {
       aceitarIncerto: true,
     });
     expect(aceito).toMatchObject({ ok: true, válido: true, confianca: 60 });
+  });
+
+  it('a confiança é a certeza de "relevante para TI"; incerteza sobre ser chamada não a reduz', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.6, relevante: 0.92, score: 3 })));
+    const r = await validarComJev('Edital de TI', 'Descrição');
+    expect(r).toMatchObject({ ok: true, válido: true, confianca: 92 });
+  });
+
+  it('se o grau de relevância discorda de "relevante", o julgamento fica incerto', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.97, relevante: 0.92, score: 0 })));
+    expect(await validarComJev('Edital', 'Descrição')).toBeNull();
   });
 
   it('falha de rede ou HTTP não propaga: retorna null para usar o fallback', async () => {

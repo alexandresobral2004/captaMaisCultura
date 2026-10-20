@@ -82,7 +82,7 @@ describe('EditaisStore - Soft Delete Rules', () => {
       id,
       titulo: 'Edital a ser Deletado',
       orgao: 'CAPES',
-      dataLimite: '2026-12-31',
+      dataLimite: '2020-12-31', // vencido: só excluído vencido fica bloqueado
       link,
       status: 'Aberto' as const,
     };
@@ -116,7 +116,7 @@ describe('EditaisStore - Soft Delete Rules', () => {
       id,
       titulo: 'Edital Protegido',
       orgao: 'FINEP',
-      dataLimite: '2026-12-31',
+      dataLimite: '2020-12-31', // vencido: só excluído vencido fica bloqueado
       link,
       status: 'Aberto' as const,
     };

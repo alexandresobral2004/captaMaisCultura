@@ -13,6 +13,9 @@ interface ConfirmDialogProps {
   carregando?: boolean;
   onConfirmar: () => void;
   onCancelar: () => void;
+  /** Segunda ação opcional, exibida entre Cancelar e Confirmar */
+  textoAlternativo?: string;
+  onAlternativo?: () => void;
 }
 
 /** Substitui window.confirm: acessível (role=alertdialog), fecha com Esc e foca o botão seguro. */
@@ -26,6 +29,8 @@ export function ConfirmDialog({
   carregando = false,
   onConfirmar,
   onCancelar,
+  textoAlternativo,
+  onAlternativo,
 }: ConfirmDialogProps) {
   const cancelarRef = useRef<HTMLButtonElement>(null);
 
@@ -63,6 +68,17 @@ export function ConfirmDialog({
           >
             {textoCancelar}
           </Button>
+          {textoAlternativo && onAlternativo && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onAlternativo}
+              disabled={carregando}
+              className="flex-1 border-red-700 text-red-300 hover:bg-red-950"
+            >
+              {textoAlternativo}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={onConfirmar}

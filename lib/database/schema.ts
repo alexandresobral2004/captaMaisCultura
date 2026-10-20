@@ -28,6 +28,9 @@ export const editais = sqliteTable('editais', {
     enum: ['pendente', 'pdf_baixado', 'analisado', 'sem_pdf', 'descartado', 'erro', 'duvida']
   }).default('pendente'),
   erroAnalise: text('erro_analise'),
+  statusRevisao: text('status_revisao', { enum: ['pendente', 'aprovado', 'rejeitado'] }),
+  validadoManualmente: integer('validado_manualmente', { mode: 'boolean' }),
+  dataAprovacao: text('data_aprovacao'),
   modalidade: text('modalidade'),
   abrangencia: text('abrangencia'),
 
@@ -74,6 +77,7 @@ export const editais = sqliteTable('editais', {
   criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
   atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
   deletedAt: text('deleted_at'), // NULL = ativo, timestamp = deletado (soft-delete)
+  bloqueado: integer('bloqueado', { mode: 'boolean' }).notNull().default(false), // excluído como "não é edital": nunca mais baixado
 
   // Codigo de identificacao (EDT-001, EDT-002, etc.)
   codigo: text('codigo').unique(),

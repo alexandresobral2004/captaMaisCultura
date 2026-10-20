@@ -59,3 +59,39 @@ describe('validarDocumentoEdital', () => {
     expect((await validarDocumentoEdital(poucos, null)).decisao).toBe('duvida');
   });
 });
+
+describe('itens de menu de portais (CNPq)', () => {
+  it.each([
+    'Governança', 'Corregedoria', 'Dados Abertos', 'Servidores', 'Informações Classificadas',
+    'Perguntas Frequentes', 'Biografia dos Dirigentes', 'Receitas e Despesas', 'Compartilhe por WhatsApp',
+    'Buscar serviços por', 'Consultar minhas solicitações', 'Serviços para Imigrantes', 'Central de Atendimento',
+  ])('descarta "%s"', (titulo) => {
+    expect(tituloInstitucional(titulo)).toBe(true);
+  });
+  it('mantém chamadas reais', () => {
+    expect(tituloInstitucional('Chamada CNPq/MCTI Nº 10/2026 - Universal')).toBe(false);
+    expect(tituloInstitucional('Programa Mulheres e Ciência 2026')).toBe(false);
+  });
+});
+
+describe('tituloInstitucional: não descarta chamadas por palavra comum', () => {
+  it.each([
+    'Chamada Pública sobre o fomento à música no Ceará',
+    'Edital de ocupação da Galeria de Arte do Dragão do Mar',
+    'Edital de Acessibilidade Cultural 2026',
+    'Chamamento Público para Programas Estratégicos de Cultura',
+    'Chamada Institucional de Bolsas PIBIC',
+    'Chamada para Treinamentos em Inteligência Artificial',
+    'Programa institucional de Doutorado sanduíche no exterior 2026',
+    'Chamamento para servidores públicos pesquisadores',
+  ])('mantém "%s"', t => {
+    expect(tituloInstitucional(t)).toBe(false);
+  });
+  it.each([
+    'Base Jurídica', 'Regimento Interno', 'Estatuto do CNPq', 'Carta de Serviços', 'Composição',
+    'Certidão Negativa', 'Termo de Uso e Aviso de Privacidade', 'Agenda de Autoridades', 'Resultados',
+    'Dúvidas Frequentes em relação ao Portal gov.br', 'Guia de Edição de Serviços do Portal Gov.br',
+  ])('passa a descartar o menu "%s"', t => {
+    expect(tituloInstitucional(t)).toBe(true);
+  });
+});

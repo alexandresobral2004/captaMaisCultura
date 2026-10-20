@@ -365,6 +365,16 @@ export function migrarSchema(sqlite: Database.Database) {
       console.log('✅ Migração: coluna erro_analise adicionada');
     }
 
+    // Migração: revisão humana (aba "Revisão Humana" filtrava por um campo que não era gravado)
+    for (const [coluna, tipo] of [['status_revisao', 'TEXT'], ['validado_manualmente', 'INTEGER'], ['data_aprovacao', 'TEXT']] as const) {
+      if (!columns.some((col: any) => col.name === coluna)) {
+        sqlite.exec(`ALTER TABLE editais ADD COLUMN ${coluna} ${tipo}`);
+        // Editais já analisados entram na fila de revisão, como acontece após cada nova análise
+        if (coluna === 'status_revisao') sqlite.exec(`UPDATE editais SET status_revisao = 'pendente' WHERE status_analise = 'analisado'`);
+        console.log(`✅ Migração: coluna ${coluna} adicionada`);
+      }
+    }
+
     // Migração: adicionar coluna codigo na tabela editais
     const hasCodigo = columns.some((col: any) => col.name === 'codigo');
     if (!hasCodigo) {
@@ -501,6 +511,14 @@ export function migrarSchema(sqlite: Database.Database) {
       console.log('✅ Migração: coluna deleted_at adicionada à tabela editais');
     }
 
+    // Migração: bloqueio de excluídos. Só o edital com prazo vencido fica impedido de voltar numa busca.
+    if (!columns.some((col: any) => col.name === 'bloqueado')) {
+      sqlite.exec(`ALTER TABLE editais ADD COLUMN bloqueado INTEGER NOT NULL DEFAULT 0`);
+      // Exclusões feitas antes desta coluna bloqueavam para sempre; mantém esse efeito
+      sqlite.exec(`UPDATE editais SET bloqueado = 1 WHERE deleted_at IS NOT NULL`);
+      console.log('✅ Migração: coluna bloqueado adicionada à tabela editais');
+    }
+
     // Migração: adicionar coluna categoria_area na tabela editais
     const hasCategoriaArea = columns.some((col: any) => col.name === 'categoria_area');
     if (!hasCategoriaArea) {
@@ -615,6 +633,19 @@ export function migrarSchema(sqlite: Database.Database) {
       console.warn('Erro ao normalizar datas limites no banco:', err.message);
     }
 
+    // Migração: excluído só fica bloqueado se o prazo já venceu (prazo ausente ou "a confirmar" não bloqueia).
+    // Idempotente: recalcula a cada partida, então o excluído antigo com prazo em aberto volta a poder ser baixado.
+    try {
+      const vencido = `(data_limite GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*' AND substr(data_limite, 1, 10) < date('now', 'localtime'))`;
+      const r = sqlite.prepare(`
+        UPDATE editais SET bloqueado = CASE WHEN ${vencido} THEN 1 ELSE 0 END
+        WHERE deleted_at IS NOT NULL AND bloqueado <> CASE WHEN ${vencido} THEN 1 ELSE 0 END
+      `).run();
+      if (r.changes > 0) console.log(`✅ Migração: bloqueio recalculado em ${r.changes} edital(is) excluído(s) (só vencidos ficam bloqueados)`);
+    } catch (err: any) {
+      console.warn('Erro ao recalcular bloqueio de excluídos:', err.message);
+    }
+
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS projetos_cientificos (
         id TEXT PRIMARY KEY,
@@ -641,6 +672,24 @@ export function migrarSchema(sqlite: Database.Database) {
         mensagem TEXT
       )
     `);
+
+    // Decisões do funil de filtragem, uma linha por edital e etapa (ver lib/scraper/funil.ts)
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS funil_decisoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        criada_em TEXT NOT NULL,
+        portal TEXT,
+        edital_id TEXT,
+        titulo TEXT NOT NULL,
+        etapa TEXT NOT NULL,
+        resultado TEXT NOT NULL,
+        motivo TEXT,
+        probabilidade REAL
+      )
+    `);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_funil_decisoes_etapa ON funil_decisoes(etapa, resultado)`);
+    // Duplicado ganhou resultado próprio: não conta mais como descartado
+    sqlite.exec(`UPDATE funil_decisoes SET resultado = 'duplicado' WHERE etapa = 'duplicado' AND resultado = 'descartado'`);
 
   } catch (error: any) {
     // Coluna já existe ou outro erro irrelevante — silenciar

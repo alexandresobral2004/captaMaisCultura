@@ -64,6 +64,7 @@ const menuItems: MenuItem[] = [
       { href: "/configuracoes/filtros", label: "O que buscar", colorScheme: 'slate' },
       { href: "/configuracoes/portais", label: "Onde buscar", colorScheme: 'slate' },
       { href: "/configuracoes/prompts", label: "Instruções da IA (avançado)", colorScheme: 'slate' },
+      { href: "/configuracoes/sobre", label: "Sobre o sistema", colorScheme: 'slate' },
     ]
   },
 ]

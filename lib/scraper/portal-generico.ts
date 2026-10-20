@@ -22,12 +22,17 @@ export function tituloDeAnoPassado(titulo: string, agora = new Date()): boolean 
   return anos.length > 0 && Math.max(...anos) < agora.getFullYear();
 }
 
+/** Tamanho do trecho da página que acompanha o título na triagem. */
+const TRECHO_MAXIMO = 600;
+
 const GENERICO = /^(acesse|baixe|baixar|clique|veja|ver)\b.{0,25}$/i;
 
 export interface ItemColetado {
   titulo: string;
   link: string;
   dataLimite: string;
+  /** Texto do bloco da página em volta do link (item de lista, cartão ou parágrafo): contexto extra para a triagem. */
+  trecho?: string;
 }
 
 function extrairDataFutura(texto: string, agora: Date): string | null {
@@ -76,7 +81,7 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
     // Se o bloco só tem datas passadas, o edital está encerrado
     if (!dataLimite && /\d{1,2}\/\d{1,2}\/\d{4}/.test(bloco)) return;
 
-    itens.push({ titulo, link, dataLimite: dataLimite || 'A consultar' });
+    itens.push({ titulo, link, dataLimite: dataLimite || 'A consultar', trecho: bloco.slice(0, TRECHO_MAXIMO) });
   });
 
   // Páginas de texto corrido (ex.: gov.br/mec), em que cada edital é um parágrafo: "Chamada (...) para seleção de ..."
@@ -98,7 +103,7 @@ export function extrairItensDePagina(html: string, urlBase: string, agora = new 
       vistosP.add(link);
       const dataLimite = extrairDataFutura(texto, agora);
       if (!dataLimite && /\d{1,2}\/\d{1,2}\/\d{4}/.test(texto)) return;
-      porParagrafo.push({ titulo: texto.length > 220 ? `${texto.substring(0, 217)}...` : texto, link, dataLimite: dataLimite || 'A consultar' });
+      porParagrafo.push({ titulo: texto.length > 220 ? `${texto.substring(0, 217)}...` : texto, link, dataLimite: dataLimite || 'A consultar', trecho: texto.slice(0, TRECHO_MAXIMO) });
     });
   }
 
@@ -177,7 +182,7 @@ export async function buscarEditaisPortalGenerico(portal: PortalConfig): Promise
       if (prazo) item.dataLimite = prazo;
     }
 
-    const triagem = await triarEditalDoPortal(portal.id, { titulo: item.titulo, descricao: '', orgao: portal.nome });
+    const triagem = await triarEditalDoPortal(portal.id, { titulo: item.titulo, descricao: item.trecho ?? '', orgao: portal.nome });
     if (!triagem.aceito) {
       rejeitados++;
       pipelineLogger.logResultado(id, item.titulo, 'rejeitado', `Triagem (${triagem.etapa})`);

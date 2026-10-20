@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Users, Search, Globe, AlertTriangle, Sparkles } from "lucide-react"
+import { Users, Search, Globe, AlertTriangle, Sparkles, Presentation } from "lucide-react"
 
 const secoes = [
   { href: "/usuarios", icon: Users, titulo: "Usuários", texto: "Quem pode entrar no sistema e o que cada pessoa pode fazer." },
@@ -9,6 +9,7 @@ const secoes = [
   { href: "/configuracoes/portais", icon: Globe, titulo: "Onde buscar", texto: "Os sites de onde o sistema traz os editais." },
   { href: "/configuracoes/logs", icon: AlertTriangle, titulo: "Problemas do sistema", texto: "Registro de erros, útil quando algo não funciona e você precisa pedir ajuda." },
   { href: "/configuracoes/prompts", icon: Sparkles, titulo: "Instruções da IA (avançado)", texto: "Como a inteligência artificial analisa os editais. Só mexa se souber o que está fazendo." },
+  { href: "/configuracoes/sobre", icon: Presentation, titulo: "Sobre o sistema", texto: "Apresentação e documento que explicam como o Capta+ funciona." },
 ]
 
 export default function ConfiguracoesPage() {

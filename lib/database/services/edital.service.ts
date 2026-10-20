@@ -4,6 +4,15 @@ import { PalavraChaveRepository } from '../repositories/palavra-chave.repository
 import { SearchRepository, SearchQuery } from '../repositories/search.repository';
 import { FileService } from './file.service';
 
+/** Prazo (AAAA-MM-DD ou DD/MM/AAAA) anterior a hoje; prazo ausente ou "a confirmar" não conta como vencido. */
+export function prazoVencido(dataLimite?: string | null, hoje = new Date()): boolean {
+  if (!dataLimite) return false;
+  const br = dataLimite.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  const iso = br ? `${br[3]}-${br[2]}-${br[1]}` : dataLimite.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  return iso < hoje.toLocaleDateString('sv-SE');
+}
+
 export class EditalService {
   private editalRepo: EditalRepository;
   private analiseRepo: AnaliseRepository;
@@ -75,6 +84,10 @@ export class EditalService {
     return this.editalRepo.update(id, data);
   }
 
+  /**
+   * Exclui o edital (soft-delete). Se o prazo já venceu, ele fica bloqueado e as buscas não o baixam
+   * de novo; os demais (prazo em aberto, "a confirmar" ou sem data) podem voltar se reaparecerem num portal.
+   */
   async deletar(id: string) {
     const edital = await this.editalRepo.findByIdNotDeleted(id);
     if (!edital) {
@@ -93,9 +106,29 @@ export class EditalService {
     ]);
 
     // 3. Soft-delete do edital (marca como deleted, não remove do banco)
-    await this.editalRepo.softDelete(id);
+    // Vencido é bloqueado: não há por que baixá-lo de novo
+    const bloqueado = prazoVencido(edital.dataLimite);
+    await this.editalRepo.softDelete(id, bloqueado);
 
-    return { ...edital, deletedAt: new Date().toISOString() };
+    return { ...edital, deletedAt: new Date().toISOString(), bloqueado };
+  }
+
+  /**
+   * Exclui vários editais de uma vez, cada um pelo mesmo caminho de `deletar`.
+   * Uma falha isolada não interrompe as demais.
+   */
+  async deletarVarios(ids: string[]): Promise<{ excluidos: string[]; falhas: { id: string; erro: string }[] }> {
+    const excluidos: string[] = [];
+    const falhas: { id: string; erro: string }[] = [];
+    for (const id of Array.from(new Set(ids))) {
+      try {
+        await this.deletar(id);
+        excluidos.push(id);
+      } catch (erro) {
+        falhas.push({ id, erro: (erro as Error).message });
+      }
+    }
+    return { excluidos, falhas };
   }
 
   async buscarPorIdComPdf(id: string) {

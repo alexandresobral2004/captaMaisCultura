@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { contemTermo } from '../scraper/filtros/termos';
 
 interface ListasCultura {
   termos: string[];
@@ -22,13 +23,18 @@ function carregar(): ListasCultura {
 /** Termos de cultura presentes no texto (usado como pré-filtro e como alternativa sem IA). */
 export function termosCulturaEncontrados(titulo: string, descricao: string): string[] {
   const texto = `${titulo} ${descricao}`.toLowerCase();
-  return carregar().termos.filter((t) => texto.includes(t.toLowerCase()));
+  return carregar().termos.filter((t) => contemTermo(texto, t));
+}
+
+/** Termos de "não é edital" (notícia, resultado etc.) presentes no texto. */
+export function termosNaoEdital(titulo: string, descricao: string): string[] {
+  const texto = `${titulo} ${descricao}`.toLowerCase();
+  return carregar().excluir.filter((t) => contemTermo(texto, t));
 }
 
 /** True se o texto parece conteúdo que não é edital (notícia, resultado etc.). */
 export function pareceNaoEdital(titulo: string, descricao: string): boolean {
-  const texto = `${titulo} ${descricao}`.toLowerCase();
-  return carregar().excluir.some((t) => texto.includes(t.toLowerCase()));
+  return termosNaoEdital(titulo, descricao).length > 0;
 }
 
 export function limparCacheCultura(): void {

@@ -1,11 +1,24 @@
 import { consultarJev, jevDisponivel } from '../ai/jev';
+import { DOCUMENTO_ACEITAR, DOCUMENTO_DESCARTAR, DOCUMENTO_MINIMO_DE_GRUPOS, DOCUMENTO_GRUPOS_SEM_JEV } from '../triagem/limiares';
 
-/** Páginas de menu e de institucional que aparecem nas listagens dos portais e não são editais. */
-const TITULO_INSTITUCIONAL = /\b(diretoria|presid[êe]ncia|ouvidoria|categorias|prote[çc][ãa]o de dados|treinamentos?|participa[çc][ãa]o social|manual|guias?|tutoriais?|galeria|agendamento|pain[eé]is?|todas as parcerias|programas estrat[ée]gicos|compartilhamento|presta[çc][ãa]o de contas|dados da administra[çc][ãa]o|saiba mais sobre|acesso [àa] informa[çc][ãa]o|pol[íi]tica de privacidade|mapa do site)\b/i;
+/** Termos que só aparecem em item de menu ou página institucional: valem em qualquer tamanho de título. */
+const MENU_INEQUIVOCO = /\b(ouvidoria|corregedoria|dados abertos|lei de acesso|acesso [àa] informa[çc][ãa]o|perguntas frequentes|d[úu]vidas frequentes|mapa do site|fale conosco|pol[íi]tica de privacidade|termos? de uso|prote[çc][ãa]o de dados|informa[çc][õo]es classificadas|todas as parcerias|presta[çc][ãa]o de contas|receitas e despesas|dados da administra[çc][ãa]o|saiba mais sobre|central de (atendimento|conte[úu]do)|centrais de conte[úu]do|redes de atendimento|links? de compartilhamento|compartilhe|buscar servi[çc]os|minhas solicita[çc][õo]es|painel estat[íi]stico|portal gov\.?br|base jur[íi]dica|regimento interno|estatuto d[oa]|carta de servi[çc]os|certid[ãa]o negativa|agenda de autoridades|plataforma lattes|canais d[oa])\b/i;
+
+/** Palavras comuns demais para valer sozinhas: só contam em títulos curtos, como os de menu. */
+const MENU_SO_EM_TITULO_CURTO = /\b(diretoria|presid[êe]ncia|categorias|treinamentos?|participa[çc][ãa]o social|manual|guias?|tutoriais?|galeria|agendamento|pain[eé]is?|programas estrat[ée]gicos|biografia|governan[çc]a|servidores|acessibilidade|diretrizes|a[çc][õo]es e programas|institucional|contato|sobre o|pol[íi]tica de|servi[çc]os para|composi[çc][ãa]o|resultados|entrevistas)\b/i;
+
+/** Sinal de que o título abre inscrições (palavra de chamada ou ano): menu de portal quase nunca tem. */
+const SINAL_DE_CHAMADA = /\b(edital|editais|chamada|chamamento|sele[çc][ãa]o|concurso|pr[êe]mio|fomento|bolsas?|inscri[çc][õo]es|convocat[óo]ria|cadastro)\b|\b20\d\d\b/i;
+
+const PALAVRAS_TITULO_CURTO = 5;
 
 /** Regra 1: o título (ou o endereço) parece um item de menu e não um edital. */
 export function tituloInstitucional(titulo: string, link = ''): boolean {
-  return TITULO_INSTITUCIONAL.test(titulo) && !/\b(edital|chamada)\b.{0,6}n[ºo°]?\s*\d+/i.test(titulo) && !/\.pdf(\?|$)/i.test(link);
+  if (/\b(edital|chamada)\b.{0,6}n[ºo°]?\s*\d+/i.test(titulo) || /\.pdf(\?|$)/i.test(link)) return false;
+  if (SINAL_DE_CHAMADA.test(titulo)) return false;
+  if (MENU_INEQUIVOCO.test(titulo)) return true;
+  const palavras = titulo.trim().split(/\s+/).length;
+  return palavras <= PALAVRAS_TITULO_CURTO && MENU_SO_EM_TITULO_CURTO.test(titulo);
 }
 
 /** Grupos de palavras que um edital de verdade costuma ter. Cada grupo conta uma vez. */
@@ -20,10 +33,16 @@ const GRUPOS: Record<string, RegExp> = {
   finais: /disposi[cç][õo]es finais|impugna[cç][ãa]o|recursos administrativos|resultado final/i,
 };
 
+/**
+ * Grupos "fortes": dizem o que o edital financia (objeto) ou como participar (inscrição).
+ * Um manual ou uma notícia pode ter prazo, recursos e "edital" no texto sem nunca abrir inscrições.
+ */
+export const GRUPOS_FORTES = ['objeto', 'inscricao'];
+
 /** Com menos grupos que isto o documento é descartado sem consultar o Jev. */
-export const MINIMO_DE_GRUPOS = 2;
+export const MINIMO_DE_GRUPOS = DOCUMENTO_MINIMO_DE_GRUPOS;
 /** Com este número de grupos, sem Jev, o documento é aceito pela regra. */
-export const GRUPOS_PARA_ACEITAR_SEM_JEV = 3;
+export const GRUPOS_PARA_ACEITAR_SEM_JEV = DOCUMENTO_GRUPOS_SEM_JEV;
 
 export interface SinaisDeEdital {
   /** Grupos presentes e a palavra que casou em cada um. */
@@ -55,6 +74,8 @@ export interface ResultadoValidacao {
   etapa: 'regra' | 'jev';
   motivo: string;
   termos: string[];
+  /** Nomes dos grupos de palavras presentes (alimentam a camada C4 da pontuação). */
+  grupos: string[];
   /** Probabilidade de ser edital segundo o Jev, quando consultado. */
   probabilidade?: number;
 }
@@ -78,8 +99,8 @@ export const julgarComJev: JulgarEdital = async (entrada) => {
 };
 
 /** Aceita acima deste valor; descarta só abaixo do segundo; entre os dois vai para revisão. */
-export const CORTE_ACEITAR = 0.7;
-export const CORTE_DESCARTAR = 0.25;
+export const CORTE_ACEITAR = DOCUMENTO_ACEITAR;
+export const CORTE_DESCARTAR = DOCUMENTO_DESCARTAR;
 
 /**
  * Segunda etapa da triagem: valida o texto de um documento já baixado.
@@ -93,6 +114,7 @@ export async function validarDocumentoEdital(
 ): Promise<ResultadoValidacao> {
   const { termos, trechos } = buscarSinaisDeEdital(doc.texto);
   const palavras = termos.map(t => t.palavra);
+  const grupos = termos.map(t => t.grupo);
 
   if (termos.length < MINIMO_DE_GRUPOS) {
     return {
@@ -100,14 +122,18 @@ export async function validarDocumentoEdital(
       etapa: 'regra',
       motivo: `Quase nenhuma palavra de edital no documento (${termos.length} grupo${termos.length === 1 ? '' : 's'} de palavras)`,
       termos: palavras,
+      grupos,
     };
   }
+  // Grupos suficientes, mas nenhum forte (objeto ou inscrição): combinação frouxa, não decide sozinha
+  const temGrupoForte = termos.some(t => GRUPOS_FORTES.includes(t.grupo));
 
   const pelaRegra = (aviso: string): ResultadoValidacao => ({
-    decisao: termos.length >= GRUPOS_PARA_ACEITAR_SEM_JEV ? 'valido' : 'duvida',
+    decisao: termos.length >= GRUPOS_PARA_ACEITAR_SEM_JEV && temGrupoForte ? 'valido' : 'duvida',
     etapa: 'regra',
-    motivo: `${termos.length} grupos de palavras de edital (${aviso})`,
+    motivo: `${termos.length} grupos de palavras de edital${temGrupoForte ? '' : ', sem objeto nem inscrição'} (${aviso})`,
     termos: palavras,
+    grupos,
   });
   if (!julgar) return pelaRegra('Jev indisponível');
 
@@ -124,6 +150,7 @@ export async function validarDocumentoEdital(
         : decisao === 'descartado' ? `Jev indicou que não é edital (${pct}%)`
         : `Jev ficou em dúvida se é edital (${pct}%)`,
       termos: palavras,
+      grupos,
     };
   } catch {
     return pelaRegra('Jev não respondeu');
