@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRawDb } from '@/lib/database/db';
-import { situacaoDaBusca } from '@/lib/scraper/controle-busca';
+import { situacaoDaBuscaAsync } from '@/lib/scraper/controle-busca';
 import { verificarAdmin } from '@/lib/api/auth';
 
 export const dynamic = 'force-dynamic';
@@ -9,5 +8,5 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const auth = await verificarAdmin(request);
   if (!auth.ok) return auth.response;
-  return NextResponse.json(situacaoDaBusca(getRawDb()));
+  return NextResponse.json(await situacaoDaBuscaAsync());
 }

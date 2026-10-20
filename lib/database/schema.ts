@@ -1,10 +1,21 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, real, boolean as pgBoolean, index, serial, customType } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+
+/**
+ * Tipo booleano compatível com SQLite (testes) e Postgres (produção).
+ * No Postgres vira BOOLEAN; no SQLite os testes usam criarTabelas() que define INTEGER,
+ * e este custom type serializa true→1 e false→0 para que o binding funcione nos dois.
+ */
+const boolean = customType<{ data: boolean; driverData: number | boolean }>({
+  dataType() { return 'boolean'; },
+  toDriver(val) { return val ? 1 : 0; },
+  fromDriver(val) { return Boolean(val); },
+});
 
 // ============================================================
 // TABELA PRINCIPAL - EDITAIS
 // ============================================================
-export const editais = sqliteTable('editais', {
+export const editais = pgTable('editais', {
   id: text('id').primaryKey(),
   titulo: text('titulo').notNull(),
   orgao: text('orgao').notNull(),
@@ -21,15 +32,11 @@ export const editais = sqliteTable('editais', {
   dataResultado: text('data_resultado'),
 
   // Status
-  status: text('status', {
-    enum: ['Aberto', 'Prorrogado', 'Em Analise', 'Fechado']
-  }).notNull().default('Aberto'),
-  statusAnalise: text('status_analise', {
-    enum: ['pendente', 'pdf_baixado', 'analisado', 'sem_pdf', 'descartado', 'erro', 'duvida']
-  }).default('pendente'),
+  status: text('status').notNull().default('Aberto'),
+  statusAnalise: text('status_analise').default('pendente'),
   erroAnalise: text('erro_analise'),
-  statusRevisao: text('status_revisao', { enum: ['pendente', 'aprovado', 'rejeitado'] }),
-  validadoManualmente: integer('validado_manualmente', { mode: 'boolean' }),
+  statusRevisao: text('status_revisao'),
+  validadoManualmente: boolean('validado_manualmente'),
   dataAprovacao: text('data_aprovacao'),
   modalidade: text('modalidade'),
   abrangencia: text('abrangencia'),
@@ -37,9 +44,7 @@ export const editais = sqliteTable('editais', {
   // Classificacao
   tipoProponente: text('tipo_proponente'), // JSON array serializado
   areasTematicas: text('areas_tematicas'), // JSON array serializado
-  tipoEdital: text('tipo_edital', {
-    enum: ['chamada_publica', 'evento_cientifico', 'outro']
-  }),
+  tipoEdital: text('tipo_edital'),
 
   // Conteudo
   descricao: text('descricao'),
@@ -47,9 +52,7 @@ export const editais = sqliteTable('editais', {
   pdfUrl: text('pdf_url'),
   pdfPath: text('pdf_path'), // Caminho relativo do PDF local
   conteudoCompleto: text('conteudo_completo'),
-  fonteConteudo: text('fonte_conteudo', {
-    enum: ['pdf_s3', 'pdf_link', 'html_link', 'descricao_api', 'mock', 'sem_pdf', 'pdf_upload']
-  }),
+  fonteConteudo: text('fonte_conteudo'),
 
   // Anexo JSON serializado (arquivos do S3)
   arquivosAnexos: text('arquivos_anexos'), // JSON array serializado
@@ -59,25 +62,21 @@ export const editais = sqliteTable('editais', {
   tipoFerramenta: text('tipo_ferramenta'),
   scoreRelevancia: integer('score_relevancia'),
   scoreConfiancaIa: integer('score_confianca_ia'),
-  validadoPorIa: integer('validado_por_ia', { mode: 'boolean' }).default(false),
+  validadoPorIa: boolean('validado_por_ia').default(false),
   motivoRejeicao: text('motivo_rejeicao'),
-  foraDoEscopo: integer('fora_do_escopo', { mode: 'boolean' }).default(false),
+  foraDoEscopo: boolean('fora_do_escopo').default(false),
   dataValidacaoIa: text('data_validacao_ia'),
   scorePontuacao: integer('score_pontuacao'),
-  nivelPontuacao: text('nivel_pontuacao', {
-    enum: ['baixo', 'medio', 'alto']
-  }),
+  nivelPontuacao: text('nivel_pontuacao'),
   motivosPontuacao: text('motivos_pontuacao'), // JSON array serializado
-  modoAnaliseIa: text('modo_analise_ia', {
-    enum: ['ignorar', 'simplificado', 'completo']
-  }),
+  modoAnaliseIa: text('modo_analise_ia'),
   confiancaPorCampo: text('confianca_por_campo'), // JSON object serializado
 
   // Timestamps
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
-  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
+  atualizadoEm: text('atualizado_em').default('now()'),
   deletedAt: text('deleted_at'), // NULL = ativo, timestamp = deletado (soft-delete)
-  bloqueado: integer('bloqueado', { mode: 'boolean' }).notNull().default(false), // excluído como "não é edital": nunca mais baixado
+  bloqueado: boolean('bloqueado').notNull().default(false), // excluído como "não é edital": nunca mais baixado
 
   // Codigo de identificacao (EDT-001, EDT-002, etc.)
   codigo: text('codigo').unique(),
@@ -110,17 +109,17 @@ export const editaisRelations = relations(editais, ({ many, one }) => ({
 // ============================================================
 // TABELA ANALISE IA
 // ============================================================
-export const analiseIa = sqliteTable('analise_ia', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const analiseIa = pgTable('analise_ia', {
+  id: serial('id').primaryKey(),
   editalId: text('edital_id').notNull().unique().references(() => editais.id, { onDelete: 'cascade' }),
   resumo: text('resumo'),
   objetivo: text('objetivo'),
   elegibilidade: text('elegibilidade'),
   contatoEdital: text('contato_edital'),
   scoreAdequacao: integer('score_adequacao'),
-  secoesRequeridas: text('secoes_requeridas'), // JSON array serializado de strings (ex: ["Justificativa", "Metodologia"])
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
-  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+  secoesRequeridas: text('secoes_requeridas'), // JSON array serializado de strings
+  criadoEm: text('criado_em').default('now()'),
+  atualizadoEm: text('atualizado_em').default('now()'),
 });
 
 export const analiseIaRelations = relations(analiseIa, ({ one, many }) => ({
@@ -138,8 +137,8 @@ export const analiseIaRelations = relations(analiseIa, ({ one, many }) => ({
 // ============================================================
 // TABELA REQUISITOS DA ANALISE
 // ============================================================
-export const analiseRequisitos = sqliteTable('analise_requisitos', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const analiseRequisitos = pgTable('analise_requisitos', {
+  id: serial('id').primaryKey(),
   analiseId: integer('analise_id').notNull().references(() => analiseIa.id, { onDelete: 'cascade' }),
   requisito: text('requisito').notNull(),
   ordem: integer('ordem').default(0),
@@ -155,8 +154,8 @@ export const analiseRequisitosRelations = relations(analiseRequisitos, ({ one })
 // ============================================================
 // TABELA ITENS FINANCIAVEIS DA ANALISE
 // ============================================================
-export const analiseItensFinanciaveis = sqliteTable('analise_itens_financiaveis', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const analiseItensFinanciaveis = pgTable('analise_itens_financiaveis', {
+  id: serial('id').primaryKey(),
   analiseId: integer('analise_id').notNull().references(() => analiseIa.id, { onDelete: 'cascade' }),
   item: text('item').notNull(),
   ordem: integer('ordem').default(0),
@@ -172,8 +171,8 @@ export const analiseItensFinanciaveisRelations = relations(analiseItensFinanciav
 // ============================================================
 // TABELA DOCUMENTOS NECESSARIOS
 // ============================================================
-export const analiseDocumentos = sqliteTable('analise_documentos', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const analiseDocumentos = pgTable('analise_documentos', {
+  id: serial('id').primaryKey(),
   analiseId: integer('analise_id').notNull().references(() => analiseIa.id, { onDelete: 'cascade' }),
   documento: text('documento').notNull(),
   ordem: integer('ordem').default(0),
@@ -189,8 +188,8 @@ export const analiseDocumentosRelations = relations(analiseDocumentos, ({ one })
 // ============================================================
 // TABELA CRITERIOS DE AVALIACAO
 // ============================================================
-export const analiseCriterios = sqliteTable('analise_criterios', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const analiseCriterios = pgTable('analise_criterios', {
+  id: serial('id').primaryKey(),
   analiseId: integer('analise_id').notNull().references(() => analiseIa.id, { onDelete: 'cascade' }),
   criterio: text('criterio').notNull(),
   ordem: integer('ordem').default(0),
@@ -206,8 +205,8 @@ export const analiseCriteriosRelations = relations(analiseCriterios, ({ one }) =
 // ============================================================
 // TABELA PONTOS FRACOS
 // ============================================================
-export const analisePontosFracos = sqliteTable('analise_pontos_fracos', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const analisePontosFracos = pgTable('analise_pontos_fracos', {
+  id: serial('id').primaryKey(),
   analiseId: integer('analise_id').notNull().references(() => analiseIa.id, { onDelete: 'cascade' }),
   pontoFraco: text('ponto_fraco').notNull(),
   ordem: integer('ordem').default(0),
@@ -223,8 +222,8 @@ export const analisePontosFracosRelations = relations(analisePontosFracos, ({ on
 // ============================================================
 // TABELA PALAVRAS CHAVE
 // ============================================================
-export const palavrasChave = sqliteTable('palavras_chave', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const palavrasChave = pgTable('palavras_chave', {
+  id: serial('id').primaryKey(),
   editalId: text('edital_id').notNull().references(() => editais.id, { onDelete: 'cascade' }),
   palavra: text('palavra').notNull(),
   frequencia: integer('frequencia').default(1),
@@ -240,8 +239,8 @@ export const palavrasChaveRelations = relations(palavrasChave, ({ one }) => ({
 // ============================================================
 // TABELA ARQUIVOS ANEXOS
 // ============================================================
-export const arquivosAnexos = sqliteTable('arquivos_anexos', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const arquivosAnexos = pgTable('arquivos_anexos', {
+  id: serial('id').primaryKey(),
   editalId: text('edital_id').notNull().references(() => editais.id, { onDelete: 'cascade' }),
   descricao: text('descricao'),
   url: text('url'),
@@ -249,7 +248,7 @@ export const arquivosAnexos = sqliteTable('arquivos_anexos', {
   caminhoLocal: text('caminho_local'),
   tamanhoBytes: integer('tamanho_bytes'),
   hashArquivo: text('hash_arquivo'),
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
 });
 
 export const arquivosAnexosRelations = relations(arquivosAnexos, ({ one }) => ({
@@ -262,21 +261,19 @@ export const arquivosAnexosRelations = relations(arquivosAnexos, ({ one }) => ({
 // ============================================================
 // TABELA MOTIVOS DE PONTUACAO (expandida com auditoria de filtros)
 // ============================================================
-export const motivosPontuacao = sqliteTable('motivos_pontuacao', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const motivosPontuacao = pgTable('motivos_pontuacao', {
+  id: serial('id').primaryKey(),
   editalId: text('edital_id').notNull().references(() => editais.id, { onDelete: 'cascade' }),
   motivo: text('motivo').notNull(),
   // Fonte da decisão — de onde veio este motivo
-  fonte: text('fonte', {
-    enum: ['whitelist', 'blacklist', 'ia', 'fallback', 'decisao']
-  }).notNull().default('whitelist'),
+  fonte: text('fonte').notNull().default('whitelist'),
   // Pontuação parcial atribuída especificamente por este motivo (positivo ou negativo)
   scoreParcial: integer('score_parcial'),
   // Score total acumulado do edital no momento em que este motivo foi registrado
   scoreFinal: integer('score_final'),
   // JSON com dados contextuais extras (termos encontrados, categoria, tipo de erro, etc.)
   detalhes: text('detalhes'),
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
 }, (table) => ({
   editalFonteIdx: index('idx_motivos_edital_fonte').on(table.editalId, table.fonte),
   fonteIdx: index('idx_motivos_fonte').on(table.fonte),
@@ -292,21 +289,21 @@ export const motivosPontuacaoRelations = relations(motivosPontuacao, ({ one }) =
 // ============================================================
 // TABELA USUARIOS
 // ============================================================
-export const usuarios = sqliteTable('usuarios', {
+export const usuarios = pgTable('usuarios', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull(),
   email: text('email').notNull().unique(),
   password: text('password').notNull(),
-  role: text('role', { enum: ['admin', 'editor', 'leitor'] }).notNull().default('leitor'),
-  status: text('status', { enum: ['ativo', 'inativo'] }).notNull().default('ativo'),
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
-  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+  role: text('role').notNull().default('leitor'),
+  status: text('status').notNull().default('ativo'),
+  criadoEm: text('criado_em').default('now()'),
+  atualizadoEm: text('atualizado_em').default('now()'),
 });
 
 // ============================================================
 // TABELA PROJETOS
 // ============================================================
-export const projetos = sqliteTable('projetos', {
+export const projetos = pgTable('projetos', {
   id: text('id').primaryKey(),
   editalId: text('edital_id').notNull().references(() => editais.id, { onDelete: 'cascade' }),
   titulo: text('titulo').notNull(),
@@ -336,9 +333,7 @@ export const projetos = sqliteTable('projetos', {
   scoreCompliance: integer('score_compliance'),
 
   // Status e versoes
-  status: text('status', {
-    enum: ['rascunho', 'em_geracao', 'revisando', 'finalizado']
-  }).default('rascunho'),
+  status: text('status').default('rascunho'),
   versao: integer('versao').default(1),
   promptOriginal: text('prompt_original'),
 
@@ -351,11 +346,11 @@ export const projetos = sqliteTable('projetos', {
   // Logo e Dados do Proponente
   logoUrl: text('logo_url'), // Base64 ou URL da logo
   logoDescricao: text('logo_descricao'), // Descrição textual da logo
-  dadosProponente: text('dados_proponente'), // JSON com identificação, endereço, telefones, e-mails, natureza e dirigentes
+  dadosProponente: text('dados_proponente'), // JSON com identificação, endereço, etc.
 
   // Timestamps
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
-  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
+  atualizadoEm: text('atualizado_em').default('now()'),
 }, (table) => {
   return {
     editalIdIdx: index('idx_projetos_edital_id').on(table.editalId),
@@ -377,42 +372,40 @@ export const projetosRelations = relations(projetos, ({ one }) => ({
 // ============================================================
 // TABELA AREAS TEMATICAS
 // ============================================================
-export const areasTematicas = sqliteTable('areas_tematicas', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const areasTematicas = pgTable('areas_tematicas', {
+  id: serial('id').primaryKey(),
   nome: text('nome').notNull().unique(),
 });
 
 // ============================================================
 // TABELA TIPOS DE PROPONENTE
 // ============================================================
-export const tiposProponente = sqliteTable('tipos_proponente', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const tiposProponente = pgTable('tipos_proponente', {
+  id: serial('id').primaryKey(),
   nome: text('nome').notNull().unique(),
 });
 
 // ============================================================
 // TABELA LOGS DO SISTEMA
 // ============================================================
-export const logsSistema = sqliteTable('logs_sistema', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  nivel: text('nivel', { enum: ['error', 'warning', 'info'] }).notNull(),
+export const logsSistema = pgTable('logs_sistema', {
+  id: serial('id').primaryKey(),
+  nivel: text('nivel').notNull(),
   mensagem: text('mensagem').notNull(),
 
   // Cenario de falha - etapa do pipeline
-  cenarioFalha: text('cenario_falha'),  // ex: 'autenticacao_prosas', 'download_pdf', 'analise_ia'
+  cenarioFalha: text('cenario_falha'),
 
   // Acao tomada como resposta ao erro
-  acaoTomada: text('acao_tomada', {
-    enum: ['retry', 'mark_error', 'human_review', 'skip', 'fallback', 'ignore']
-  }),  // retry=repetir, mark_error=marcar como erro, human_review=pedir revisao, skip=pular, fallback=usar alternativa, ignore=ignorar
+  acaoTomada: text('acao_tomada'),
 
   // Contagem de tentativas
   repeticoes: integer('repeticoes').default(0),
 
   // Informacoes de origem
-  contexto: text('contexto'),      // modulo de origem (scraper, ai, api, etc)
-  caminho: text('caminho'),        // arquivo/URL de origem
-  detalhes: text('detalhes'),      // JSON com informacoes adicionais
+  contexto: text('contexto'),
+  caminho: text('caminho'),
+  detalhes: text('detalhes'), // JSON com informacoes adicionais
 
   // Info do usuario/cliente
   usuarioId: text('usuario_id'),
@@ -420,7 +413,7 @@ export const logsSistema = sqliteTable('logs_sistema', {
   userAgent: text('user_agent'),
 
   // Timestamp
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
 }, (table) => {
   return {
     nivelIdx: index('idx_logs_nivel').on(table.nivel),
@@ -444,14 +437,10 @@ export const logsSistemaRelations = relations(logsSistema, ({ one }) => ({
 // ============================================================
 // TABELA JOBS
 // ============================================================
-export const jobs = sqliteTable('jobs', {
+export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
-  status: text('status', {
-    enum: ['PENDENTE', 'RODANDO', 'CONCLUIDO', 'ERRO']
-  }).notNull().default('PENDENTE'),
-  fase: text('fase', {
-    enum: ['BUSCA', 'DOWNLOAD', 'ANALISE', 'NOTIFICACAO']
-  }),
+  status: text('status').notNull().default('PENDENTE'),
+  fase: text('fase'),
   // Contadores de progresso por fase
   totalEncontrados: integer('total_encontrados').default(0),
   totalValidados: integer('total_validados').default(0),
@@ -474,23 +463,19 @@ export const jobs = sqliteTable('jobs', {
 // ============================================================
 // TABELA PORTAIS (Configuração de fontes de editais)
 // ============================================================
-export const portais = sqliteTable('portais', {
-  id: text('id').primaryKey(),                    // ex: "finep", "cnpq", "capes"
-  nome: text('nome').notNull(),                   // ex: "FINEP - Chamadas Públicas"
-  urlBusca: text('url_busca').notNull(),          // URL principal
-  urlsFallback: text('urls_fallback'),            // JSON array de URLs alternativas
-  tipo: text('tipo', {
-    enum: ['rss', 'html', 'api', 'session']
-  }).notNull(),                                   // Tipo de scraper
-  categoria: text('categoria').notNull(),         // ex: "Inovação e Tecnologia"
-  eixo: text('eixo', { enum: ['auto', 'Cultura', 'Pesquisa'] }).notNull().default('auto'), // auto = Jev decide edital a edital
-  ativo: integer('ativo', { mode: 'boolean' }).default(true),  // Ativo/inativo
-  scraperModule: text('scraper_module'),          // ex: "finep", "cnpq", "capes", "prosas"
+export const portais = pgTable('portais', {
+  id: text('id').primaryKey(),
+  nome: text('nome').notNull(),
+  urlBusca: text('url_busca').notNull(),
+  urlsFallback: text('urls_fallback'),
+  tipo: text('tipo').notNull(),
+  categoria: text('categoria').notNull(),
+  eixo: text('eixo').notNull().default('auto'),
+  ativo: boolean('ativo').default(true),
+  scraperModule: text('scraper_module'),
   intervaloMinutos: integer('intervalo_minutos').default(60),
-  ultimoScan: text('ultimo_scan'),                // ISO timestamp
-  // Credenciais (opcional, para portais que precisam auth)
-  credEmail: text('cred_email'),                  // Email para auth (opcional)
-  // Timestamps
+  ultimoScan: text('ultimo_scan'),
+  credEmail: text('cred_email'),
   criadoEm: text('criado_em').notNull(),
   atualizadoEm: text('atualizado_em').notNull(),
 }, (table) => {
@@ -503,31 +488,29 @@ export const portais = sqliteTable('portais', {
 // ============================================================
 // TABELA RAG CHUNKS (Base de Conhecimento Interna)
 // ============================================================
-export const ragChunks = sqliteTable('rag_chunks', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const ragChunks = pgTable('rag_chunks', {
+  id: serial('id').primaryKey(),
 
   // Identificação do documento fonte
-  documentoNome: text('documento_nome').notNull(),      // nome do arquivo PDF
-  documentoTipo: text('documento_tipo', {
-    enum: ['manual', 'modelo', 'dicas', 'tecnico', 'legislacao']
-  }).notNull(),
+  documentoNome: text('documento_nome').notNull(),
+  documentoTipo: text('documento_tipo').notNull(),
 
   // Conteúdo do chunk
-  titulo: text('titulo').notNull(),                      // título da seção/capítulo
-  conteudo: text('conteudo').notNull(),                  // texto do chunk
-  paginaInicio: integer('pagina_inicio'),                // página de origem
+  titulo: text('titulo').notNull(),
+  conteudo: text('conteudo').notNull(),
+  paginaInicio: integer('pagina_inicio'),
   paginaFim: integer('pagina_fim'),
 
   // Metadados para retrieval
-  tags: text('tags'),                                    // JSON array de tags
-  categoria: text('categoria'),                          // ex: 'orcamento', 'metodologia', 'justificativa'
+  tags: text('tags'), // JSON array de tags
+  categoria: text('categoria'),
 
   // Embedding (Fase B)
-  embedding: text('embedding'),                          // JSON array de floats
+  embedding: text('embedding'), // JSON array de floats
 
   // Controle
-  hashConteudo: text('hash_conteudo').notNull(),         // para evitar duplicatas
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  hashConteudo: text('hash_conteudo').notNull(),
+  criadoEm: text('criado_em').default('now()'),
 }, (table) => ({
   docIdx: index('idx_rag_documento').on(table.documentoNome),
   catIdx: index('idx_rag_categoria').on(table.categoria),
@@ -538,42 +521,39 @@ export const ragChunks = sqliteTable('rag_chunks', {
 // TABELAS DE PROMPTS DE IA
 // ============================================================
 
-// Tabela: prompts_sistema (armazena templates padrão)
-export const promptsSistema = sqliteTable('prompts_sistema', {
+export const promptsSistema = pgTable('prompts_sistema', {
   id: text('id').primaryKey(),
-  modulo: text('modulo').notNull(), // 'projetos_cultura' ou 'projetos_pesquisa'
-  chave: text('chave').notNull(), // 'geracao_completa', 'analise_conformidade', etc.
+  modulo: text('modulo').notNull(),
+  chave: text('chave').notNull(),
   conteudoPadrao: text('conteudo_padrao').notNull(),
   descricao: text('descricao'),
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
 }, (table) => ({
   moduloIdx: index('idx_prompts_sistema_modulo').on(table.modulo),
   chaveIdx: index('idx_prompts_sistema_chave').on(table.chave),
   moduloChaveIdx: index('idx_prompts_sistema_modulo_chave').on(table.modulo, table.chave),
 }));
 
-// Tabela: prompts_customizados (versões customizadas ativas)
-export const promptsCustomizados = sqliteTable('prompts_customizados', {
+export const promptsCustomizados = pgTable('prompts_customizados', {
   id: text('id').primaryKey(),
   promptSistemaId: text('prompt_sistema_id').references(() => promptsSistema.id),
   conteudo: text('conteudo').notNull(),
-  ativo: integer('ativo', { mode: 'boolean' }).default(true),
+  ativo: boolean('ativo').default(true),
   criadoPor: text('criado_por').references(() => usuarios.id),
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
-  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
+  atualizadoEm: text('atualizado_em').default('now()'),
 }, (table) => ({
   promptSistemaIdx: index('idx_prompts_customizados_sistema_id').on(table.promptSistemaId),
   ativoIdx: index('idx_prompts_customizados_ativo').on(table.ativo),
 }));
 
-// Tabela: prompts_historico (versionamento)
-export const promptsHistorico = sqliteTable('prompts_historico', {
+export const promptsHistorico = pgTable('prompts_historico', {
   id: text('id').primaryKey(),
   promptCustomizadoId: text('prompt_customizado_id').references(() => promptsCustomizados.id),
   conteudoAnterior: text('conteudo_anterior').notNull(),
   conteudoNovo: text('conteudo_novo').notNull(),
   alteradoPor: text('alterado_por').references(() => usuarios.id),
-  alteradoEm: text('alterado_em').default('CURRENT_TIMESTAMP'),
+  alteradoEm: text('alterado_em').default('now()'),
   justificativa: text('justificativa'),
 }, (table) => ({
   promptCustomizadoIdx: index('idx_prompts_historico_customizado_id').on(table.promptCustomizadoId),
@@ -610,14 +590,48 @@ export const promptsHistoricoRelations = relations(promptsHistorico, ({ one }) =
   }),
 }));
 
-// Tabela: projetos_cientificos (módulo Análise Científica; objeto completo em `dados`)
-export const projetosCientificos = sqliteTable('projetos_cientificos', {
+// ============================================================
+// Projetos científicos (módulo Análise Científica)
+// ============================================================
+export const projetosCientificos = pgTable('projetos_cientificos', {
   id: text('id').primaryKey(),
   titulo: text('titulo').notNull(),
   status: text('status').notNull().default('rascunho'),
   dados: text('dados').notNull(), // JSON do projeto completo
-  criadoEm: text('criado_em').default('CURRENT_TIMESTAMP'),
-  atualizadoEm: text('atualizado_em').default('CURRENT_TIMESTAMP'),
+  criadoEm: text('criado_em').default('now()'),
+  atualizadoEm: text('atualizado_em').default('now()'),
 }, (table) => ({
   statusIdx: index('idx_projetos_cientificos_status').on(table.status),
+}));
+
+// ============================================================
+// TABELA BUSCAS_EDITAIS (controle de frequência de buscas)
+// ============================================================
+export const buscasEditais = pgTable('buscas_editais', {
+  id: serial('id').primaryKey(),
+  iniciadaEm: text('iniciada_em').notNull(),
+  concluidaEm: text('concluida_em'),
+  status: text('status').notNull().default('em_andamento'),
+  novos: integer('novos').default(0),
+  jaExistentes: integer('ja_existentes').default(0),
+  descartados: integer('descartados').default(0),
+  comErro: integer('com_erro').default(0),
+  mensagem: text('mensagem'),
+});
+
+// ============================================================
+// TABELA FUNIL_DECISOES (decisões do funil de filtragem)
+// ============================================================
+export const funilDecisoes = pgTable('funil_decisoes', {
+  id: serial('id').primaryKey(),
+  criadaEm: text('criada_em').notNull(),
+  portal: text('portal'),
+  editalId: text('edital_id'),
+  titulo: text('titulo').notNull(),
+  etapa: text('etapa').notNull(),
+  resultado: text('resultado').notNull(),
+  motivo: text('motivo'),
+  probabilidade: real('probabilidade'),
+}, (table) => ({
+  etapaIdx: index('idx_funil_decisoes_etapa').on(table.etapa, table.resultado),
 }));

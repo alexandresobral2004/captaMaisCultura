@@ -96,7 +96,8 @@ function renderAreaBadge(area: string) {
 export default async function DashboardPage() {
   const editaisReais = await getAllEditais();
   const totalEditais = editaisReais.length;
-  const [{ total: totalProjetos }] = db.select({ total: count() }).from(projetos).all();
+  const projetosCount = await db.select({ total: count() }).from(projetos);
+  const totalProjetos = projetosCount[0]?.total ?? 0;
 
   const agora = new Date();
   const proximosVencer = editaisReais.filter(edital => {

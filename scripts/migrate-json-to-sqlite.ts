@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck — script legado de migração JSON→SQLite, não incluído no build de produção
 
 import fs from 'fs';
 import path from 'path';

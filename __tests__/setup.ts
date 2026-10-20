@@ -1,6 +1,7 @@
 import { vi, beforeEach } from 'vitest';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
+// O schema usa pg-core (produção), mas o Drizzle SQLite aceita qualquer schema via cast
 import * as schema from '../lib/database/schema';
 import { criarTabelas, migrarSchema } from '../lib/database/ddl';
 
@@ -8,13 +9,14 @@ export function createTestDb() {
   const sqlite = new Database(':memory:');
   sqlite.pragma('foreign_keys = ON');
 
-  const testDb = drizzle(sqlite, { schema });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const testDb = drizzle(sqlite as any, { schema: schema as any });
 
   // Mesmo DDL e migração do banco real (lib/database/ddl.ts)
   criarTabelas(sqlite);
   migrarSchema(sqlite);
 
-  return { db: testDb, rawDb: sqlite };
+  return { db: testDb as any, rawDb: sqlite };
 }
 
 export function clearAllTables(rawDb: Database.Database) {

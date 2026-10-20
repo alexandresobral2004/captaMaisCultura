@@ -1,7 +1,9 @@
-import { sql, eq, like, and, gte } from 'drizzle-orm';
-import { editais } from '../schema';
+import { sql, eq, like, and, gte, isNull, or, desc } from 'drizzle-orm';
+import { editais, analiseIa } from '../schema';
 import { BaseRepository, PaginatedResult } from './base.repository';
-import { getRawDb } from '../db';
+import { db } from '../db';
+
+const isPostgres = (process.env.DATABASE_URL ?? '').startsWith('postgres');
 
 export interface SearchQuery {
   search: string;
@@ -20,157 +22,146 @@ export class SearchRepository extends BaseRepository {
     const limit = query.limit || 20;
     const offset = (page - 1) * limit;
 
-    // Preparar termo de busca para FTS5
+    // Preparar termos de busca para to_tsquery do Postgres
     const searchTerm = this.prepareSearchTerm(query.search);
 
-    // Construir filtros adicionais
-    const filters: string[] = [];
-    const params: any[] = [searchTerm];
+    // Construir condições
+    const ftsCondition = isPostgres
+      ? sql`to_tsvector('portuguese', coalesce(${editais.titulo},'') || ' ' || coalesce(${editais.descricao},'') || ' ' || coalesce(${editais.orgao},'') || ' ' || coalesce(${editais.conteudoCompleto},'')) @@ plainto_tsquery('portuguese', ${query.search})`
+      : or(
+          like(editais.titulo, `%${query.search}%`),
+          like(editais.descricao, `%${query.search}%`),
+          like(editais.orgao, `%${query.search}%`),
+        );
+
+    const conditions: any[] = [
+      isNull(editais.deletedAt),
+      ftsCondition,
+    ];
 
     if (query.status) {
-      filters.push(`e.status = ?`);
-      params.push(query.status);
+      conditions.push(eq(editais.status, query.status));
     }
     if (query.orgao) {
-      filters.push(`e.orgao LIKE ?`);
-      params.push(`%${query.orgao}%`);
+      conditions.push(like(editais.orgao, `%${query.orgao}%`));
     }
     if (query.tecnologia) {
-      filters.push(`e.tecnologia_foco LIKE ?`);
-      params.push(`%${query.tecnologia}%`);
+      conditions.push(like(editais.tecnologiaFoco, `%${query.tecnologia}%`));
     }
     if (query.scoreMin !== undefined) {
-      filters.push(`e.score_relevancia >= ?`);
-      params.push(query.scoreMin);
+      conditions.push(gte(editais.scoreRelevancia, query.scoreMin));
     }
     if (query.categoriaArea) {
-      filters.push(`e.categoria_area = ?`);
-      params.push(query.categoriaArea);
+      conditions.push(eq(editais.categoriaArea, query.categoriaArea));
     }
 
-    const whereClause = filters.length ? `AND ${filters.join(' AND ')}` : '';
+    const where = and(...conditions);
 
-    // Query principal com busca FTS
-    const searchSql = `
-      SELECT
-        e.*,
-        snippet(editais_fts, 1, '<mark>', '</mark>', '...', 30) as titulo_highlight,
-        snippet(editais_fts, 2, '<mark>', '</mark>', '...', 50) as descricao_highlight,
-        rank as score_rank
-      FROM editais e
-      JOIN editais_fts ON e.rowid = editais_fts.rowid
-      WHERE editais_fts MATCH ?
-      AND e.deleted_at IS NULL
-      ${whereClause}
-      ORDER BY rank
-      LIMIT ? OFFSET ?
-    `;
+    const orderExpr = isPostgres
+      ? sql`ts_rank(
+            to_tsvector('portuguese', coalesce(${editais.titulo},'') || ' ' || coalesce(${editais.descricao},'') || ' ' || coalesce(${editais.orgao},'')),
+            plainto_tsquery('portuguese', ${query.search})
+          ) DESC`
+      : sql`criado_em DESC`;
 
-    // Query de contagem
-    const countSql = `
-      SELECT COUNT(*) as total
-      FROM editais e
-      JOIN editais_fts ON e.rowid = editais_fts.rowid
-      WHERE editais_fts MATCH ?
-      AND e.deleted_at IS NULL
-      ${whereClause}
-    `;
-
-    const rawDb = getRawDb();
-    const results = rawDb.prepare(searchSql).all(...params, limit, offset) as any[];
-    const countResult = rawDb.prepare(countSql).get(...params) as any;
+    const [results, countResult] = await Promise.all([
+      db
+        .select()
+        .from(editais)
+        .where(where)
+        .orderBy(orderExpr)
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(editais)
+        .where(where),
+    ]);
 
     return {
       data: results,
-      total: countResult?.total || 0,
+      total: Number(countResult[0]?.count || 0),
     };
   }
 
   private prepareSearchTerm(term: string): string {
-    // Remover caracteres especiais e adicionar wildcards
-    const cleanTerm = term
-      .replace(/[^\w\s\u00C0-\u00FF]/g, ' ')
-      .trim();
-
-    const words = cleanTerm.split(/\s+/).filter((w) => w.length > 1);
-
-    if (words.length === 0) {
-      return `"${cleanTerm}"*`;
-    }
-
-    return words.map((word) => `"${word}"*`).join(' OR ');
+    // Limpeza básica para uso em plainto_tsquery
+    return term.trim().replace(/[^\w\sÀ-ÿ]/g, ' ').trim();
   }
 
   async getFiltersDisponiveis() {
-    const rawDb = getRawDb();
-
-    const orgaos = rawDb
-      .prepare(`SELECT DISTINCT orgao FROM editais WHERE deleted_at IS NULL ORDER BY orgao`)
-      .all() as any[];
-
-    const statusList = rawDb
-      .prepare(`SELECT DISTINCT status FROM editais WHERE deleted_at IS NULL ORDER BY status`)
-      .all() as any[];
-
-    const tecnologias = rawDb
-      .prepare(
-        `SELECT DISTINCT tecnologia_foco FROM editais WHERE tecnologia_foco IS NOT NULL AND deleted_at IS NULL ORDER BY tecnologia_foco`
-      )
-      .all() as any[];
+    const [orgaos, statusList, tecnologias] = await Promise.all([
+      db
+        .selectDistinct({ orgao: editais.orgao })
+        .from(editais)
+        .where(isNull(editais.deletedAt))
+        .orderBy(editais.orgao),
+      db
+        .selectDistinct({ status: editais.status })
+        .from(editais)
+        .where(isNull(editais.deletedAt))
+        .orderBy(editais.status),
+      db
+        .selectDistinct({ tecnologiaFoco: editais.tecnologiaFoco })
+        .from(editais)
+        .where(and(isNull(editais.deletedAt), sql`${editais.tecnologiaFoco} IS NOT NULL`))
+        .orderBy(editais.tecnologiaFoco),
+    ]);
 
     return {
-      orgaos: orgaos.map((r) => r.orgao),
-      status: statusList.map((r) => r.status),
-      tecnologias: tecnologias.map((r) => r.tecnologia_foco),
+      orgaos: orgaos.map((r: any) => r.orgao),
+      status: statusList.map((r: any) => r.status),
+      tecnologias: tecnologias.map((r: any) => r.tecnologiaFoco),
     };
   }
 
   async getStats() {
-    const rawDb = getRawDb();
-
-    const total = rawDb
-      .prepare(`SELECT COUNT(*) as total FROM editais WHERE deleted_at IS NULL`)
-      .get() as any;
-
-    const porStatus = rawDb
-      .prepare(
-        `SELECT status, COUNT(*) as count FROM editais WHERE deleted_at IS NULL GROUP BY status`
-      )
-      .all() as any[];
-
-    const porOrgao = rawDb
-      .prepare(
-        `SELECT orgao, COUNT(*) as count FROM editais WHERE deleted_at IS NULL GROUP BY orgao ORDER BY count DESC LIMIT 10`
-      )
-      .all() as any[];
-
-    const porTecnologia = rawDb
-      .prepare(
-        `SELECT tecnologia_foco, COUNT(*) as count FROM editais WHERE tecnologia_foco IS NOT NULL AND deleted_at IS NULL GROUP BY tecnologia_foco ORDER BY count DESC LIMIT 10`
-      )
-      .all() as any[];
-
-    const comPdf = rawDb
-      .prepare(`SELECT COUNT(*) as total FROM editais WHERE pdf_path IS NOT NULL AND deleted_at IS NULL`)
-      .get() as any;
-
-    const comAnalise = rawDb
-      .prepare(
-        `SELECT COUNT(*) as total FROM analise_ia JOIN editais ON analise_ia.edital_id = editais.id WHERE editais.deleted_at IS NULL`
-      )
-      .get() as any;
+    const [total, porStatus, porOrgao, porTecnologia, comPdf, comAnalise] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(editais)
+        .where(isNull(editais.deletedAt)),
+      db
+        .select({ status: editais.status, count: sql<number>`count(*)` })
+        .from(editais)
+        .where(isNull(editais.deletedAt))
+        .groupBy(editais.status),
+      db
+        .select({ orgao: editais.orgao, count: sql<number>`count(*)` })
+        .from(editais)
+        .where(isNull(editais.deletedAt))
+        .groupBy(editais.orgao)
+        .orderBy(sql`count(*) DESC`)
+        .limit(10),
+      db
+        .select({ tecnologiaFoco: editais.tecnologiaFoco, count: sql<number>`count(*)` })
+        .from(editais)
+        .where(and(isNull(editais.deletedAt), sql`${editais.tecnologiaFoco} IS NOT NULL`))
+        .groupBy(editais.tecnologiaFoco)
+        .orderBy(sql`count(*) DESC`)
+        .limit(10),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(editais)
+        .where(and(isNull(editais.deletedAt), sql`${editais.pdfPath} IS NOT NULL`)),
+      db
+        .select({ total: sql<number>`count(*)` })
+        .from(analiseIa)
+        .innerJoin(editais, sql`${analiseIa.editalId} = ${editais.id}`)
+        .where(isNull(editais.deletedAt)),
+    ]);
 
     return {
-      totalEditais: total?.total || 0,
-      comPdf: comPdf?.total || 0,
-      comAnaliseIa: comAnalise?.total || 0,
+      totalEditais: Number(total[0]?.count || 0),
+      comPdf: Number(comPdf[0]?.count || 0),
+      comAnaliseIa: Number((comAnalise as any)?.[0]?.total || 0),
       porStatus: porStatus.reduce((acc: any, r: any) => {
-        acc[r.status] = r.count;
+        acc[r.status!] = r.count;
         return acc;
       }, {}),
-      porOrgao: porOrgao.map((r) => ({ orgao: r.orgao, count: r.count })),
-      porTecnologia: porTecnologia.map((r) => ({
-        tecnologia: r.tecnologia_foco,
+      porOrgao: porOrgao.map((r: any) => ({ orgao: r.orgao, count: r.count })),
+      porTecnologia: porTecnologia.map((r: any) => ({
+        tecnologia: r.tecnologiaFoco,
         count: r.count,
       })),
     };

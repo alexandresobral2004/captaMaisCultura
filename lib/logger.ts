@@ -261,7 +261,7 @@ class SystemLogger {
 
       const results = await query;
 
-      return results.map((r) => {
+      return results.map((r: any) => {
         const row = r as {
           id: number;
           nivel: string;
@@ -331,12 +331,12 @@ class SystemLogger {
         .groupBy(logsSistema.acaoTomada);
 
       const porCenario: Record<string, number> = {};
-      porCenarioResult.forEach(r => {
+      porCenarioResult.forEach((r: any) => {
         if (r.cenario) porCenario[r.cenario] = r.count;
       });
 
       const porAcao: Record<string, number> = {};
-      porAcaoResult.forEach(r => {
+      porAcaoResult.forEach((r: any) => {
         if (r.acao) porAcao[r.acao] = r.count;
       });
 
@@ -411,13 +411,14 @@ class SystemLogger {
         cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
         const cutoffStr = cutoffDate.toISOString();
 
-        const result = await db.delete(logsSistema)
-          .where(lte(logsSistema.criadoEm, cutoffStr));
+        const deleted = await db.delete(logsSistema)
+          .where(lte(logsSistema.criadoEm, cutoffStr))
+          .returning({ id: logsSistema.id });
 
-        return result.changes || 0;
+        return deleted.length;
       } else {
-        const result = await db.delete(logsSistema);
-        return result.changes || 0;
+        const deleted = await db.delete(logsSistema).returning({ id: logsSistema.id });
+        return deleted.length;
       }
     } catch (error) {
       console.error('[Logger] Erro ao limpar logs:', error);

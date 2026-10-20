@@ -111,7 +111,7 @@ export class FileService {
 
     // Verificar orfoes (arquivo existe mas nao no banco)
     for (const arquivo of pdfFiles) {
-      const existe = editaisComPdf.some((e) => e.pdfPath && e.pdfPath.includes(arquivo));
+      const existe = editaisComPdf.some((e: any) => e.pdfPath && e.pdfPath.includes(arquivo));
       if (!existe) {
         orfaos.push(arquivo);
       }

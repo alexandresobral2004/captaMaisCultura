@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const area = searchParams.get('area');
 
-    let lista = projetos.list();
+    let lista = await projetos.list();
 
     // Filtrar apenas projetos com edital da categoria 'Pesquisa' (ou sem edital)
     const filteredLista = [];
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       versao: 1,
     };
 
-    projetos.save({ ...projeto, id: projeto.id });
+    await projetos.save({ ...projeto, id: projeto.id });
 
     logger.info(`Projeto criado: ${projeto.id}`, 'api', { titulo: projeto.titulo });
 

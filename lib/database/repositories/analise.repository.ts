@@ -64,11 +64,11 @@ export class AnaliseRepository extends BaseRepository {
 
     return {
       ...analise[0],
-      requisitos: requisitos.map((r) => r.requisito),
-      itensFinanciaveis: itens.map((i) => i.item),
-      documentosNecessarios: documentos.map((d) => d.documento),
-      criteriosAvaliacao: criterios.map((c) => c.criterio),
-      pontosFracos: pontos.map((p) => p.pontoFraco),
+      requisitos: requisitos.map((r: any) => r.requisito),
+      itensFinanciaveis: itens.map((i: any) => i.item),
+      documentosNecessarios: documentos.map((d: any) => d.documento),
+      criteriosAvaliacao: criterios.map((c: any) => c.criterio),
+      pontosFracos: pontos.map((p: any) => p.pontoFraco),
       secoesRequeridas: analise[0].secoesRequeridas ? JSON.parse(analise[0].secoesRequeridas) : [],
     };
   }

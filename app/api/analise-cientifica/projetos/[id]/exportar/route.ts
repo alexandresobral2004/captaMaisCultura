@@ -386,7 +386,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   logger.info(`Iniciando requisição de exportação para PDF do projeto científico`, 'GET', { id });
 
   try {
-    const projeto = projetos.get(id);
+    const projeto = await projetos.get(id);
 
     if (!projeto) {
       logger.warn(`Projeto científico não encontrado para exportação`, 'GET', { id });

@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { getTableConfig } from 'drizzle-orm/sqlite-core';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 
 /**
  * Garante que o banco criado por lib/database/db.ts (DDL + migrateSchema) tem todas as

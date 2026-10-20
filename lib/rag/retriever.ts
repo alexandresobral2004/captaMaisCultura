@@ -80,42 +80,22 @@ export async function retrieveChunks(query: RetrievalQuery): Promise<RetrievedCh
     return [];
   }
 
-  // Construir condições
-  const conditions: string[] = ['rag_chunks_fts MATCH ?'];
-  const params: any[] = [queryEscaped];
+  // Busca por ILIKE no Postgres (substitui FTS5 do SQLite).
+  // TODO: migrar para tsvector/pgvector quando o volume justificar.
+  const { ilike, inArray, and: drizzleAnd } = await import('drizzle-orm');
 
-  // Adicionar filtros de categoria
-  if (categorias && categorias.length > 0) {
-    conditions.push(`r.categoria IN (${categorias.map(() => '?').join(',')})`);
-    params.push(...categorias);
-  }
+  const filtros = [];
+  filtros.push(ilike(ragChunks.conteudo, `%${texto}%`));
+  if (categorias && categorias.length > 0) filtros.push(inArray(ragChunks.categoria, categorias));
+  if (documentos && documentos.length > 0) filtros.push(inArray(ragChunks.documentoNome, documentos));
 
-  // Adicionar filtros de documento
-  if (documentos && documentos.length > 0) {
-    conditions.push(`r.documento_nome IN (${documentos.map(() => '?').join(',')})`);
-    params.push(...documentos);
-  }
+  const rows = await db
+    .select()
+    .from(ragChunks)
+    .where(drizzleAnd(...filtros))
+    .limit(maxChunks);
 
-  const whereClause = conditions.join(' AND ');
-
-  // Query SQL direta para FTS5 com BM25 usando better-sqlite3
-  const rawDb = getRawDb();
-  const resultados: any[] = rawDb.prepare(`
-    SELECT 
-      r.id,
-      r.conteudo,
-      r.documento_nome,
-      r.documento_tipo,
-      r.titulo,
-      r.categoria,
-      r.tags,
-      bm25(rag_chunks_fts) as score_bm25
-    FROM rag_chunks r
-    JOIN rag_chunks_fts ON r.id = rag_chunks_fts.rowid
-    WHERE ${whereClause}
-    ORDER BY score_bm25 DESC
-    LIMIT ${maxChunks}
-  `).all(...params);
+  const resultados: any[] = rows.map((r: any) => ({ ...r, score_bm25: -1 }));
 
   if (resultados.length === 0) {
     return [];
@@ -156,7 +136,7 @@ export async function buscarPorCategoria(categoria: string, maxChunks: number = 
     .where(sql`${ragChunks.categoria} = ${categoria}`)
     .limit(maxChunks);
 
-  return resultados.map(row => ({
+  return resultados.map((row: any) => ({
     id: row.id,
     conteudo: row.conteudo,
     metadata: {
@@ -188,7 +168,7 @@ export async function buscarPorDocumento(documentoNome: string, maxChunks: numbe
     .where(sql`${ragChunks.documentoNome} = ${documentoNome}`)
     .limit(maxChunks);
 
-  return resultados.map(row => ({
+  return resultados.map((row: any) => ({
     id: row.id,
     conteudo: row.conteudo,
     metadata: {
@@ -213,7 +193,7 @@ export async function listarCategorias(): Promise<string[]> {
     .from(ragChunks)
     .where(sql`${ragChunks.categoria} IS NOT NULL`);
 
-  return resultados.map(r => r.categoria!).filter(Boolean);
+  return resultados.map((r: any) => r.categoria!).filter(Boolean);
 }
 
 /**
@@ -226,5 +206,5 @@ export async function listarDocumentos(): Promise<string[]> {
     })
     .from(ragChunks);
 
-  return resultados.map(r => r.documentoNome);
+  return resultados.map((r: any) => r.documentoNome);
 }

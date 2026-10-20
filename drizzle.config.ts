@@ -3,9 +3,9 @@ import { defineConfig } from 'drizzle-kit';
 export default defineConfig({
   schema: './lib/database/schema.ts',
   out: './lib/database/migrations',
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: './data/db/editais.db',
+    url: process.env.DATABASE_URL!,
   },
   verbose: true,
   strict: true,

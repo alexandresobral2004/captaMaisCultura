@@ -80,7 +80,7 @@ async function indexarDocumento(caminhoPdf: string): Promise<{ chunks: Extracted
  */
 async function rebuildFTS5Index(): Promise<void> {
   try {
-    await db.run(`
+    await (db as any).execute(`
       INSERT INTO rag_chunks_fts(rag_chunks_fts) VALUES('rebuild')
     `);
     console.log('✅ Índice FTS5 reconstruído');
@@ -149,7 +149,7 @@ export async function verificarIndexacao(): Promise<{ totalChunks: number; docum
     .from(ragChunks)
     .groupBy(ragChunks.documentoNome);
 
-  const documentos = resultado.map(r => r.documentoNome);
+  const documentos = resultado.map((r: any) => r.documentoNome);
   const totalChunks = await db.$count(ragChunks);
 
   return {

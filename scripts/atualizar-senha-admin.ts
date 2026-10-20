@@ -1,11 +1,14 @@
 import { UsuarioService } from '../lib/database/services/usuario.service';
-import { getRawDb } from '../lib/database/db';
+import { db } from '../lib/database/db';
+import { usuarios } from '../lib/database/schema';
+import { eq } from 'drizzle-orm';
 
 async function main() {
   const service = new UsuarioService();
-  
+
   // Buscar o usuário
-  const user = getRawDb().prepare("SELECT id FROM usuarios WHERE email = 'admin@teste.com'").get() as any;
+  const rows = await db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.email, 'admin@teste.com'));
+  const user = rows[0] as any;
   
   if (user) {
     console.log('Usuário admin@teste.com encontrado. Atualizando a senha...');

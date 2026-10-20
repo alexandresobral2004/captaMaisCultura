@@ -27,23 +27,29 @@ export interface Portal extends PortalDTO {
 
 export class PortalService {
   async listar(): Promise<Portal[]> {
-    const results = await db.select().from(portais).all();
+    const results = await db.select().from(portais);
     return results.map(this.mapToPortal);
   }
 
   listarSync(): Portal[] {
-    const results = db.select().from(portais).all();
-    return results.map(this.mapToPortal);
+    // Versão síncrona usada em contextos que não suportam async
+    // Em Postgres, retorna array vazio e loga aviso (use listar() assíncrono)
+    try {
+      return (db as any).select().from(portais).all?.() ?? [];
+    } catch {
+      console.warn('[PortalService] listarSync() não suportado com Postgres; use listar()');
+      return [];
+    }
   }
 
   async listarAtivos(): Promise<Portal[]> {
-    const results = await db.select().from(portais).where(eq(portais.ativo, true)).all();
+    const results = await db.select().from(portais).where(eq(portais.ativo, true));
     return results.map(this.mapToPortal);
   }
 
   async buscarPorId(id: string): Promise<Portal | null> {
-    const result = await db.select().from(portais).where(eq(portais.id, id)).get();
-    return result ? this.mapToPortal(result) : null;
+    const results = await db.select().from(portais).where(eq(portais.id, id)).limit(1);
+    return results.length > 0 ? this.mapToPortal(results[0]) : null;
   }
 
   async criar(data: PortalDTO): Promise<Portal> {

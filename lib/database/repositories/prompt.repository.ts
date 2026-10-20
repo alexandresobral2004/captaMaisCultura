@@ -128,7 +128,7 @@ export class PromptRepository extends BaseRepository {
   async createCustomizado(data: CreatePromptCustomizadoDTO) {
     const now = new Date().toISOString();
     
-    await this.database.transaction(async (tx) => {
+    await this.database.transaction(async (tx: any) => {
       await tx
         .insert(promptsCustomizados)
         .values({
@@ -145,7 +145,7 @@ export class PromptRepository extends BaseRepository {
   async updateCustomizado(id: string, conteudo: string, alteradoPor?: string, justificativa?: string) {
     const now = new Date().toISOString();
     
-    await this.database.transaction(async (tx) => {
+    await this.database.transaction(async (tx: any) => {
       const existing = await tx
         .select()
         .from(promptsCustomizados)
@@ -196,7 +196,7 @@ export class PromptRepository extends BaseRepository {
   ): Promise<string> {
     const id = `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    await this.database.transaction(async (tx) => {
+    await this.database.transaction(async (tx: any) => {
       await tx
         .update(promptsCustomizados)
         .set({ ativo: false })
@@ -245,7 +245,7 @@ export class PromptRepository extends BaseRepository {
       criadoEm: customizado?.criadoEm || promptSistema.criadoEm || undefined,
       atualizadoEm: customizado?.atualizadoEm || undefined,
       criadoPor: customizado?.criadoPor || undefined,
-      historico: historico.map(h => ({
+      historico: historico.map((h: any) => ({
         id: h.id,
         conteudoAnterior: h.conteudoAnterior,
         conteudoNovo: h.conteudoNovo,

@@ -354,9 +354,20 @@ export async function getAllEditais(incluirFechados = false, categoriaArea?: str
       conditions.push(sql`categoria_area = ${categoriaArea}`);
     }
 
-    const query = sql`SELECT * FROM editais WHERE ${sql.join(conditions, sql` AND `)} ORDER BY criado_em DESC`;
+    // Usa Drizzle select para compatibilidade com SQLite (testes) e Postgres
+    const { isNull: drizzleIsNull, lte, isNotNull } = await import('drizzle-orm');
+    let q = db.select().from(editaisTable).where(drizzleIsNull(editaisTable.deletedAt));
 
-    const rows = db.all(query) as any[];
+    // Re-aplica filtros que o sql raw faria
+    if (!incluirFechados) {
+      const agora = new Date().toISOString();
+      q = (q as any).where(and(drizzleIsNull(editaisTable.deletedAt), or(drizzleIsNull(editaisTable.dataLimite), (lte as any)(editaisTable.dataLimite, agora))));
+    }
+    if (categoriaArea) {
+      q = (q as any).where(and(drizzleIsNull(editaisTable.deletedAt), eq(editaisTable.categoriaArea, categoriaArea)));
+    }
+
+    const rows = await q as any[];
 
     // Buscar analises em paralelo
     const editalIds = rows.map(r => r.id);
@@ -374,7 +385,9 @@ export async function getAllEditais(incluirFechados = false, categoriaArea?: str
 /** Busca um edital pelo id (inclui fechados), sem carregar a lista inteira. */
 export async function getEditalPorId(id: string): Promise<Edital | null> {
   try {
-    const row = db.get(sql`SELECT * FROM editais WHERE id = ${id} AND deleted_at IS NULL`) as any;
+    const { isNull: drizzleIsNull2 } = await import('drizzle-orm');
+    const result = await db.select().from(editaisTable).where(and(eq(editaisTable.id, id), drizzleIsNull2(editaisTable.deletedAt)));
+    const row = Array.isArray(result) ? result[0] : undefined;
     if (!row) return null;
     return dbToEdital(row, await analiseRepo.findByEditalId(id));
   } catch (erro) {

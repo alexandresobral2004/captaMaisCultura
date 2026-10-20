@@ -6,7 +6,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const projeto = projetos.get(params.id);
+  const projeto = await projetos.get(params.id);
 
   if (!projeto) {
     return NextResponse.json({
@@ -26,7 +26,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const projeto = projetos.get(params.id);
+    const projeto = await projetos.get(params.id);
 
     if (!projeto) {
       return NextResponse.json({
@@ -45,7 +45,7 @@ export async function PUT(
       versao: projeto.versao + 1,
     };
 
-    projetos.save({ ...projetoAtualizado, id: params.id });
+    await projetos.save({ ...projetoAtualizado, id: params.id });
 
     return NextResponse.json({
       success: true,
@@ -63,7 +63,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const projeto = projetos.get(params.id);
+  const projeto = await projetos.get(params.id);
 
   if (!projeto) {
     return NextResponse.json({
@@ -72,7 +72,7 @@ export async function DELETE(
     }, { status: 404 });
   }
 
-  projetos.delete(params.id);
+  await projetos.delete(params.id);
 
   return NextResponse.json({
     success: true,

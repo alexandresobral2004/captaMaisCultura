@@ -31,7 +31,7 @@ export async function POST(
 
     logger.info(`Gerando seção ${secao} para projeto ${params.id}`, 'api/gerar');
 
-    const projetoExistente = projetos.get(params.id);
+    const projetoExistente = await projetos.get(params.id);
 
     // Usa modelo 'full' (gpt-4o) para ter profundidade acadêmica e seguir regras estritas
     const writer = new ProposalWriterCientifico('full');
@@ -175,7 +175,7 @@ export async function POST(
       projetoExistente.dataAtualizacao = new Date().toISOString();
       projetoExistente.versao = (projetoExistente.versao || 1) + 1;
       
-      projetos.save({ ...projetoExistente, id: params.id });
+      await projetos.save({ ...projetoExistente, id: params.id });
     }
 
     logger.info(`Seção ${secao} gerada com sucesso`, 'api/gerar');

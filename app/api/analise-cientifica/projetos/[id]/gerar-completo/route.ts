@@ -30,7 +30,7 @@ export async function POST(
 
     logger.info(`Gerando proposta completa para projeto ${params.id}`, 'api/gerar-completo');
 
-    const projetoExistente = projetos.get(params.id);
+    const projetoExistente = await projetos.get(params.id);
 
     // Usa modelo 'full' (gpt-4o) para ter profundidade acadêmica e seguir regras estritas
     const writer = new ProposalWriterCientifico('full');
@@ -153,7 +153,7 @@ export async function POST(
       }
       projetoExistente.secoesDinamicas = JSON.stringify(secoesList);
       
-      projetos.save({ ...projetoExistente, id: params.id });
+      await projetos.save({ ...projetoExistente, id: params.id });
     }
 
     logger.info(`Proposta completa gerada com sucesso`, 'api/gerar-completo');

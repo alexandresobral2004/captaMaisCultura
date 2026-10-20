@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type BetterSqlite3 from 'better-sqlite3';
 
 /** Quantas buscas por novos editais podem ser iniciadas dentro da janela abaixo. */
 export const LIMITE_BUSCAS = 2;
@@ -29,14 +29,16 @@ export interface EstatisticasBusca {
   mensagem?: string;
 }
 
-function marcarInterrompidas(sqlite: Database.Database, agora: Date) {
+// ─── Implementação SQLite (usada nos testes e em dev local sem DATABASE_URL) ──
+
+function marcarInterrompidasSQLite(sqlite: BetterSqlite3.Database, agora: Date) {
   sqlite
     .prepare(`UPDATE buscas_editais SET status = 'erro', concluida_em = ?, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND iniciada_em < ?`)
     .run(agora.toISOString(), new Date(agora.getTime() - TEMPO_MAXIMO_MS).toISOString());
 }
 
-export function situacaoDaBusca(sqlite: Database.Database, agora = new Date()): SituacaoBusca {
-  marcarInterrompidas(sqlite, agora);
+export function situacaoDaBusca(sqlite: BetterSqlite3.Database, agora = new Date()): SituacaoBusca {
+  marcarInterrompidasSQLite(sqlite, agora);
   const desde = new Date(agora.getTime() - JANELA_DIAS * DIA_MS).toISOString();
   // Busca que falhou não gasta o limite
   const contadas = sqlite
@@ -49,7 +51,6 @@ export function situacaoDaBusca(sqlite: Database.Database, agora = new Date()): 
 
   const usadas = contadas.length;
   const restantes = Math.max(0, LIMITE_BUSCAS - usadas);
-  // O limite volta quando a busca mais antiga da janela sai dela
   const liberadaEm = restantes === 0
     ? new Date(new Date(contadas[usadas - LIMITE_BUSCAS].iniciada_em).getTime() + JANELA_DIAS * DIA_MS).toISOString()
     : null;
@@ -70,7 +71,7 @@ export function situacaoDaBusca(sqlite: Database.Database, agora = new Date()): 
 export type InicioBusca = { ok: true; id: number } | { ok: false; motivo: 'limite' | 'em_andamento'; situacao: SituacaoBusca };
 
 /** Confere o limite e registra o início da busca de forma atômica. */
-export function iniciarBusca(sqlite: Database.Database, agora = new Date()): InicioBusca {
+export function iniciarBusca(sqlite: BetterSqlite3.Database, agora = new Date()): InicioBusca {
   const tentar = sqlite.transaction((): InicioBusca => {
     const situacao = situacaoDaBusca(sqlite, agora);
     if (situacao.emAndamento) return { ok: false, motivo: 'em_andamento', situacao };
@@ -81,10 +82,75 @@ export function iniciarBusca(sqlite: Database.Database, agora = new Date()): Ini
   return tentar.immediate();
 }
 
-export function finalizarBusca(sqlite: Database.Database, id: number, stats: EstatisticasBusca, falhou = false, agora = new Date()) {
+export function finalizarBusca(sqlite: BetterSqlite3.Database, id: number, stats: EstatisticasBusca, falhou = false, agora = new Date()) {
   sqlite
     .prepare(`UPDATE buscas_editais SET status = ?, concluida_em = ?, novos = ?, ja_existentes = ?, descartados = ?, com_erro = ?, mensagem = ? WHERE id = ?`)
     .run(falhou ? 'erro' : 'concluida', agora.toISOString(), stats.novos, stats.jaExistentes, stats.descartados, stats.comErro, stats.mensagem ?? null, id);
+}
+
+// ─── Versões assíncronas para Drizzle/Postgres (produção) ─────────────────────
+
+async function marcarInterrompidasAsync(db: any, agora: Date) {
+  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
+  await db.execute(
+    sql`UPDATE buscas_editais SET status = 'erro', concluida_em = ${agora.toISOString()}, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND iniciada_em < ${new Date(agora.getTime() - TEMPO_MAXIMO_MS).toISOString()}`
+  );
+}
+
+export async function situacaoDaBuscaAsync(agora = new Date()): Promise<SituacaoBusca> {
+  const { db } = require('../database/db') as typeof import('../database/db');
+  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
+  await marcarInterrompidasAsync(db, agora);
+  const desde = new Date(agora.getTime() - JANELA_DIAS * DIA_MS).toISOString();
+
+  const [contadas, emAndamentoRow, ultima] = await Promise.all([
+    (db as any).execute(sql`SELECT iniciada_em FROM buscas_editais WHERE status != 'erro' AND iniciada_em >= ${desde} ORDER BY iniciada_em ASC`),
+    (db as any).execute(sql`SELECT 1 FROM buscas_editais WHERE status = 'em_andamento' LIMIT 1`),
+    (db as any).execute(sql`SELECT iniciada_em, status, novos, ja_existentes FROM buscas_editais ORDER BY iniciada_em DESC LIMIT 1`),
+  ]);
+
+  const contadasArr = Array.isArray(contadas) ? contadas : [];
+  const emAndamento = Array.isArray(emAndamentoRow) && emAndamentoRow.length > 0;
+  const ultimaRow = Array.isArray(ultima) && ultima.length > 0 ? ultima[0] as any : undefined;
+
+  const usadas = contadasArr.length;
+  const restantes = Math.max(0, LIMITE_BUSCAS - usadas);
+  const liberadaEm = restantes === 0
+    ? new Date(new Date(contadasArr[usadas - LIMITE_BUSCAS].iniciada_em).getTime() + JANELA_DIAS * DIA_MS).toISOString()
+    : null;
+
+  return {
+    limite: LIMITE_BUSCAS,
+    usadas,
+    restantes,
+    emAndamento,
+    ultimaBusca: ultimaRow
+      ? { iniciadaEm: ultimaRow.iniciada_em, status: ultimaRow.status, novos: ultimaRow.novos ?? 0, jaExistentes: ultimaRow.ja_existentes ?? 0 }
+      : null,
+    liberadaEm,
+    podeBuscar: restantes > 0 && !emAndamento,
+  };
+}
+
+export async function iniciarBuscaAsync(agora = new Date()): Promise<InicioBusca> {
+  const { db } = require('../database/db') as typeof import('../database/db');
+  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
+  return (db as any).transaction(async (tx: any) => {
+    const situacao = await situacaoDaBuscaAsync(agora);
+    if (situacao.emAndamento) return { ok: false, motivo: 'em_andamento', situacao };
+    if (situacao.restantes <= 0) return { ok: false, motivo: 'limite', situacao };
+    const rows = await tx.execute(sql`INSERT INTO buscas_editais (iniciada_em, status) VALUES (${agora.toISOString()}, 'em_andamento') RETURNING id`);
+    const id = Array.isArray(rows) && rows.length > 0 ? Number((rows[0] as any).id) : 0;
+    return { ok: true, id };
+  });
+}
+
+export async function finalizarBuscaAsync(id: number, stats: EstatisticasBusca, falhou = false, agora = new Date()) {
+  const { db } = require('../database/db') as typeof import('../database/db');
+  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
+  await (db as any).execute(
+    sql`UPDATE buscas_editais SET status = ${falhou ? 'erro' : 'concluida'}, concluida_em = ${agora.toISOString()}, novos = ${stats.novos}, ja_existentes = ${stats.jaExistentes}, descartados = ${stats.descartados}, com_erro = ${stats.comErro}, mensagem = ${stats.mensagem ?? null} WHERE id = ${id}`
+  );
 }
 
 /** Edital que já foi baixado ou avaliado antes: não precisa baixar de novo. */

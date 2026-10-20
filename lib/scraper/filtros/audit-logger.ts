@@ -380,7 +380,7 @@ export async function consultarMotivos(
       .where(where)
       .orderBy(motivosPontuacao.id);
 
-    return rows.map((r) => ({
+    return rows.map((r: any) => ({
       id: r.id,
       motivo: r.motivo,
       fonte: r.fonte,

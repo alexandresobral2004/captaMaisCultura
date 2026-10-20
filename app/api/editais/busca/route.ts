@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buscarEditaisPortais } from '@/lib/scraper/fetcher';
 import { prepararEdital } from '@/lib/scraper/preparar-edital';
 import { saveEdital, getEditalPorId, isEditalExcluido } from '@/lib/db/editais-store';
-import { getRawDb } from '@/lib/database/db';
 import { comecarColeta, comecarProcessamento, registrarItem, terminarBusca, resultadoDoItem } from '@/lib/scraper/progresso-busca';
-import { iniciarBusca, finalizarBusca, situacaoDaBusca, editalJaProcessado } from '@/lib/scraper/controle-busca';
+import { iniciarBuscaAsync, finalizarBuscaAsync, situacaoDaBuscaAsync, editalJaProcessado } from '@/lib/scraper/controle-busca';
 import { verificarAdmin } from '@/lib/api/auth';
 import { registrarDecisao } from '@/lib/scraper/funil';
 import { pipelineLogger } from '@/lib/scraper/pipeline-logger';
@@ -17,7 +16,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Limite de 2 buscas por semana, conferido e registrado antes de qualquer trabalho
-  const inicio = iniciarBusca(getRawDb());
+  const inicio = await iniciarBuscaAsync();
   if (!inicio.ok) {
     return NextResponse.json(
       {
@@ -129,14 +128,14 @@ export async function POST(request: NextRequest) {
 
     const descartados = editaisAnalisados.filter(e => e.statusAnalise === 'descartado').length;
     const novos = sucessoCount - descartados;
-    finalizarBusca(getRawDb(), inicio.id, { novos, jaExistentes, descartados, comErro: erroCount });
+    await finalizarBuscaAsync(inicio.id, { novos, jaExistentes, descartados, comErro: erroCount });
     terminarBusca();
 
     return NextResponse.json({
       success: true,
       mensagem: `Busca concluída: ${novos} novos, ${jaExistentes} já existiam, ${descartados} descartados`,
       resumo: { novos, jaExistentes, descartados, comErro: erroCount },
-      situacao: situacaoDaBusca(getRawDb()),
+      situacao: await situacaoDaBuscaAsync(),
       estatisticas,
       quantidade: editaisAnalisados.length,
       editais: editaisAnalisados
@@ -145,7 +144,7 @@ export async function POST(request: NextRequest) {
     console.error('Erro na API de busca de editais:', error);
     terminarBusca(true);
     // Busca que falhou não gasta o limite semanal
-    finalizarBusca(getRawDb(), inicio.id, { novos: 0, jaExistentes, descartados: 0, comErro: 0, mensagem: (error as Error).message }, true);
+    await finalizarBuscaAsync(inicio.id, { novos: 0, jaExistentes, descartados: 0, comErro: 0, mensagem: (error as Error).message }, true);
     return NextResponse.json(
       { error: 'Erro no processo de busca/download/análise: ' + (error as Error).message },
       { status: 500 }

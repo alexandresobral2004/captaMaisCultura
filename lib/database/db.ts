@@ -1,95 +1,105 @@
-import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+/**
+ * Conexão com o banco de dados.
+ *
+ * Modo dual:
+ * - Se DATABASE_URL começa com "postgres", usa postgres.js + Drizzle pg
+ * - Caso contrário (testes, ou DATABASE_PATH definido), usa better-sqlite3 + Drizzle SQLite
+ */
+
 import * as schema from './schema';
 import { criarFTS, criarTabelas, migrarSchema } from './ddl';
-import fs from 'fs';
-import path from 'path';
+import { drizzle as drizzleSQLite } from 'drizzle-orm/better-sqlite3';
+import BetterSQLite from 'better-sqlite3';
+import { existsSync, mkdirSync } from 'fs';
+import { dirname, join } from 'path';
 
-// Carregar variáveis de ambiente manualmente se não estiverem definidas (útil no Next.js)
-if (!process.env.OPENAI_API_KEY) {
-  for (const filename of ['.env.local', 'env.local']) {
-    const envPath = path.join(process.cwd(), filename);
-    if (fs.existsSync(envPath)) {
-      try {
-        const envContent = fs.readFileSync(envPath, 'utf-8');
-        envContent.split('\n').forEach((line) => {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('#')) return;
-          // Ignorar se a linha começar com export
-          const cleanLine = trimmed.startsWith('export ') ? trimmed.substring(7) : trimmed;
-          const parts = cleanLine.split('=');
-          if (parts.length >= 2) {
-            const key = parts[0].trim();
-            const val = parts.slice(1).join('=').trim().replace(/^['"]|['"]$/g, '');
-            process.env[key] = val;
-          }
-        });
-        console.log(`[DB SETUP] Variáveis de ambiente carregadas do arquivo ${filename}`);
-        break;
-      } catch (e: any) {
-        console.warn(`[DB SETUP] Erro ao ler ${filename}:`, e.message);
-      }
+export type AppDb = ReturnType<typeof drizzleSQLite<typeof schema>>;
+
+const DATABASE_URL = process.env.DATABASE_URL ?? '';
+
+function criarConexaoSQLite() {
+  const DB_PATH = process.env.DATABASE_PATH || join(process.cwd(), 'data', 'db', 'editais.db');
+  const dbDir = dirname(DB_PATH);
+  if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
+
+  const sqlite = new BetterSQLite(DB_PATH);
+  sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('foreign_keys = ON');
+  sqlite.pragma('synchronous = NORMAL');
+  sqlite.pragma('cache_size = -64000');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const _db = drizzleSQLite(sqlite as any, { schema: schema as any });
+
+  if (typeof window === 'undefined') {
+    try {
+      criarTabelas(sqlite);
+      migrarSchema(sqlite);
+    } catch (error) {
+      console.warn('Erro ao criar tabelas SQLite:', error);
     }
   }
+
+  return {
+    db: _db as any,
+    getRawDb: () => sqlite as any,
+    execSQL: (s: string) => sqlite.exec(s),
+    setupFTS: () => criarFTS(sqlite),
+    createTables: () => criarTabelas(sqlite),
+  };
 }
 
-// DATABASE_PATH permite apontar para outro arquivo (ex.: testes); o padrão é data/db/editais.db
-const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'db', 'editais.db');
-
-// Garantir que o diretorio existe
-const dbDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+async function criarConexaoPostgres() {
+  const { drizzle } = await import('drizzle-orm/postgres-js');
+  const postgres = (await import('postgres')).default;
+  const client = postgres(DATABASE_URL, { ssl: 'require' });
+  const _db = drizzle(client, { schema });
+  return {
+    db: _db as any,
+    getRawDb: () => client as any,
+    execSQL: async (s: string) => { await client.unsafe(s); },
+    setupFTS: () => {},
+    createTables: () => {},
+  };
 }
 
-// Criar conexao SQLite
-const sqlite = new Database(DB_PATH);
+// Conexão lazy para Postgres (aguarda resolução da Promise)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _conn: any = null;
 
-// Configuracoes de performance e integridade
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
-sqlite.pragma('synchronous = NORMAL');
-sqlite.pragma('cache_size = -64000'); // 64MB cache
-
-// Criar instancia Drizzle
-export const db = drizzle(sqlite, { schema });
-
-// Funcao para executar SQL bruto
-export function execSQL(sql: string) {
-  sqlite.exec(sql);
-}
-
-// Funcao para obter a conexao raw
-export function getRawDb() {
-  return sqlite;
-}
-
-// Funcao para configurar FTS5
-export function setupFTS() {
-  criarFTS(sqlite);
-}
-
-// Funcao para criar tabelas (primeira execucao)
-export function createTables() {
-  criarTabelas(sqlite);
-}
-
-// Migração: adicionar colunas novas que podem não existir em bancos antigos
-function migrateSchema() {
-  migrarSchema(sqlite);
-}
-
-// Inicializar tabelas na primeira execucao (server-side only)
-let initialized = false;
-
-if (typeof window === 'undefined') {
-  try {
-    if (!initialized) {
-      initialized = true;
-      createTables();
-      migrateSchema();
+function getConn() {
+  if (!_conn) {
+    if (DATABASE_URL.startsWith('postgres')) {
+      // Em produção: lança erro se tentar usar antes de init()
+      throw new Error('Banco Postgres ainda não inicializado. Aguarde init().');
     }
-  } catch (error) {
-    console.warn('Erro ao criar tabelas:', error);
+    _conn = criarConexaoSQLite();
   }
+  return _conn;
 }
+
+// Inicialização assíncrona para Postgres
+export async function initDb() {
+  if (!_conn) {
+    _conn = DATABASE_URL.startsWith('postgres')
+      ? await criarConexaoPostgres()
+      : criarConexaoSQLite();
+  }
+  return _conn;
+}
+
+// Inicializa imediatamente para SQLite (síncrono)
+if (!DATABASE_URL.startsWith('postgres')) {
+  _conn = criarConexaoSQLite();
+}
+
+export const db: any = new Proxy({} as any, {
+  get(_target, prop) {
+    return (getConn() as any).db[prop];
+  },
+});
+
+export function getRawDb() { return getConn().getRawDb(); }
+export function execSQL(s: string) { return getConn().execSQL(s); }
+export function setupFTS() { return getConn().setupFTS(); }
+export function createTables() { return getConn().createTables(); }

@@ -1,7 +1,6 @@
 import { eq, desc, and, gte, lte, like, sql } from 'drizzle-orm';
 import { editais, analiseIa, palavrasChave, arquivosAnexos, motivosPontuacao } from '../schema';
 import { BaseRepository, PaginatedResult } from './base.repository';
-import { getRawDb } from '../db';
 
 export interface ListEditalQuery {
   page: number;

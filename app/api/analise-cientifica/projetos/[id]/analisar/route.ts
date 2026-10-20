@@ -45,11 +45,11 @@ export async function POST(
     logger.info(`Análise concluída em ${duration}ms - Score: ${analise.scoreGeral}%`, 'api/analise', { scoreGeral: analise.scoreGeral });
 
     // Atualizar no banco em memória se o projeto existir
-    const projetoExistente = projetos.get(params.id);
+    const projetoExistente = await projetos.get(params.id);
     if (projetoExistente) {
       projetoExistente.analise = analise;
       projetoExistente.scoreCompliance = analise.scoreGeral;
-      projetos.save({ ...projetoExistente, id: params.id });
+      await projetos.save({ ...projetoExistente, id: params.id });
     }
 
     return NextResponse.json({

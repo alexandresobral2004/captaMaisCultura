@@ -1,6 +1,6 @@
 import { db, getRawDb } from '../db';
 import { eq, desc, and, gte, lte, like, sql, SQL, asc } from 'drizzle-orm';
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
+import type { PgTable } from 'drizzle-orm/pg-core';
 
 export interface PaginatedQuery {
   page: number;
@@ -18,7 +18,7 @@ export class BaseRepository {
   protected database = db;
   protected rawDb = getRawDb();
 
-  protected async findPaginated<T extends SQLiteTable>(
+  protected async findPaginated<T extends PgTable>(
     table: T,
     options: {
       page: number;
@@ -35,14 +35,14 @@ export class BaseRepository {
     const [data, countResult] = await Promise.all([
       this.database
         .select()
-        .from(table)
+        .from(table as any)
         .where(conditions.length ? and(...conditions) : undefined)
         .orderBy(...(orderBy || [desc((table as any).criadoEm || (table as any).id)]))
         .limit(limit)
         .offset(offset),
       this.database
         .select({ count: sql<number>`count(*)` })
-        .from(table)
+        .from(table as any)
         .where(conditions.length ? and(...conditions) : undefined),
     ]);
 
