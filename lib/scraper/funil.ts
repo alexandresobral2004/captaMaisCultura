@@ -1,5 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import { sql } from 'drizzle-orm';
+import { db } from '../database/db';
+import { funilDecisoes } from '../database/schema';
 
 export type EtapaFunil = 'triagem' | 'duplicado' | 'fora_escopo' | 'documento' | 'pontuacao';
 /** `duplicado`: já existia no banco ou foi excluído antes; não é uma decisão de qualidade, então não entra em descartado. */
@@ -26,8 +28,6 @@ export function registrarDecisao(d: DecisaoFunil, sqlite: BetterSqlite3.Database
       ).run(new Date().toISOString(), d.portal ?? null, d.editalId ?? null, d.titulo, d.etapa, d.resultado, d.motivo ?? null, d.probabilidade ?? null);
     } else {
       // Caminho Drizzle/Postgres (produção) — fire-and-forget
-      const { db } = require('../database/db') as typeof import('../database/db');
-      const { funilDecisoes } = require('../database/schema') as typeof import('../database/schema');
       (db as any).insert(funilDecisoes).values({
         criadaEm: new Date().toISOString(),
         portal: d.portal ?? null,
@@ -68,7 +68,6 @@ export function resumoDoFunil(sqlite: BetterSqlite3.Database, desde = '1970-01-0
 
 /** Versão assíncrona para uso com Drizzle/Postgres em produção. */
 export async function resumoDoFunilAsync(desde = '1970-01-01T00:00:00.000Z'): Promise<LinhaFunil[]> {
-  const { db } = require('../database/db') as typeof import('../database/db');
   const rows = await (db as any).execute(
     sql`SELECT etapa, resultado, COUNT(*) AS n FROM funil_decisoes WHERE criada_em >= ${desde} GROUP BY etapa, resultado`
   ) as { etapa: EtapaFunil; resultado: ResultadoFunil; n: number }[];

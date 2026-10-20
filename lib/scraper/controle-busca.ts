@@ -1,4 +1,6 @@
 import type BetterSqlite3 from 'better-sqlite3';
+import { sql } from 'drizzle-orm';
+import { db } from '../database/db';
 
 /** Quantas buscas por novos editais podem ser iniciadas dentro da janela abaixo. */
 export const LIMITE_BUSCAS = 2;
@@ -91,15 +93,12 @@ export function finalizarBusca(sqlite: BetterSqlite3.Database, id: number, stats
 // ─── Versões assíncronas para Drizzle/Postgres (produção) ─────────────────────
 
 async function marcarInterrompidasAsync(db: any, agora: Date) {
-  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
   await db.execute(
     sql`UPDATE buscas_editais SET status = 'erro', concluida_em = ${agora.toISOString()}, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND iniciada_em < ${new Date(agora.getTime() - TEMPO_MAXIMO_MS).toISOString()}`
   );
 }
 
 export async function situacaoDaBuscaAsync(agora = new Date()): Promise<SituacaoBusca> {
-  const { db } = require('../database/db') as typeof import('../database/db');
-  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
   await marcarInterrompidasAsync(db, agora);
   const desde = new Date(agora.getTime() - JANELA_DIAS * DIA_MS).toISOString();
 
@@ -133,8 +132,6 @@ export async function situacaoDaBuscaAsync(agora = new Date()): Promise<Situacao
 }
 
 export async function iniciarBuscaAsync(agora = new Date()): Promise<InicioBusca> {
-  const { db } = require('../database/db') as typeof import('../database/db');
-  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
   return (db as any).transaction(async (tx: any) => {
     const situacao = await situacaoDaBuscaAsync(agora);
     if (situacao.emAndamento) return { ok: false, motivo: 'em_andamento', situacao };
@@ -146,8 +143,6 @@ export async function iniciarBuscaAsync(agora = new Date()): Promise<InicioBusca
 }
 
 export async function finalizarBuscaAsync(id: number, stats: EstatisticasBusca, falhou = false, agora = new Date()) {
-  const { db } = require('../database/db') as typeof import('../database/db');
-  const { sql } = require('drizzle-orm') as typeof import('drizzle-orm');
   await (db as any).execute(
     sql`UPDATE buscas_editais SET status = ${falhou ? 'erro' : 'concluida'}, concluida_em = ${agora.toISOString()}, novos = ${stats.novos}, ja_existentes = ${stats.jaExistentes}, descartados = ${stats.descartados}, com_erro = ${stats.comErro}, mensagem = ${stats.mensagem ?? null} WHERE id = ${id}`
   );
