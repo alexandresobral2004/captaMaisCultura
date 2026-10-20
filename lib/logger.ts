@@ -303,10 +303,10 @@ class SystemLogger {
     this.init();
 
     try {
-      const totalResult = await db.select({ count: sql<number>`COUNT(*)` }).from(logsSistema);
-      const errosResult = await db.select({ count: sql<number>`COUNT(*)` }).from(logsSistema).where(eq(logsSistema.nivel, 'error'));
-      const warningsResult = await db.select({ count: sql<number>`COUNT(*)` }).from(logsSistema).where(eq(logsSistema.nivel, 'warning'));
-      const infosResult = await db.select({ count: sql<number>`COUNT(*)` }).from(logsSistema).where(eq(logsSistema.nivel, 'info'));
+      const totalResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema);
+      const errosResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(eq(logsSistema.nivel, 'error'));
+      const warningsResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(eq(logsSistema.nivel, 'warning'));
+      const infosResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(eq(logsSistema.nivel, 'info'));
 
       const ultimoErroResult = await db.select({ criadoEm: logsSistema.criadoEm })
         .from(logsSistema)
@@ -316,7 +316,7 @@ class SystemLogger {
 
       const porCenarioResult = await db.select({
         cenario: logsSistema.cenarioFalha,
-        count: sql<number>`COUNT(*)`
+        count: sql<number>`COUNT(*)`.mapWith(Number)
       })
         .from(logsSistema)
         .where(sql`${logsSistema.cenarioFalha} IS NOT NULL`)
@@ -324,7 +324,7 @@ class SystemLogger {
 
       const porAcaoResult = await db.select({
         acao: logsSistema.acaoTomada,
-        count: sql<number>`COUNT(*)`
+        count: sql<number>`COUNT(*)`.mapWith(Number)
       })
         .from(logsSistema)
         .where(sql`${logsSistema.acaoTomada} IS NOT NULL`)
@@ -392,7 +392,7 @@ class SystemLogger {
     }
 
     try {
-      const result = await db.select({ count: sql<number>`COUNT(*)` })
+      const result = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
         .from(logsSistema)
         .where(conditions.length > 0 ? and(...conditions) : undefined);
       return result[0]?.count || 0;

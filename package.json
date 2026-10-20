@@ -10,7 +10,13 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:pg": "DATABASE_URL=postgres://capta:capta@localhost:5433/captadb vitest run --no-file-parallelism",
+    "db:up": "docker compose up -d postgres && docker compose exec postgres sh -c 'until pg_isready -U capta; do sleep 1; done'",
+    "db:down": "docker compose down",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:migrar-dados": "tsx scripts/migrar-dados-sqlite-para-pg.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.48",

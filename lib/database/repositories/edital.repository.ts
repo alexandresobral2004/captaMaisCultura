@@ -313,7 +313,7 @@ export class EditalRepository extends BaseRepository {
 
   async count(): Promise<number> {
     const result = await this.database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(editais)
       .where(sql`${editais.deletedAt} IS NULL`);
     return Number(result[0]?.count || 0);
@@ -323,7 +323,7 @@ export class EditalRepository extends BaseRepository {
     const result = await this.database
       .select({
         status: editais.status,
-        count: sql<number>`count(*)`,
+        count: sql<number>`count(*)`.mapWith(Number),
       })
       .from(editais)
       .where(sql`${editais.deletedAt} IS NULL`)

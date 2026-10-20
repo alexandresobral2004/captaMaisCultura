@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { setupTestDbMock, clearAllTables } from './setup';
+import { setupTestDbMock, clearAllTables, rawQuery } from './setup';
 import type Database from 'better-sqlite3';
 
 describe('EditaisStore - Soft Delete Rules', () => {
@@ -70,7 +70,7 @@ describe('EditaisStore - Soft Delete Rules', () => {
     expect(atualizado.deletedAt).toBeUndefined();
 
     // Buscar no banco bruto
-    const row = rawDb.prepare('SELECT * FROM editais WHERE id = ?').get(id) as any;
+    const row = (await rawQuery(rawDb, 'SELECT * FROM editais WHERE id = ?', [id]))[0] as any;
     expect(row.titulo).toBe('Edital Ativo Atualizado');
     expect(row.deleted_at).toBeNull();
   });
@@ -104,7 +104,7 @@ describe('EditaisStore - Soft Delete Rules', () => {
     expect(checkPorLink).toBe(true);
 
     // Verificar direto no banco de dados
-    const row = rawDb.prepare('SELECT * FROM editais WHERE id = ?').get(id) as any;
+    const row = (await rawQuery(rawDb, 'SELECT * FROM editais WHERE id = ?', [id]))[0] as any;
     expect(row).toBeDefined();
     expect(row.deleted_at).not.toBeNull();
   });
@@ -125,7 +125,7 @@ describe('EditaisStore - Soft Delete Rules', () => {
     await deleteEdital(id);
 
     // Verificar que está soft-deleted
-    const rowAntes = rawDb.prepare('SELECT * FROM editais WHERE id = ?').get(id) as any;
+    const rowAntes = (await rawQuery(rawDb, 'SELECT * FROM editais WHERE id = ?', [id]))[0] as any;
     const deletedTime = rowAntes.deleted_at;
     expect(deletedTime).not.toBeNull();
 
@@ -144,7 +144,7 @@ describe('EditaisStore - Soft Delete Rules', () => {
     expect(resultado.deletedAt).toBe(deletedTime);
 
     // Verificar no banco que os dados não foram sobregravados e o deleted_at permanece
-    const rowDepois = rawDb.prepare('SELECT * FROM editais WHERE id = ?').get(id) as any;
+    const rowDepois = (await rawQuery(rawDb, 'SELECT * FROM editais WHERE id = ?', [id]))[0] as any;
     expect(rowDepois.titulo).toBe('Edital Protegido'); // Não atualizou
     expect(rowDepois.orgao).toBe('FINEP'); // Não atualizou
     expect(rowDepois.deleted_at).toBe(deletedTime);

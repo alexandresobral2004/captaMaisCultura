@@ -6,9 +6,11 @@ import { relations } from 'drizzle-orm';
  * No Postgres vira BOOLEAN; no SQLite os testes usam criarTabelas() que define INTEGER,
  * e este custom type serializa true→1 e false→0 para que o binding funcione nos dois.
  */
+const _isPostgres = (process.env.DATABASE_URL ?? '').startsWith('postgres');
 const boolean = customType<{ data: boolean; driverData: number | boolean }>({
   dataType() { return 'boolean'; },
-  toDriver(val) { return val ? 1 : 0; },
+  // Postgres aceita boolean nativo; SQLite em testes usa INTEGER (1/0)
+  toDriver(val) { return _isPostgres ? Boolean(val) : (val ? 1 : 0); },
   fromDriver(val) { return Boolean(val); },
 });
 

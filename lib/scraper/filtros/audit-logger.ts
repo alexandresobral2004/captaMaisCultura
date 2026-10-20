@@ -108,7 +108,8 @@ async function persistirMotivo(params: MotivoPersistidoParams): Promise<void> {
   } catch (err) {
     // Nunca quebra o pipeline — apenas registra no console
     console.warn(
-      `[AuditLogger] Falha ao persistir motivo para edital '${params.editalId}': ${(err as Error).message}`
+      `[AuditLogger] Falha ao persistir motivo para edital '${params.editalId}': ${(err as Error).message}` +
+        ((err as any)?.cause ? ` (causa: ${(err as any).cause.message ?? (err as any).cause})` : '')
     );
   }
 }

@@ -194,7 +194,7 @@ export class ProjetoRepository extends BaseRepository {
 
   async count(): Promise<number> {
     const result = await this.database
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(projetos);
     return Number(result[0]?.count || 0);
   }

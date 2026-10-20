@@ -73,7 +73,7 @@ export class SearchRepository extends BaseRepository {
         .limit(limit)
         .offset(offset),
       db
-        .select({ count: sql<number>`count(*)` })
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(editais)
         .where(where),
     ]);
@@ -118,34 +118,34 @@ export class SearchRepository extends BaseRepository {
   async getStats() {
     const [total, porStatus, porOrgao, porTecnologia, comPdf, comAnalise] = await Promise.all([
       db
-        .select({ count: sql<number>`count(*)` })
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(editais)
         .where(isNull(editais.deletedAt)),
       db
-        .select({ status: editais.status, count: sql<number>`count(*)` })
+        .select({ status: editais.status, count: sql<number>`count(*)`.mapWith(Number) })
         .from(editais)
         .where(isNull(editais.deletedAt))
         .groupBy(editais.status),
       db
-        .select({ orgao: editais.orgao, count: sql<number>`count(*)` })
+        .select({ orgao: editais.orgao, count: sql<number>`count(*)`.mapWith(Number) })
         .from(editais)
         .where(isNull(editais.deletedAt))
         .groupBy(editais.orgao)
         .orderBy(sql`count(*) DESC`)
         .limit(10),
       db
-        .select({ tecnologiaFoco: editais.tecnologiaFoco, count: sql<number>`count(*)` })
+        .select({ tecnologiaFoco: editais.tecnologiaFoco, count: sql<number>`count(*)`.mapWith(Number) })
         .from(editais)
         .where(and(isNull(editais.deletedAt), sql`${editais.tecnologiaFoco} IS NOT NULL`))
         .groupBy(editais.tecnologiaFoco)
         .orderBy(sql`count(*) DESC`)
         .limit(10),
       db
-        .select({ count: sql<number>`count(*)` })
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(editais)
         .where(and(isNull(editais.deletedAt), sql`${editais.pdfPath} IS NOT NULL`)),
       db
-        .select({ total: sql<number>`count(*)` })
+        .select({ total: sql<number>`count(*)`.mapWith(Number) })
         .from(analiseIa)
         .innerJoin(editais, sql`${analiseIa.editalId} = ${editais.id}`)
         .where(isNull(editais.deletedAt)),

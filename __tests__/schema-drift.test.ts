@@ -20,7 +20,10 @@ afterAll(() => {
   for (const sufixo of ['', '-wal', '-shm']) fs.rmSync(arquivo + sufixo, { force: true });
 });
 
-describe('schema.ts x banco criado por db.ts', () => {
+// Valida o DDL do SQLite; no modo Postgres o schema vem do drizzle-kit push (global-setup)
+const IS_POSTGRES = (process.env.DATABASE_URL ?? '').startsWith('postgres');
+
+describe.skipIf(IS_POSTGRES)('schema.ts x banco criado por db.ts', () => {
   it('todas as tabelas e colunas do drizzle existem no banco real', async () => {
     process.env.DATABASE_PATH = arquivo;
     const schema = await import('../lib/database/schema');

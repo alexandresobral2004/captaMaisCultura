@@ -9,7 +9,9 @@
 import * as schema from './schema';
 import { criarFTS, criarTabelas, migrarSchema } from './ddl';
 import { drizzle as drizzleSQLite } from 'drizzle-orm/better-sqlite3';
+import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js';
 import BetterSQLite from 'better-sqlite3';
+import postgres from 'postgres';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 
@@ -49,11 +51,11 @@ function criarConexaoSQLite() {
   };
 }
 
-async function criarConexaoPostgres() {
-  const { drizzle } = await import('drizzle-orm/postgres-js');
-  const postgres = (await import('postgres')).default;
-  const client = postgres(DATABASE_URL, { ssl: 'require' });
-  const _db = drizzle(client, { schema });
+// postgres() não abre conexão até a primeira query, então a criação pode ser síncrona e lazy
+function criarConexaoPostgres() {
+  const isLocalhost = DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1');
+  const client = postgres(DATABASE_URL, { ssl: isLocalhost ? false : 'require' });
+  const _db = drizzlePg(client, { schema });
   return {
     db: _db as any,
     getRawDb: () => client as any,
@@ -63,29 +65,20 @@ async function criarConexaoPostgres() {
   };
 }
 
-// Conexão lazy para Postgres (aguarda resolução da Promise)
+// Conexão criada no primeiro uso
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _conn: any = null;
 
 function getConn() {
   if (!_conn) {
-    if (DATABASE_URL.startsWith('postgres')) {
-      // Em produção: lança erro se tentar usar antes de init()
-      throw new Error('Banco Postgres ainda não inicializado. Aguarde init().');
-    }
-    _conn = criarConexaoSQLite();
+    _conn = DATABASE_URL.startsWith('postgres') ? criarConexaoPostgres() : criarConexaoSQLite();
   }
   return _conn;
 }
 
-// Inicialização assíncrona para Postgres
+// Mantida por compatibilidade (testes); a conexão já é criada sob demanda por getConn()
 export async function initDb() {
-  if (!_conn) {
-    _conn = DATABASE_URL.startsWith('postgres')
-      ? await criarConexaoPostgres()
-      : criarConexaoSQLite();
-  }
-  return _conn;
+  return getConn();
 }
 
 // Inicializa imediatamente para SQLite (síncrono)

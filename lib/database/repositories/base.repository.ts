@@ -41,7 +41,7 @@ export class BaseRepository {
         .limit(limit)
         .offset(offset),
       this.database
-        .select({ count: sql<number>`count(*)` })
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
         .from(table as any)
         .where(conditions.length ? and(...conditions) : undefined),
     ]);

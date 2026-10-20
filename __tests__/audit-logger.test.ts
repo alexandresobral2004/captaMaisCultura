@@ -11,7 +11,7 @@
  * Todos os testes são determinísticos.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { setupTestDbMock, clearAllTables } from './setup';
+import { setupTestDbMock, clearAllTables, rawQuery } from './setup';
 import type { BlacklistResult } from '../lib/scraper/filtros/blacklist-engine';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -45,10 +45,10 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       'edital-043', 'edital-050', 'edital-060', 'edital-061'
     ];
     for (const id of ids) {
-      mock.rawDb.prepare(`
+      await rawQuery(mock.rawDb, `
         INSERT INTO editais (id, titulo, orgao, data_limite, link)
         VALUES (?, 'Título de Teste', 'Órgão de Teste', '2026-12-31', 'https://example.com')
-      `).run(id);
+      `, [id]);
     }
 
     // Importar dinamicamente para carregar com a db mockada pelo setup
@@ -69,8 +69,8 @@ describe('AuditLogger Integration Tests with SQLite', () => {
   });
 
   // Retorna os motivos inseridos mapeados com nomes de propriedades camelCase compatíveis com os assertions antigos
-  function getInsertedRows() {
-    const rows = mock.rawDb.prepare('SELECT * FROM motivos_pontuacao').all();
+  async function getInsertedRows(): Promise<any[]> {
+    const rows = await rawQuery(mock.rawDb, 'SELECT * FROM motivos_pontuacao ORDER BY id');
     return rows.map((r: any) => ({
       id: r.id,
       editalId: r.edital_id,
@@ -93,7 +93,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       expect(insertedRows).toHaveLength(1);
       const row = insertedRows[0];
       expect(row.editalId).toBe('edital-001');
@@ -109,7 +109,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.motivo).toContain('Whitelist:');
       expect(row.motivo).toContain("'Pesquisa & Academia'");
@@ -124,7 +124,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.motivo).toContain('+2 outros');
     });
@@ -137,7 +137,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       const detalhes = JSON.parse(row.detalhes);
       expect(detalhes.termosEncontrados).toContain('software');
@@ -169,7 +169,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       registrarMotivoBlacklist('edital-010', { resultado: blacklistResultadoZero });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       expect(insertedRows).toHaveLength(1);
       const row = insertedRows[0];
       expect(row.fonte).toBe('blacklist');
@@ -184,7 +184,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks(80);
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       // 2 termos + 1 motivo consolidado (recomendacao !== 'penalizar')
       expect(insertedRows.length).toBe(3);
 
@@ -201,7 +201,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       registrarMotivoBlacklist('edital-012', { resultado: blacklistResultadoAlto });
       await drainMicrotasks(80);
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const termoRow = insertedRows.find((r: any) => r.motivo.includes("saúde bucal"));
       expect(termoRow).toBeDefined();
       expect(termoRow.motivo).toContain('-25 pontos');
@@ -221,7 +221,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       registrarMotivoBlacklist('edital-013', { resultado: resultadoBaixo });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       // Apenas 1 motivo de termo, nenhum consolidado
       expect(insertedRows).toHaveLength(1);
       expect(insertedRows[0].motivo).toContain("termo 'dança'");
@@ -238,7 +238,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.fonte).toBe('ia');
       expect(row.motivo).toContain('OpenAI (gpt-4o-mini): válido');
@@ -255,7 +255,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.fonte).toBe('ia');
       expect(row.motivo).toContain('inválido');
@@ -266,7 +266,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       registrarMotivoIA('edital-022', false, { modelo: 'gpt-4o-mini' });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.motivo).toContain('fora do escopo de TI');
     });
@@ -279,7 +279,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       expect(insertedRows[0].scoreFinal).toBe(75);
     });
   });
@@ -305,7 +305,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
         });
         await drainMicrotasks();
 
-        const insertedRows = getInsertedRows();
+        const insertedRows = await getInsertedRows();
         const row = insertedRows[0];
         expect(row.fonte).toBe('fallback');
         expect(row.motivo).toContain(palavraChave);
@@ -317,7 +317,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
         expect(detalhes.mensagem).toContain(erroTipo);
 
         // Limpar tabela entre as iterações do loop
-        mock.rawDb.prepare('DELETE FROM motivos_pontuacao').run();
+        await rawQuery(mock.rawDb, 'DELETE FROM motivos_pontuacao');
       });
     }
   });
@@ -331,7 +331,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.fonte).toBe('decisao');
       expect(row.scoreFinal).toBe(82);
@@ -349,7 +349,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.motivo).toContain('rejeitado');
       expect(row.motivo).toContain('blacklist recomendou bloqueio');
@@ -363,7 +363,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.motivo).toContain('duvida');
       expect(row.motivo).not.toContain('score undefined');
@@ -378,7 +378,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       });
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const detalhes = JSON.parse(insertedRows[0].detalhes);
       expect(detalhes.decisao).toBe('aprovado');
       expect(detalhes.fontes).toContain('whitelist');
@@ -391,7 +391,7 @@ describe('AuditLogger Integration Tests with SQLite', () => {
       registrarConflito('edital-050', 'alta', 'media', 45);
       await drainMicrotasks();
 
-      const insertedRows = getInsertedRows();
+      const insertedRows = await getInsertedRows();
       const row = insertedRows[0];
       expect(row.fonte).toBe('decisao');
       expect(row.scoreFinal).toBe(45);
