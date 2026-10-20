@@ -1,4 +1,0 @@
-# Configuração de deploy do serviço captaMaisCultura no Railway
-[deploy]
-# Cria/atualiza as tabelas do Postgres antes de cada versão subir; se falhar, o deploy é abortado
-preDeployCommand = "npm run db:migrate"

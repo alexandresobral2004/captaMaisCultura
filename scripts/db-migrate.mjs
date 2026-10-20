@@ -3,7 +3,7 @@
  *
  * Uso:
  *   DATABASE_URL=postgres://... node scripts/db-migrate.mjs
- *   (ou npm run db:migrate; no Railway roda como pre-deploy, ver railway.toml)
+ *   (ou npm run db:migrate; no Railway roda como Pre-deploy Command, configurado no serviço)
  *   Em JavaScript puro para não depender do tsx (devDependency) na imagem de produção.
  *
  * Idempotente: o drizzle registra o que já rodou em drizzle.__drizzle_migrations e só aplica
