@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +14,12 @@ import {
   DollarSign,
   Clock,
   Star,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatarDataBr } from '@/lib/utils/formatar-data';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface EditalCientifico {
   id: string;
@@ -51,18 +53,18 @@ export default function EditaisCientificosPage() {
   const [areaFilter, setAreaFilter] = useState<string>('todas');
 
   const [erro, setErro] = useState<string | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [confirmarLote, setConfirmarLote] = useState(false);
+  const [excluindoLote, setExcluindoLote] = useState(false);
 
-  useEffect(() => {
-    let cancelado = false;
-
-    async function carregar() {
+  const carregar = useCallback(async (cancelado: () => boolean = () => false) => {
       try {
         const res = await fetch('/api/v1/editais?categoriaArea=Pesquisa&limit=100');
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.error?.message || 'Erro ao carregar editais');
 
         const itens: any[] = json.data ?? [];
-        if (cancelado) return;
+        if (cancelado()) return;
 
         setEditais(
           itens.map((e) => ({
@@ -77,17 +79,19 @@ export default function EditaisCientificosPage() {
           }))
         );
       } catch (e: any) {
-        if (!cancelado) setErro(e.message || 'Erro ao carregar editais');
+        if (!cancelado()) setErro(e.message || 'Erro ao carregar editais');
       } finally {
-        if (!cancelado) setLoading(false);
+        if (!cancelado()) setLoading(false);
       }
-    }
+  }, []);
 
-    carregar();
+  useEffect(() => {
+    let cancelado = false;
+    carregar(() => cancelado);
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [carregar]);
 
   const formatDate = (dateString: string) => {
     return formatarDataBr(dateString);
@@ -110,6 +114,51 @@ export default function EditaisCientificosPage() {
       edital.areasTematicas.includes('Todas as áreas');
     return matchesSearch && matchesArea;
   });
+
+  // Só conta a seleção do que está visível com os filtros atuais
+  const idsVisiveis = filteredEditais.map((e) => e.id);
+  const selecionadosVisiveis = idsVisiveis.filter((id) => selecionados.has(id));
+  const todosVisiveisSelecionados = idsVisiveis.length > 0 && selecionadosVisiveis.length === idsVisiveis.length;
+
+  const alternarTodos = () => {
+    setSelecionados(todosVisiveisSelecionados ? new Set() : new Set(idsVisiveis));
+  };
+
+  const alternarSelecao = (id: string) => {
+    setSelecionados((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  };
+
+  // Exclui todos os selecionados de uma vez
+  const confirmarExclusaoLote = async () => {
+    const ids = selecionadosVisiveis;
+    if (ids.length === 0) return;
+    setExcluindoLote(true);
+    try {
+      const res = await fetch('/api/v1/editais', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErro(data.error?.message || 'Erro ao excluir os editais selecionados.');
+        return;
+      }
+      const falhas: { id: string }[] = data.data?.falhas ?? [];
+      setErro(falhas.length > 0 ? `${falhas.length} edital(is) não puderam ser excluídos.` : null);
+      setSelecionados(new Set(falhas.map((f) => f.id)));
+      await carregar();
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao excluir os editais selecionados.');
+    } finally {
+      setExcluindoLote(false);
+      setConfirmarLote(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -211,6 +260,30 @@ export default function EditaisCientificosPage() {
           </Card>
         ) : (
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={todosVisiveisSelecionados}
+                  ref={(el) => { if (el) el.indeterminate = selecionadosVisiveis.length > 0 && !todosVisiveisSelecionados; }}
+                  onChange={alternarTodos}
+                  aria-label="Selecionar todos os editais da lista"
+                />
+                {selecionadosVisiveis.length > 0
+                  ? `${selecionadosVisiveis.length} de ${idsVisiveis.length} selecionados`
+                  : `Selecionar todos (${idsVisiveis.length})`}
+              </label>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selecionadosVisiveis.length === 0 || excluindoLote}
+                onClick={() => setConfirmarLote(true)}
+                className="gap-2 text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+                Excluir selecionados
+              </Button>
+            </div>
             {filteredEditais.map((edital) => {
               const diasRestantes = getDiasRestantes(edital.dataLimite);
               return (
@@ -219,6 +292,12 @@ export default function EditaisCientificosPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={selecionados.has(edital.id)}
+                            onChange={() => alternarSelecao(edital.id)}
+                            aria-label={`Selecionar "${edital.titulo}"`}
+                          />
                           {edital.destaque && (
                             <Badge variant="warning">
                               <Star className="h-3 w-3 mr-1" />
@@ -283,6 +362,16 @@ export default function EditaisCientificosPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        aberto={confirmarLote}
+        titulo="Excluir editais selecionados"
+        mensagem={`Excluir ${selecionadosVisiveis.length} edital(is)? Os PDFs serão removidos. Os já vencidos não voltam mais; os demais podem voltar numa busca futura se reaparecerem num portal.`}
+        textoConfirmar={`Excluir ${selecionadosVisiveis.length}`}
+        perigoso
+        carregando={excluindoLote}
+        onConfirmar={confirmarExclusaoLote}
+        onCancelar={() => setConfirmarLote(false)}
+      />
     </MainLayout>
   );
 }
