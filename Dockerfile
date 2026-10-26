@@ -19,5 +19,6 @@ RUN apt-get update \
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app ./
-# O Railway injeta PORT; localmente cai na 8080
-CMD ["sh", "-c", "npm run start -- -p ${PORT:-8080}"]
+# SERVICE_ROLE=worker roda o worker de varreduras; qualquer outro valor (ou nada) roda o web.
+# O Railway injeta PORT; localmente cai na 8080.
+CMD ["sh", "-c", "if [ \"$SERVICE_ROLE\" = \"worker\" ]; then exec npx tsx scripts/worker.ts; else npm run start -- -p ${PORT:-8080}; fi"]
