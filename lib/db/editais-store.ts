@@ -2,7 +2,7 @@ import { TecnologiaFoco, TipoFerramenta } from '../filtros-ti';
 import { EditalRepository, CreateEditalDTO } from '../database/repositories/edital.repository';
 import { AnaliseRepository, CreateAnaliseDTO } from '../database/repositories/analise.repository';
 import { db } from '../database/db';
-import { eq, or, gte, and, sql } from 'drizzle-orm';
+import { eq, or, gte, and, isNull } from 'drizzle-orm';
 import { editais as editaisTable } from '../database/schema';
 import { classificarAbrangencia } from '../triagem/regiao';
 
@@ -342,32 +342,19 @@ const analiseRepo = new AnaliseRepository();
 
 export async function getAllEditais(incluirFechados = false, categoriaArea?: string): Promise<Edital[]> {
   try {
-    // Valores sempre parametrizados pelo template `sql` (nunca interpolados na string)
-    const conditions = [sql`deleted_at IS NULL`];
+    // Um único where com todas as condições: cada .where() encadeado substitui o anterior
+    const condicoes = [isNull(editaisTable.deletedAt)];
 
     if (!incluirFechados) {
       const agora = new Date().toISOString();
-      conditions.push(sql`(data_limite IS NULL OR data_limite >= ${agora})`);
+      condicoes.push(or(isNull(editaisTable.dataLimite), gte(editaisTable.dataLimite, agora))!);
     }
 
     if (categoriaArea) {
-      conditions.push(sql`categoria_area = ${categoriaArea}`);
+      condicoes.push(eq(editaisTable.categoriaArea, categoriaArea));
     }
 
-    // Usa Drizzle select para compatibilidade com SQLite (testes) e Postgres
-    const { isNull: drizzleIsNull, lte, isNotNull } = await import('drizzle-orm');
-    let q = db.select().from(editaisTable).where(drizzleIsNull(editaisTable.deletedAt));
-
-    // Re-aplica filtros que o sql raw faria
-    if (!incluirFechados) {
-      const agora = new Date().toISOString();
-      q = (q as any).where(and(drizzleIsNull(editaisTable.deletedAt), or(drizzleIsNull(editaisTable.dataLimite), (lte as any)(editaisTable.dataLimite, agora))));
-    }
-    if (categoriaArea) {
-      q = (q as any).where(and(drizzleIsNull(editaisTable.deletedAt), eq(editaisTable.categoriaArea, categoriaArea)));
-    }
-
-    const rows = await q as any[];
+    const rows = await db.select().from(editaisTable).where(and(...condicoes)) as any[];
 
     // Buscar analises em paralelo
     const editalIds = rows.map(r => r.id);
