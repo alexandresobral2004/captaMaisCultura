@@ -40,7 +40,7 @@ export class EditalUploadService {
     console.log(`   - Tamanho do buffer: ${options.pdfBuffer.length} bytes`);
 
     const id = this.gerarId();
-    const titulo = options.titulo || this.extrairTituloDoNome(options.nomeOriginal);
+    let titulo = options.titulo || this.extrairTituloDoNome(options.nomeOriginal);
     const orgao = options.orgao || 'Upload Manual';
 
     console.log(`   - ID gerado: ${id}`);
@@ -81,6 +81,12 @@ export class EditalUploadService {
       }
     } else {
       console.warn(`   ⚠️ Pulando extração de texto pois pdfPath está vazio`);
+    }
+
+    // Sem título informado, usa o do próprio PDF (o nome do arquivo costuma ser um código)
+    if (!options.titulo && textoExtraido) {
+      titulo = this.extrairTituloDoTexto(textoExtraido) || titulo;
+      console.log(`   - Título extraído do PDF: ${titulo}`);
     }
 
     let validacaoIA = {
@@ -347,6 +353,20 @@ export class EditalUploadService {
     titulo = titulo.replace(/\s+/g, ' ').trim();
 
     return titulo || 'Edital sem título';
+  }
+
+  /**
+   * Título a partir do texto do PDF: as primeiras linhas (o título costuma quebrar em duas ou três),
+   * com espaços normalizados e limite de 200 caracteres.
+   */
+  private extrairTituloDoTexto(texto: string): string {
+    const linhas = texto
+      .split(/\r?\n/)
+      .map((linha) => linha.trim())
+      .filter((linha) => linha.length > 0)
+      .slice(0, 3);
+
+    return linhas.join(' ').replace(/\s+/g, ' ').trim().substring(0, 200);
   }
 
   private async extrairTextoDePdf(buffer: Buffer): Promise<string> {

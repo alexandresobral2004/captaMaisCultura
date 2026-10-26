@@ -6,6 +6,7 @@ export interface Edital {
   dataLimite: string;
   status: string;
   descricao: string;
+  conteudoCompleto?: string;
   link: string;
   codigo?: string;
   criadoEm?: string;

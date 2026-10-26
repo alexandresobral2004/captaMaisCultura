@@ -34,4 +34,22 @@ describe('filtrarEOrdenarEditais', () => {
     const r = filtrarEOrdenarEditais(lista, { ...FILTROS_INICIAIS, busca: 'teatro' });
     expect(r.map(e => e.id)).toEqual(['1']);
   });
+
+  it('busca ignora acentos e maiúsculas', () => {
+    const comAcento = [ed({ id: 'a', titulo: 'Auxílio à Promoção de Eventos', criadoEm: '2026-01-01' })];
+    const r = filtrarEOrdenarEditais(comAcento, { ...FILTROS_INICIAIS, busca: 'auxilio a promocao' });
+    expect(r.map(e => e.id)).toEqual(['a']);
+  });
+
+  it('busca tolera quebra de linha do PDF no meio da frase', () => {
+    const quebrado = [ed({ id: 'q', titulo: 'Chamada ARC 34 2026', conteudoCompleto: 'Eventos Científicos, Tecnológicos e/ou\nde Inovação - ARC' })];
+    const r = filtrarEOrdenarEditais(quebrado, { ...FILTROS_INICIAIS, busca: 'tecnologicos e/ou de inovacao' });
+    expect(r.map(e => e.id)).toEqual(['q']);
+  });
+
+  it('busca encontra termo que só existe no texto completo do PDF', () => {
+    const so = [ed({ id: 's', titulo: 'Chamada ARC 34 2026', descricao: 'início', conteudoCompleto: 'ao final do texto aparece Promoção de Eventos' })];
+    const r = filtrarEOrdenarEditais(so, { ...FILTROS_INICIAIS, busca: 'promocao de eventos' });
+    expect(r.map(e => e.id)).toEqual(['s']);
+  });
 });

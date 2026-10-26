@@ -23,15 +23,28 @@ export const FILTROS_INICIAIS: FiltrosEditais = {
   ordenacao: 'recentes',
 };
 
+/** Normaliza texto para comparação: sem acentos, minúsculo e com espaços colapsados. */
+export function normalizarBusca(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Aplica os filtros da tela e ordena por data (criação ou limite). */
 export function filtrarEOrdenarEditais(editais: Edital[], filtros: FiltrosEditais): Edital[] {
 return editais.filter(edital => {
   if (edital.statusAnalise === 'descartado') return false; // Esconde os descartados
 
-  const matchSearch = 
-    edital.titulo.toLowerCase().includes(filtros.busca.toLowerCase()) ||
-    edital.orgao.toLowerCase().includes(filtros.busca.toLowerCase()) ||
-    edital.descricao.toLowerCase().includes(filtros.busca.toLowerCase());
+  // Busca ignora maiúsculas, acentos e quebras de linha do PDF; cobre o texto completo, não só a descrição
+  const termo = normalizarBusca(filtros.busca);
+  const matchSearch = !termo ||
+    normalizarBusca(edital.titulo).includes(termo) ||
+    normalizarBusca(edital.orgao).includes(termo) ||
+    normalizarBusca(edital.descricao).includes(termo) ||
+    normalizarBusca(edital.conteudoCompleto ?? '').includes(termo);
     
   // Áreas do IA se existirem, senão fallback simples
   const matchArea = filtros.areas.length === 0 || filtros.areas.some(area => {
