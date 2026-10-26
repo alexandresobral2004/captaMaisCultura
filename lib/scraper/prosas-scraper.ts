@@ -1,60 +1,54 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import fs from 'fs';
-import path from 'path';
+import { lerConfiguracao, gravarConfiguracao } from '../config/configuracoes';
 import { Edital, parseDateString, isEditalExcluido } from '../db/editais-store';
 import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
-const SESSION_FILE = path.join(process.cwd(), 'data', 'prosas-session.json');
+// Sessão guardada no banco (tabela configuracoes), não em arquivo: o arquivo some a cada deploy
+const CHAVE_SESSAO = 'prosas.sessao';
 
 /**
  * Carrega a sessão salva, se existir e não estiver expirada.
  * Sessões expiram após 8 horas.
  */
-function carregarSessaoSalva(): string[] | null {
-  if (fs.existsSync(SESSION_FILE)) {
-    try {
-      const data = fs.readFileSync(SESSION_FILE, 'utf8');
-      const session = JSON.parse(data);
-      
-      // Validar timestamp da sessão
-      if (session && session.dataGeracao) {
-        const agora = Date.now();
-        const dataSessao = new Date(session.dataGeracao).getTime();
-        const idadeMinutos = (agora - dataSessao) / 1000 / 60;
-        const expiracaoMinutos = 8 * 60; // 8 horas
-        
-        console.log(`📋 [PROSAS] Sessão tem ${idadeMinutos.toFixed(1)} minutos (expira em ${expiracaoMinutos} min)`);
-        
-        if (idadeMinutos > expiracaoMinutos) {
-          console.warn(`⚠️ [PROSAS] Sessão expirada! Deletando arquivo obsoleto...`);
-          fs.unlinkSync(SESSION_FILE);
-          return null;
-        }
+async function carregarSessaoSalva(): Promise<string[] | null> {
+  try {
+    const session = await lerConfiguracao<any>(CHAVE_SESSAO);
+    if (!session) return null;
+
+    // Validar timestamp da sessão
+    if (session.dataGeracao) {
+      const agora = Date.now();
+      const dataSessao = new Date(session.dataGeracao).getTime();
+      const idadeMinutos = (agora - dataSessao) / 1000 / 60;
+      const expiracaoMinutos = 8 * 60; // 8 horas
+
+      console.log(`📋 [PROSAS] Sessão tem ${idadeMinutos.toFixed(1)} minutos (expira em ${expiracaoMinutos} min)`);
+
+      if (idadeMinutos > expiracaoMinutos) {
+        console.warn(`⚠️ [PROSAS] Sessão expirada! Removendo sessão obsoleta...`);
+        await gravarConfiguracao(CHAVE_SESSAO, null);
+        return null;
       }
-      
-      if (session && session.cookies && Array.isArray(session.cookies)) {
-        console.log(`✅ [PROSAS] Sessão válida carregada (${session.cookies.length} cookies)`);
-        return session.cookies;
-      }
-    } catch (e) {
-      console.error('Erro ao ler sessão Prosas:', e);
     }
+
+    if (session.cookies && Array.isArray(session.cookies)) {
+      console.log(`✅ [PROSAS] Sessão válida carregada (${session.cookies.length} cookies)`);
+      return session.cookies;
+    }
+  } catch (e) {
+    console.error('Erro ao ler sessão Prosas:', e);
   }
   return null;
 }
 
 /**
- * Salva a sessão no disco para reutilização.
+ * Salva a sessão no banco para reutilização.
  */
-function salvarSessao(cookies: string[]) {
-  const dataDir = path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  fs.writeFileSync(SESSION_FILE, JSON.stringify({ cookies, dataGeracao: new Date().toISOString() }, null, 2), 'utf8');
+async function salvarSessao(cookies: string[]): Promise<void> {
+  await gravarConfiguracao(CHAVE_SESSAO, { cookies, dataGeracao: new Date().toISOString() });
 }
 
 /**
@@ -107,7 +101,7 @@ async function realizarLoginProsas(): Promise<string[]> {
       cookies = [...cookies, ...newCookies];
     }
     
-    salvarSessao(cookies);
+    await salvarSessao(cookies);
     console.log('✅ [PROSAS] Login realizado com sucesso. Sessão armazenada.');
     return cookies;
 
@@ -119,7 +113,7 @@ async function realizarLoginProsas(): Promise<string[]> {
        if (newCookies) {
          cookies = [...cookies, ...newCookies];
        }
-       salvarSessao(cookies);
+       await salvarSessao(cookies);
        console.log('✅ [PROSAS] Login realizado com sucesso (Redirect detectado). Sessão armazenada.');
        return cookies;
     }
@@ -148,7 +142,7 @@ async function realizarLoginProsas(): Promise<string[]> {
 export async function buscarEditaisProsas(): Promise<Edital[]> {
   // A busca usa a API pública (OAuth2 client credentials); o login por formulário é opcional.
   const temCredenciais = Boolean(process.env.PROSAS_EMAIL && process.env.PROSAS_PASSWORD);
-  let cookies = carregarSessaoSalva();
+  let cookies = await carregarSessaoSalva();
 
   if (!cookies && temCredenciais) {
     cookies = await realizarLoginProsas();

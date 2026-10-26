@@ -5,6 +5,8 @@ const nextConfig = {
   // do webpack. O route run-weekly-scan importa uma cadeia pesada que corrompe
   // o vendor-chunks/next.js compartilhado quando bundlada pelo webpack.
   experimental: {
+    // Habilita instrumentation.ts (carrega os filtros do banco no start do servidor)
+    instrumentationHook: true,
     serverComponentsExternalPackages: [
       'better-sqlite3',
       'drizzle-orm',

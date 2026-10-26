@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { z } from 'zod';
-import { loadWhitelist, clearLoadersCache } from '@/lib/scraper/filtros/loaders';
+import { loadWhitelist, clearLoadersCache, gravarFiltro } from '@/lib/scraper/filtros/loaders';
 import { WhitelistSchema } from '@/lib/scraper/filtros/types';
-
-const WHITELIST_PATH = path.join(process.cwd(), 'data', 'filtros', 'whitelist-ti.json');
 
 const CategoriaEnum = z.enum(['tecnologia', 'contexto_institucional', 'contexto_geral']);
 
@@ -14,8 +10,9 @@ const BodySchema = z.object({
   termo: z.string().min(1, 'Termo não pode ser vazio').max(200),
 });
 
-function salvarWhitelist(data: object): void {
-  fs.writeFileSync(WHITELIST_PATH, JSON.stringify(data, null, 2), 'utf-8');
+// Grava no banco (configuracoes), não em arquivo: o arquivo some a cada deploy
+async function salvarWhitelist(data: object): Promise<void> {
+  await gravarFiltro('whitelist', data);
 }
 
 /** PUT — adiciona um termo a uma categoria */
@@ -58,7 +55,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Dados inválidos após modificação' }, { status: 500 });
     }
 
-    salvarWhitelist(novaWhitelist);
+    await salvarWhitelist(novaWhitelist);
     clearLoadersCache();
 
     return NextResponse.json({
@@ -110,7 +107,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Dados inválidos após remoção' }, { status: 500 });
     }
 
-    salvarWhitelist(novaWhitelist);
+    await salvarWhitelist(novaWhitelist);
     clearLoadersCache();
 
     return NextResponse.json({

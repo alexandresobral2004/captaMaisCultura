@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { z } from 'zod';
-import { loadBlacklist, clearLoadersCache } from '@/lib/scraper/filtros/loaders';
+import { loadBlacklist, clearLoadersCache, gravarFiltro } from '@/lib/scraper/filtros/loaders';
 import { BlacklistSchema } from '@/lib/scraper/filtros/types';
-
-const BLACKLIST_PATH = path.join(process.cwd(), 'data', 'filtros', 'blacklist-ti.json');
 
 const AddTermoSchema = z.object({
   tipo: z.literal('termo'),
@@ -32,8 +28,9 @@ const RemoveExcecaoSchema = z.object({
 const PutBodySchema = z.discriminatedUnion('tipo', [AddTermoSchema, AddExcecaoSchema]);
 const DeleteBodySchema = z.discriminatedUnion('tipo', [RemoveTermoSchema, RemoveExcecaoSchema]);
 
-function salvarBlacklist(data: object): void {
-  fs.writeFileSync(BLACKLIST_PATH, JSON.stringify(data, null, 2), 'utf-8');
+// Grava no banco (configuracoes), não em arquivo: o arquivo some a cada deploy
+async function salvarBlacklist(data: object): Promise<void> {
+  await gravarFiltro('blacklist', data);
 }
 
 /** PUT — adiciona um termo ou uma exceção */
@@ -72,7 +69,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: 'Dados inválidos após adição' }, { status: 500 });
       }
 
-      salvarBlacklist(novaBlacklist);
+      await salvarBlacklist(novaBlacklist);
       clearLoadersCache();
 
       return NextResponse.json({
@@ -114,7 +111,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Dados inválidos após adição de exceção' }, { status: 500 });
     }
 
-    salvarBlacklist(novaBlacklist);
+    await salvarBlacklist(novaBlacklist);
     clearLoadersCache();
 
     return NextResponse.json({
@@ -163,7 +160,7 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: 'Dados inválidos após remoção' }, { status: 500 });
       }
 
-      salvarBlacklist(novaBlacklist);
+      await salvarBlacklist(novaBlacklist);
       clearLoadersCache();
 
       return NextResponse.json({
@@ -206,7 +203,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Dados inválidos após remoção de exceção' }, { status: 500 });
     }
 
-    salvarBlacklist(novaBlacklist);
+    await salvarBlacklist(novaBlacklist);
     clearLoadersCache();
 
     return NextResponse.json({

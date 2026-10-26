@@ -273,6 +273,14 @@ Para dúvidas ou problemas:
 
 ---
 
+### 🎓 Guia de estudo (começe aqui para entender o código)
+
+| Documento | Descrição |
+|---|---|
+| [`10-guia-de-estudo.md`](10-guia-de-estudo.md) | Como o sistema funciona: ordem de leitura, conceitos (job, heartbeat, armazenamento, filtros, IA), variáveis de ambiente, pendências e checklist de armazenamento |
+
+---
+
 **Última atualização:** 04/06/2026
 **Versão do sistema:** CaptaMais v3.0
 **Mantido por:** Equipe Capta+

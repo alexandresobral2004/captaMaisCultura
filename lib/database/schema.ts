@@ -440,6 +440,13 @@ export const logsSistemaRelations = relations(logsSistema, ({ one }) => ({
 // ============================================================
 // TABELA JOBS
 // ============================================================
+// Configurações editáveis pela aplicação (filtros de TI, sessão do Prosas). Valor é JSON em texto.
+export const configuracoes = pgTable('configuracoes', {
+  chave: text('chave').primaryKey(),
+  valor: text('valor').notNull(),
+  atualizadoEm: text('atualizado_em').notNull(),
+});
+
 export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
   status: text('status').notNull().default('PENDENTE'),

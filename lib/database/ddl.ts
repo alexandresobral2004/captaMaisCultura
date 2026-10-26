@@ -278,6 +278,14 @@ export function criarTabelas(sqlite: Database.Database) {
   `);
 
     sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS configuracoes (
+      chave TEXT PRIMARY KEY,
+      valor TEXT NOT NULL,
+      atualizado_em TEXT NOT NULL
+    );
+    `);
+
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS jobs (
       id TEXT PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'PENDENTE',

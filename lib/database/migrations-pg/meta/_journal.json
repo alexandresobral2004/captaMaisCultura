@@ -15,6 +15,13 @@
       "when": 1792981363480,
       "tag": "0001_jobs_heartbeat_um_rodando",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792983303800,
+      "tag": "0002_configuracoes",
+      "breakpoints": true
     }
   ]
 }
