@@ -135,12 +135,8 @@ export class EditalService {
     const edital = await this.editalRepo.findById(id);
     if (!edital) return null;
 
-    return {
-      ...edital,
-      pdfFullPath: edital.pdfPath
-        ? require('path').join(process.cwd(), 'data', edital.pdfPath)
-        : null,
-    };
+    // Não expõe caminho do disco: o PDF é acessado pela chave (pdfPath) via FileService
+    return { ...edital };
   }
 
   async listarEditaisComPdf() {

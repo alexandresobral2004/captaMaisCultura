@@ -1,25 +1,14 @@
-import fs from 'fs/promises';
-import path from 'path';
 import crypto from 'crypto';
+import path from 'path';
+import { obterArmazenamento, validarChave } from '../../storage/armazenamento';
 
-const BASE_PATH = path.join(process.cwd(), 'data', 'downloads');
+const PASTA_DOWNLOADS = 'downloads';
 
 export class FileService {
   /**
-   * Resolve e valida se o caminho relativo está estritamente dentro da pasta 'data'
-   * para prevenir ataques de Directory Traversal (ex: ../../etc/passwd)
+   * Chaves são relativas ao armazenamento (ex.: "downloads/edital-123.pdf").
+   * O driver (disco local ou bucket) é escolhido em lib/storage/armazenamento.ts.
    */
-  private validarCaminho(relativePath: string): string {
-    const basePath = path.resolve(process.cwd(), 'data');
-    const fullPath = path.resolve(basePath, relativePath);
-
-    if (fullPath !== basePath && !fullPath.startsWith(basePath + path.sep)) {
-      throw new Error('Acesso negado: Tentativa de Directory Traversal detectada.');
-    }
-
-    return fullPath;
-  }
-
   async salvarPDF(buffer: Buffer, editalId: string, originalName: string): Promise<string> {
     // Garantir extensão PDF para evitar arquivos maliciosos executáveis
     const ext = path.extname(originalName) || '.pdf';
@@ -27,18 +16,9 @@ export class FileService {
       throw new Error('Apenas arquivos PDF são permitidos.');
     }
 
-    const fileName = `edital-${editalId}${ext}`;
-    const filePath = this.validarCaminho(`downloads/${fileName}`);
-
-    // Garantir que o diretorio existe
-    const dir = path.dirname(filePath);
-    await fs.mkdir(dir, { recursive: true });
-
-    // Salvar arquivo
-    await fs.writeFile(filePath, buffer);
-
-    // Retornar caminho relativo
-    return `downloads/${fileName}`;
+    const chave = `${PASTA_DOWNLOADS}/edital-${editalId}${ext}`;
+    await obterArmazenamento().salvar(chave, buffer);
+    return chave;
   }
 
   async salvarPDFFromUrl(url: string, editalId: string): Promise<string> {
@@ -53,44 +33,38 @@ export class FileService {
     return this.salvarPDF(buffer, editalId, `edital-${editalId}.pdf`);
   }
 
-  async deletarArquivo(relativePath: string): Promise<void> {
-    const fullPath = this.validarCaminho(relativePath);
-
+  async deletarArquivo(chave: string): Promise<void> {
+    // Validação fora do try: traversal deve falhar, não ser engolido como "arquivo não encontrado"
+    validarChave(chave);
+    const armazenamento = obterArmazenamento();
     try {
-      await fs.unlink(fullPath);
+      await armazenamento.remover(chave);
     } catch (error: any) {
-      if (error.code !== 'ENOENT') {
-        console.error(`Erro ao deletar arquivo: ${error.message}`);
-      }
+      console.error(`Erro ao deletar arquivo: ${error.message}`);
     }
 
     // Tentar deletar arquivo de conteudo tambem
-    const txtPath = fullPath.replace('.pdf', '-conteudo.txt');
     try {
-      await fs.unlink(txtPath);
+      await armazenamento.remover(chave.replace('.pdf', '-conteudo.txt'));
     } catch {
       // Ignorar se nao existe
     }
   }
 
-  async arquivoExiste(relativePath: string): Promise<boolean> {
+  async arquivoExiste(chave: string): Promise<boolean> {
     try {
-      const fullPath = this.validarCaminho(relativePath);
-      await fs.access(fullPath);
-      return true;
+      return await obterArmazenamento().existe(chave);
     } catch {
       return false;
     }
   }
 
-  async lerArquivo(relativePath: string): Promise<Buffer> {
-    const fullPath = this.validarCaminho(relativePath);
-    return fs.readFile(fullPath);
+  async lerArquivo(chave: string): Promise<Buffer> {
+    return obterArmazenamento().ler(chave);
   }
 
-  async calcularHash(filePath: string): Promise<string> {
-    const fullPath = this.validarCaminho(filePath);
-    const buffer = await fs.readFile(fullPath);
+  async calcularHash(chave: string): Promise<string> {
+    const buffer = await obterArmazenamento().ler(chave);
     return crypto.createHash('sha256').update(buffer).digest('hex');
   }
 
@@ -98,11 +72,8 @@ export class FileService {
     const { EditalRepository } = await import('../repositories/edital.repository');
     const editalRepo = new EditalRepository();
 
-    // Garantir que a pasta downloads existe antes de listar
-    await fs.mkdir(BASE_PATH, { recursive: true });
-
-    const arquivos = await fs.readdir(BASE_PATH);
-    const pdfFiles = arquivos.filter((f) => f.endsWith('.pdf'));
+    const armazenados = await obterArmazenamento().listar(`${PASTA_DOWNLOADS}/`);
+    const pdfFiles = armazenados.filter((k) => k.endsWith('.pdf'));
 
     const editaisComPdf = await editalRepo.findWithPdf();
 
@@ -110,10 +81,11 @@ export class FileService {
     const faltando: string[] = [];
 
     // Verificar orfoes (arquivo existe mas nao no banco)
-    for (const arquivo of pdfFiles) {
-      const existe = editaisComPdf.some((e: any) => e.pdfPath && e.pdfPath.includes(arquivo));
+    for (const chave of pdfFiles) {
+      const nome = chave.split('/').pop()!;
+      const existe = editaisComPdf.some((e: any) => e.pdfPath && e.pdfPath.includes(nome));
       if (!existe) {
-        orfaos.push(arquivo);
+        orfaos.push(nome);
       }
     }
 

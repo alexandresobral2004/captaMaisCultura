@@ -55,16 +55,10 @@ export class EditalUploadService {
       pdfPath = await this.fileService.salvarPDF(options.pdfBuffer, id, options.nomeOriginal);
       console.log(`   ✅ PDF salvo em: ${pdfPath}`);
 
-      // Verificar se arquivo existe fisicamente
-      const fs = require('fs');
-      const path = require('path');
-      const fullPath = path.join(process.cwd(), 'data', pdfPath);
-      console.log(`   📍 Caminho completo: ${fullPath}`);
-      console.log(`   📏 Arquivo existe: ${fs.existsSync(fullPath)}`);
-      if (fs.existsSync(fullPath)) {
-        const stats = fs.statSync(fullPath);
-        console.log(`   📊 Tamanho do arquivo: ${stats.size} bytes`);
-      }
+      // Verificar se o arquivo foi gravado no armazenamento
+      const existe = await this.fileService.arquivoExiste(pdfPath);
+      console.log(`   📍 Chave: ${pdfPath}`);
+      console.log(`   📏 Arquivo existe: ${existe}`);
     } catch (error: any) {
       console.error(`   ❌ Erro ao salvar PDF: ${error.message}`);
       erros.push(`Erro ao salvar PDF: ${error.message}`);
@@ -75,10 +69,7 @@ export class EditalUploadService {
     if (pdfPath) {
       console.log(`\n🔤 [UPLOAD] Passo 2: Extraindo texto do PDF...`);
       try {
-        const fs = require('fs');
-        const path = require('path');
-        const fullPath = path.join(process.cwd(), 'data', pdfPath);
-        const buffer = fs.readFileSync(fullPath);
+        const buffer = await this.fileService.lerArquivo(pdfPath);
         console.log(`   📋 Buffer lido: ${buffer.length} bytes`);
 
         textoExtraido = await this.extrairTextoDePdf(buffer);
@@ -300,16 +291,13 @@ export class EditalUploadService {
         throw new Error('Caminho do PDF não encontrado para este edital');
       }
 
-      const path = require('path');
-      const fs = require('fs');
-      const fullPath = path.join(process.cwd(), 'data', relativePath);
-      console.log(`   📍 Caminho do PDF: ${fullPath}`);
+      console.log(`   📍 Chave do PDF: ${relativePath}`);
 
-      if (!fs.existsSync(fullPath)) {
-        throw new Error(`Arquivo PDF não encontrado fisicamente: ${fullPath}`);
+      if (!(await this.fileService.arquivoExiste(relativePath))) {
+        throw new Error(`Arquivo PDF não encontrado no armazenamento: ${relativePath}`);
       }
 
-      const buffer = fs.readFileSync(fullPath);
+      const buffer = await this.fileService.lerArquivo(relativePath);
       const textoExtraido = await this.extrairTextoDePdf(buffer);
 
       if (!textoExtraido || textoExtraido.length < 100) {

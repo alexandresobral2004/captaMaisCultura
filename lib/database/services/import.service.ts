@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { EditalService } from './edital.service';
 import { CreateEditalDTO } from '../repositories/edital.repository';
+import { obterArmazenamento } from '../../storage/armazenamento';
 
 const DOWNLOADS_DIR = path.join(process.cwd(), 'data', 'downloads');
 
@@ -83,10 +84,7 @@ export class ImportService {
     const hash = crypto.createHash('sha256').update(buffer).digest('hex');
 
     const pdfPath = `downloads/edital-${editalId}.pdf`;
-    const fullPath = path.join(process.cwd(), 'data', pdfPath);
-
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, buffer);
+    await obterArmazenamento().salvar(pdfPath, buffer);
 
     return { pdfPath, hash, tamanho: buffer.length };
   }
@@ -95,9 +93,8 @@ export class ImportService {
     const edital = await this.editalService.buscarPorId(id);
 
     if (edital?.pdfPath) {
-      const fullPath = path.join(process.cwd(), 'data', edital.pdfPath);
       try {
-        await fs.unlink(fullPath);
+        await obterArmazenamento().remover(edital.pdfPath);
       } catch {
         // Ignorar se nao existe
       }

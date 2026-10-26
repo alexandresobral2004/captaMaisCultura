@@ -1,6 +1,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import * as cheerio from 'cheerio';
 import { extrairUrlPDF, validarURLPDF, resolverURLPDF } from './pdf-extractor';
 import { extrairTextoLlamaParse } from './llamaparse-extractor';
@@ -9,7 +10,8 @@ import { registrarValidacao } from './keyword-logger';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 const pdfParse = require('pdf-parse');
 
-const DOWNLOAD_DIR = path.join(process.cwd(), 'data', 'downloads');
+// Pasta de trabalho temporária. A cópia definitiva do PDF vai para o armazenamento (preparar-edital.ts).
+const DOWNLOAD_DIR = process.env.VARREDURA_TEMP_DIR || path.join(os.tmpdir(), 'capta-varredura');
 
 // Interface para opções de download
 export interface OpcoesDownload {
@@ -217,7 +219,7 @@ async function validarERegistrarConteudo(
  * FLUXO:
  * 1. Tentar baixar PDF (S3 > Link > HTML)
  * 2. Extrair texto do PDF
- * 3. Armazenar PDF original em data/downloads/
+ * 3. Gravar PDF em pasta temporária (a persistência fica com preparar-edital)
  * 4. Retornar texto extraído para análise
  * 
  * ESTRATÉGIA 1: PDF pré-assinado do S3 (prioridade máxima)

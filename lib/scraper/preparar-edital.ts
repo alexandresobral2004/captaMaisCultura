@@ -8,6 +8,7 @@ import { validarDocumentoEdital } from './validacao-documento';
 import { registrarDecisao } from './funil';
 import { camadaDocumento } from '../triagem/pontuacao';
 import { SCORE_ALTO, SCORE_MEDIO } from '../triagem/limiares';
+import { obterArmazenamento } from '../storage/armazenamento';
 
 type ResultadoExtracao = Awaited<ReturnType<typeof baixarELerPDFEdital>>;
 
@@ -30,54 +31,28 @@ function slugify(input: string): string {
     .toLowerCase();
 }
 
-const DIR_DOWNLOADS = () => path.join(process.cwd(), 'data', 'downloads');
-
-function lerManifest(manifestPath: string): Record<string, unknown> {
-  try {
-    const raw = fs.readFileSync(manifestPath, 'utf-8');
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function atualizarManifest(nomeArquivo: string, dados: Record<string, unknown>) {
-  const dir = DIR_DOWNLOADS();
-  fs.mkdirSync(dir, { recursive: true });
-  const manifestPath = path.join(dir, 'manifest.json');
-  const manifest = lerManifest(manifestPath);
-  manifest[nomeArquivo] = dados;
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
-}
-
-/** Renomeia o PDF baixado para `data-orgao-score.pdf` e devolve o caminho relativo final. */
-function organizarArquivo(
+/**
+ * Copia o PDF da pasta temporária para o armazenamento (chave `downloads/<nome>`) e apaga a temporária.
+ * Devolve a chave gravada, ou '' se não há PDF. Se o upload falhar, a exceção sobe: o edital
+ * não pode ficar marcado como analisado sem o PDF guardado.
+ */
+async function persistirPdf(
   resultado: ResultadoExtracao,
   pdfEncontrado: boolean,
   edital: Edital,
   score: number
-): { relativo: string; absoluto: string } {
+): Promise<string> {
+  if (!pdfEncontrado || !resultado.caminhoArquivo || !fs.existsSync(resultado.caminhoArquivo)) return '';
+
   const prefixo = new Date().toISOString().slice(0, 10);
   const nomeArquivo = `${prefixo}-${slugify(edital.orgao || 'orgao')}-${score}.pdf`;
-  const destinoRelativo = path.join('data', 'downloads', nomeArquivo);
-  const destinoAbsoluto = path.join(process.cwd(), destinoRelativo);
+  const chave = `downloads/${nomeArquivo}`;
 
-  let finalAbsoluto = resultado.caminhoArquivo;
-  if (pdfEncontrado && fs.existsSync(resultado.caminhoArquivo) && resultado.caminhoArquivo !== destinoAbsoluto) {
-    try {
-      fs.renameSync(resultado.caminhoArquivo, destinoAbsoluto);
-      finalAbsoluto = destinoAbsoluto;
-    } catch (erro) {
-      console.warn(`⚠️  Falha ao renomear PDF do edital ${edital.id}:`, erro);
-    }
-  }
-  if (fs.existsSync(destinoAbsoluto)) finalAbsoluto = destinoAbsoluto;
+  const conteudo = fs.readFileSync(resultado.caminhoArquivo);
+  await obterArmazenamento().salvar(chave, conteudo);
 
-  const relativo = finalAbsoluto.startsWith(process.cwd()) ? path.relative(process.cwd(), finalAbsoluto) : '';
-  return {
-    absoluto: finalAbsoluto,
-    relativo: relativo && !relativo.startsWith('..') ? relativo : destinoRelativo,
-  };
+  try { fs.unlinkSync(resultado.caminhoArquivo); } catch { /* temporário */ }
+  return chave;
 }
 
 /**
@@ -165,21 +140,8 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
     );
   }
 
-  const arquivo = organizarArquivo(resultado, pdfEncontrado, edital, scoreFinal);
-  if (fs.existsSync(arquivo.absoluto)) {
-    atualizarManifest(path.basename(arquivo.absoluto), {
-      id: edital.id,
-      titulo: edital.titulo,
-      orgao: edital.orgao,
-      dataDownload: new Date().toISOString(),
-      scorePontuacao: scoreFinal,
-      nivelPontuacao: nivel,
-      fonteConteudo: resultado.fonte,
-      pdfUrlOriginal: resultado.pdfUrlEncontrada || edital.link,
-      tamanhoBytes: resultado.tamanhoBytes || null,
-      modoAnalise: pontuacao.modoAnalise,
-    });
-  }
+  // Persiste o PDF antes de devolver: a chave gravada vai para pdfSalvoEm
+  const chavePdf = await persistirPdf(resultado, pdfEncontrado, edital, scoreFinal);
 
   return {
     // Em dúvida, o texto fica guardado mas a análise automática espera a revisão de uma pessoa
@@ -188,7 +150,7 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
     texto: resultado.texto || '',
     campos: {
       fonteConteudo: resultado.fonte,
-      pdfSalvoEm: arquivo.relativo,
+      pdfSalvoEm: chavePdf || undefined,
       scorePontuacao: scoreFinal,
       nivelPontuacao: nivel,
       motivosPontuacao: motivos,
