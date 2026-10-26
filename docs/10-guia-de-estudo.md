@@ -158,7 +158,8 @@ Antes de qualquer deploy, confira `SESSION_SECRET`, `SCAN_TOKEN` e `NEXT_PUBLIC_
 - [ ] Log do deploy sem o aviso de driver `local`.
 - [ ] Um upload de teste pela aplicação: o arquivo aparece no bucket e é lido de volta.
 - [ ] `npx tsx scripts/migrar-pdfs-para-armazenamento.ts` (simulação) e depois com `--executar`.
-- [ ] SQL de normalização do `pdf_path` executado.
+- [ ] Normalização do `pdf_path`: `npx tsx scripts/normalizar-pdf-path.ts` (simulação) e depois com `--executar`.
+  Só troca linhas cujo arquivo já está no bucket, numa transação, com backup em `data/backups/`.
 - [ ] `verificarIntegridade` sem itens em `faltando`.
 
 ---
