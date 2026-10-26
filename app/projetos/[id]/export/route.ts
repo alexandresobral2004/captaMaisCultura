@@ -420,11 +420,14 @@ function renderTableRow(
   doc.restore();
 
   // Reset fill and font to defaults
-  doc.fillColor('#1a1a1a');
+  doc.fillColor('#2d3748');
   doc.font('Helvetica').fontSize(10);
   doc.x = 60;
   doc.y = yStart + rowHeight;
 }
+
+// Corpo do texto mais arejado: espaço extra (pt) entre as linhas de um mesmo parágrafo
+const ESPACO_ENTRE_LINHAS = 4;
 
 function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -476,7 +479,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
 
     // Título do projeto
     doc.y = currentY;
-    doc.fontSize(26).fillColor('#1a1a1a').text(projeto.titulo, { width: 490, align: 'center' });
+    doc.fontSize(26).fillColor('#2d3748').text(projeto.titulo, { width: 490, align: 'center' });
     currentY = doc.y + 30;
 
     // Edital
@@ -562,8 +565,8 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
       if (line.startsWith('# ') && line !== `# ${projeto.titulo}`) {
         if (inTable) { inTable = false; doc.moveDown(0.5); }
         doc.addPage();
-        doc.font('Helvetica-Bold').fontSize(18).fillColor('#1a1a1a').text(line.replace('# ', ''), { width: 490, align: 'left' });
-        doc.font('Helvetica').fontSize(10).fillColor('#1a1a1a'); // Reset font
+        doc.font('Helvetica-Bold').fontSize(18).fillColor('#2d3748').text(line.replace('# ', ''), { width: 490, align: 'left' });
+        doc.font('Helvetica').fontSize(10).fillColor('#2d3748'); // Reset font
         doc.moveDown(0.8);
         lastLineWasEmpty = false;
       } else if (line.startsWith('## ') && !line.startsWith('### ')) {
@@ -576,7 +579,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
         doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor('#2c5282').lineWidth(1).stroke();
         doc.moveDown(0.6);
         // Reset font after heading
-        doc.font('Helvetica').fontSize(10).fillColor('#1a1a1a');
+        doc.font('Helvetica').fontSize(10).fillColor('#2d3748');
         lastLineWasEmpty = false;
       } else if (line.startsWith('### ') && !line.startsWith('#### ')) {
         if (inTable) { inTable = false; doc.moveDown(0.5); }
@@ -584,7 +587,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
         doc.font('Helvetica-Bold').fontSize(11).fillColor('#2d3748').text(line.replace('### ', ''), { width: 490, align: 'left' });
         doc.moveDown(0.3);
         // Reset font after subheading
-        doc.font('Helvetica').fontSize(10).fillColor('#1a1a1a');
+        doc.font('Helvetica').fontSize(10).fillColor('#2d3748');
         lastLineWasEmpty = false;
       } else if (line.startsWith('#### ')) {
         if (inTable) { inTable = false; doc.moveDown(0.5); }
@@ -592,7 +595,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
         doc.font('Helvetica-Bold').fontSize(10).fillColor('#475569').text(line.replace('#### ', ''), { width: 490, align: 'left' });
         doc.moveDown(0.25);
         // Reset font after sub-subheading
-        doc.font('Helvetica').fontSize(10).fillColor('#1a1a1a');
+        doc.font('Helvetica').fontSize(10).fillColor('#2d3748');
         lastLineWasEmpty = false;
       } else if (line.startsWith('- ')) {
         if (inTable) { inTable = false; doc.moveDown(0.5); }
@@ -600,7 +603,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
         let clean = line.replace('- ', '• ');
         // Remove any stray single asterisks (leftover italic markers)
         clean = clean.replace(/(?<!\*)\*(?!\*)/g, '');
-        const textOptions = { width: 470, align: 'justify' as const };
+        const textOptions = { width: 470, align: 'left' as const, lineGap: ESPACO_ENTRE_LINHAS };
         const parts = clean.split('**');
 
         if (parts.length > 1) {
@@ -612,7 +615,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
               if (part === '') continue;
 
               const isPartBold = i % 2 === 1;
-              doc.font(isPartBold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10).fillColor('#1a1a1a');
+              doc.font(isPartBold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10).fillColor('#2d3748');
 
               let isLastNonEmpty = true;
               for (let j = i + 1; j < processedParts.length; j++) {
@@ -626,11 +629,11 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
                 continued: !isLastNonEmpty
               });
             }
-            doc.moveDown(0.15);
+            doc.moveDown(0.35);
           }
         } else {
-          doc.font('Helvetica').fontSize(10).fillColor('#1a1a1a').text(clean, textOptions);
-          doc.moveDown(0.15);
+          doc.font('Helvetica').fontSize(10).fillColor('#2d3748').text(clean, textOptions);
+          doc.moveDown(0.35);
         }
         lastLineWasEmpty = false;
       } else if (line.startsWith('|')) {
@@ -684,7 +687,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
         lastLineWasEmpty = false;
 
         // Render text with support for inline bold syntax (**text**)
-        const textOptions = { width: 490, align: 'justify' as const };
+        const textOptions = { width: 490, align: 'left' as const, lineGap: ESPACO_ENTRE_LINHAS };
         // Remove any stray single asterisks (leftover italic markers)
         const cleanLine = line.replace(/(?<!\*)\*(?!\*)/g, '');
         const parts = cleanLine.split('**');
@@ -698,7 +701,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
               if (part === '') continue;
 
               const isPartBold = i % 2 === 1;
-              doc.font(isPartBold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10).fillColor('#1a1a1a');
+              doc.font(isPartBold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10).fillColor('#2d3748');
 
               let isLastNonEmpty = true;
               for (let j = i + 1; j < processedParts.length; j++) {
@@ -712,11 +715,11 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
                 continued: !isLastNonEmpty
               });
             }
-            doc.moveDown(0.25);
+            doc.moveDown(0.6);
           }
         } else {
-          doc.font('Helvetica').fontSize(10).fillColor('#1a1a1a').text(cleanLine, textOptions);
-          doc.moveDown(0.25);
+          doc.font('Helvetica').fontSize(10).fillColor('#2d3748').text(cleanLine, textOptions);
+          doc.moveDown(0.6);
         }
       }
     }
