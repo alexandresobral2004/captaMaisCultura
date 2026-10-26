@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+*.log
+docs
+scratchpad
+coverage
+# Dados locais que não podem ir para a imagem (PDFs, banco local, backups)
+data/downloads
+data/db
+data/backups
+data/logs
