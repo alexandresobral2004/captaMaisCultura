@@ -42,6 +42,19 @@ describe('JobRunner', () => {
     await expect(runner.executar()).rejects.toThrow(ConflictError);
   });
 
+  it('deve encerrar job órfão (sem heartbeat) e permitir nova execução', async () => {
+    const { JobRepository } = await import('../../lib/jobs/job-repository');
+    const repo = new JobRepository();
+    await repo.criar('job-orfao');
+
+    // Limite negativo: qualquer job RODANDO já está "sem heartbeat"
+    const encerrados = await repo.encerrarOrfaos(-1000);
+    expect(encerrados).toBe(1);
+    expect((await repo.buscarPorId('job-orfao'))?.status).toBe(JobStatus.ERRO);
+
+    await expect(runner.executar()).resolves.toBeDefined();
+  });
+
   it('deve executar o pipeline vazio e retornar CONCLUIDO se nao houver editais', async () => {
     const resultado = await runner.executar();
 

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { jobs } from '../database/schema';
 import { BaseRepository } from '../database/repositories/base.repository';
 import { JobStatus, JobPhase, JobProgresso, JobRecord, ErroFase } from './job-types';
@@ -112,6 +112,41 @@ export class JobRepository extends BaseRepository {
       
     if (result.length === 0) return null;
     return this.mapToJobRecord(result[0]);
+  }
+
+  /**
+   * Marca como ERRO os jobs RODANDO sem atualização há mais de `limiteMs`.
+   * Cobre processos encerrados no meio (deploy, reinício, parada da VM) que
+   * nunca chegaram a finalizar o job.
+   */
+  async encerrarOrfaos(limiteMs: number): Promise<number> {
+    const agoraIso = new Date().toISOString();
+    const limite = new Date(Date.now() - limiteMs).toISOString();
+    const mensagem = `Job interrompido: sem heartbeat por mais de ${Math.round(limiteMs / 60000)} minutos`;
+
+    // Um único UPDATE condicionado: dois workers não encerram o mesmo job por engano
+    const result = await this.database
+      .update(jobs)
+      .set({
+        status: JobStatus.ERRO,
+        finalizadoEm: agoraIso,
+        atualizadoEm: agoraIso,
+        // Preserva erros parciais já registrados; se não houver, grava o motivo do encerramento
+        erroDetalhes: sql`COALESCE(${jobs.erroDetalhes}, ${JSON.stringify([{ mensagem, timestamp: agoraIso }])})`,
+      })
+      .where(and(eq(jobs.status, JobStatus.RODANDO), lt(jobs.atualizadoEm, limite)))
+      .returning({ id: jobs.id });
+    return result.length;
+  }
+
+  /**
+   * Heartbeat: registra que o job segue vivo. Chamado periodicamente pelo runner.
+   */
+  async heartbeat(id: string): Promise<void> {
+    await this.database
+      .update(jobs)
+      .set({ atualizadoEm: new Date().toISOString() })
+      .where(eq(jobs.id, id));
   }
 
   /**

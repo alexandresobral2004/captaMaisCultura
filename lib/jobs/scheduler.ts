@@ -34,7 +34,9 @@ export function iniciarScheduler() {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'X-Scan-Token': token } : {})
-        }
+        },
+        // Evita que o cron fique esperando indefinidamente uma varredura travada
+        signal: AbortSignal.timeout(60 * 60 * 1000)
       });
 
       const resultado = await response.json();

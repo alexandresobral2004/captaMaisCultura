@@ -9,6 +9,10 @@ import fs from 'fs';
 import path from 'path';
 import { pipelineLogger } from '../scraper/pipeline-logger';
 
+// Intervalo do heartbeat e tempo sem heartbeat até o job ser considerado interrompido (5 min = 10 heartbeats perdidos)
+const HEARTBEAT_MS = 30 * 1000;
+const TEMPO_SEM_ATUALIZACAO_MS = 5 * 60 * 1000;
+
 export class ConflictError extends Error {
   constructor(message: string) {
     super(message);
@@ -27,6 +31,12 @@ export class JobRunner {
    * Executa o pipeline completo de varredura semanal
    */
   async executar(): Promise<JobResultado> {
+    // 0. Encerrar jobs órfãos (processo morto no meio) para não bloquearem novas buscas
+    const orfaosEncerrados = await this.repository.encerrarOrfaos(TEMPO_SEM_ATUALIZACAO_MS);
+    if (orfaosEncerrados > 0) {
+      console.warn(`${orfaosEncerrados} job(s) órfão(s) encerrado(s) por inatividade`);
+    }
+
     // 1. Verificar se já existe um job rodando
     const jobAtivo = await this.repository.buscarRodando();
     if (jobAtivo) {
@@ -67,7 +77,27 @@ export class JobRunner {
 
     // 2. Criar novo job
     const jobId = crypto.randomUUID();
-    let job = await this.repository.criar(jobId);
+    let job;
+    try {
+      job = await this.repository.criar(jobId);
+    } catch (erro: any) {
+      // Restaura o console antes de propagar: o redirecionamento acima ainda está ativo aqui
+      console.log = originalLog;
+      console.warn = originalWarn;
+      console.error = originalError;
+      // Unique parcial uniq_jobs_um_rodando: outra execução entrou ao mesmo tempo
+      if (erro?.code === '23505') {
+        throw new ConflictError('Já existe um job rodando (trava do banco)');
+      }
+      throw erro;
+    }
+
+    // Heartbeat: enquanto o processo estiver vivo, atualiza atualizadoEm para o job não ser marcado como órfão
+    const heartbeat = setInterval(() => {
+      this.repository.heartbeat(jobId).catch((erro: any) => {
+        originalError(`Falha no heartbeat do job ${jobId}:`, erro?.message);
+      });
+    }, HEARTBEAT_MS);
 
     const progresso: JobProgresso = {
       totalEncontrados: 0,
@@ -237,6 +267,7 @@ export class JobRunner {
       
       return this.formatarResultado(jobFinal!, erro.message);
     } finally {
+      clearInterval(heartbeat);
       // Restaurar o console original
       console.log = originalLog;
       console.warn = originalWarn;

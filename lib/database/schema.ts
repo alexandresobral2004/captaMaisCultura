@@ -1,4 +1,5 @@
-import { pgTable, text, integer, real, boolean as pgBoolean, index, serial, customType } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, real, boolean as pgBoolean, index, uniqueIndex, serial, customType } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 
 /**
@@ -459,6 +460,8 @@ export const jobs = pgTable('jobs', {
   return {
     statusIdx: index('idx_jobs_status').on(table.status),
     iniciadoEmIdx: index('idx_jobs_iniciado_em').on(table.iniciadoEm),
+    // Trava no banco: no máximo um job RODANDO por vez (duas execuções simultâneas falham no INSERT)
+    umRodandoIdx: uniqueIndex('uniq_jobs_um_rodando').on(table.status).where(sql`status = 'RODANDO'`),
   };
 });
 
