@@ -3,6 +3,7 @@ import { FileService } from './file.service';
 import { validarComOpenAI } from '../../filtros-ti/openai-classifier';
 import { analisarEditalComIA } from '../../ai/analyzer';
 import { extrairTextoLlamaParse } from '../../scraper/llamaparse-extractor';
+import { extrairTituloDoTexto } from '../../editais/titulo';
 
 interface UploadOptions {
   titulo?: string;
@@ -85,7 +86,7 @@ export class EditalUploadService {
 
     // Sem título informado, usa o do próprio PDF (o nome do arquivo costuma ser um código)
     if (!options.titulo && textoExtraido) {
-      titulo = this.extrairTituloDoTexto(textoExtraido) || titulo;
+      titulo = extrairTituloDoTexto(textoExtraido) || titulo;
       console.log(`   - Título extraído do PDF: ${titulo}`);
     }
 
@@ -355,19 +356,6 @@ export class EditalUploadService {
     return titulo || 'Edital sem título';
   }
 
-  /**
-   * Título a partir do texto do PDF: as primeiras linhas (o título costuma quebrar em duas ou três),
-   * com espaços normalizados e limite de 200 caracteres.
-   */
-  private extrairTituloDoTexto(texto: string): string {
-    const linhas = texto
-      .split(/\r?\n/)
-      .map((linha) => linha.trim())
-      .filter((linha) => linha.length > 0)
-      .slice(0, 3);
-
-    return linhas.join(' ').replace(/\s+/g, ' ').trim().substring(0, 200);
-  }
 
   private async extrairTextoDePdf(buffer: Buffer): Promise<string> {
     console.log(`\n🔍 [EXTRACAO] Iniciando extração de texto do PDF...`);
