@@ -1,5 +1,5 @@
-import { obterScanToken } from '../api/scan-token';
 import cron, { ScheduledTask } from 'node-cron';
+import { enfileirarVarredura, VarreduraEmAndamento } from './enfileirar';
 
 let taskAgendada: ScheduledTask | null = null;
 
@@ -21,34 +21,15 @@ export function iniciarScheduler() {
     console.log('='.repeat(70) + '\n');
 
     try {
-      // Chamar a API de varredura
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const token = obterScanToken() || '';
-
-      const url = `${baseUrl}/api/jobs/run-weekly-scan`;
-
-      console.log(`📡 Chamando: ${url}`);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'X-Scan-Token': token } : {})
-        },
-        // Evita que o cron fique esperando indefinidamente uma varredura travada
-        signal: AbortSignal.timeout(60 * 60 * 1000)
-      });
-
-      const resultado = await response.json();
-
-      if (response.ok) {
-        console.log('✅ Varredura agendada executada com sucesso');
-        console.log(`📊 Resultados:`, resultado.estatisticas);
-      } else {
-        console.error('❌ Erro na varredura agendada:', resultado.error);
-      }
+      // Só enfileira: o worker (scripts/worker.ts) executa a varredura fora do processo web
+      const { jobId } = await enfileirarVarredura();
+      console.log(`✅ Varredura agendada na fila (job ${jobId})`);
     } catch (erro) {
-      console.error('❌ Erro ao executar varredura agendada:', erro);
+      if (erro instanceof VarreduraEmAndamento) {
+        console.warn(`⚠️ Varredura agendada ignorada: ${erro.message}`);
+      } else {
+        console.error('❌ Erro ao enfileirar varredura agendada:', erro);
+      }
     }
 
     console.log('\n' + '='.repeat(70) + '\n');

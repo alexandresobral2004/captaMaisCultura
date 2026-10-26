@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarAdmin } from '@/lib/api/auth';
-import { JobRunner, ConflictError } from '@/lib/jobs/job-runner';
-import { JobRepository } from '@/lib/jobs/job-repository';
+import { enfileirarVarredura, VarreduraEmAndamento } from '@/lib/jobs/enfileirar';
 import { scanTokenValido, extrairScanTokenDosHeaders } from '@/lib/api/scan-token';
 
 /**
@@ -52,32 +51,26 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Executa a varredura semanal completa usando o novo JobRunner
+ * Enfileira a varredura semanal. Quem executa é o worker (scripts/worker.ts),
+ * para a varredura não rodar dentro do processo que atende os usuários.
  */
 async function executarVarreduraSemanal() {
-  const repository = new JobRepository();
-
   try {
-    const jobAtivo = await repository.buscarRodando();
-    if (jobAtivo) {
-      return NextResponse.json({
-        success: false,
-        error: `Já existe um job rodando (ID: ${jobAtivo.id}, Fase: ${jobAtivo.fase})`,
-      }, { status: 409 });
-    }
-
-    const runner = new JobRunner();
-    runner.executar().catch(erro => {
-      console.error('❌ Erro na execução do Job em background:', erro);
-    });
-
+    const { jobId } = await enfileirarVarredura();
     return NextResponse.json({
       success: true,
-      mensagem: 'Varredura semanal iniciada em background',
+      mensagem: 'Varredura enfileirada para o worker',
+      jobId,
       timestamp: new Date().toISOString()
     }, { status: 202 });
 
   } catch (erro: any) {
+    if (erro instanceof VarreduraEmAndamento) {
+      return NextResponse.json({
+        success: false,
+        error: erro.message,
+      }, { status: 409 });
+    }
     return NextResponse.json({
       success: false,
       error: erro.message,

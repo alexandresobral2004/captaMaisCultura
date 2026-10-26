@@ -42,6 +42,31 @@ describe('JobRunner', () => {
     await expect(runner.executar()).rejects.toThrow(ConflictError);
   });
 
+  it('worker: reivindica o job enfileirado uma única vez e executa pelo id', async () => {
+    const { JobRepository } = await import('../../lib/jobs/job-repository');
+    const repo = new JobRepository();
+    await repo.enfileirar('job-fila');
+
+    expect((await repo.buscarPendente())?.id).toBe('job-fila');
+
+    const reivindicado = await repo.reivindicarProximoPendente();
+    expect(reivindicado?.id).toBe('job-fila');
+    expect(reivindicado?.status).toBe(JobStatus.RODANDO);
+    // Não há mais pendente: a segunda reivindicação não pega nada
+    expect(await repo.reivindicarProximoPendente()).toBeNull();
+
+    const resultado = await runner.executar('job-fila');
+    expect(resultado.status).toBe(JobStatus.CONCLUIDO);
+  });
+
+  it('enfileirarVarredura recusa quando já há uma varredura aguardando', async () => {
+    const { enfileirarVarredura, VarreduraEmAndamento } = await import('../../lib/jobs/enfileirar');
+    const { JobRepository } = await import('../../lib/jobs/job-repository');
+    await new JobRepository().enfileirar('job-ja-na-fila');
+
+    await expect(enfileirarVarredura()).rejects.toThrow(VarreduraEmAndamento);
+  });
+
   it('deve encerrar job órfão (sem heartbeat) e permitir nova execução', async () => {
     const { JobRepository } = await import('../../lib/jobs/job-repository');
     const repo = new JobRepository();

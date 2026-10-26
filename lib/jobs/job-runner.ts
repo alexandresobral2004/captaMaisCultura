@@ -30,17 +30,22 @@ export class JobRunner {
   /**
    * Executa o pipeline completo de varredura semanal
    */
-  async executar(): Promise<JobResultado> {
+  /**
+   * @param jobReivindicadoId id de um job já reivindicado (RODANDO) pelo worker. Sem ele, cria um job novo.
+   */
+  async executar(jobReivindicadoId?: string): Promise<JobResultado> {
     // 0. Encerrar jobs órfãos (processo morto no meio) para não bloquearem novas buscas
     const orfaosEncerrados = await this.repository.encerrarOrfaos(TEMPO_SEM_ATUALIZACAO_MS);
     if (orfaosEncerrados > 0) {
       console.warn(`${orfaosEncerrados} job(s) órfão(s) encerrado(s) por inatividade`);
     }
 
-    // 1. Verificar se já existe um job rodando
-    const jobAtivo = await this.repository.buscarRodando();
-    if (jobAtivo) {
-      throw new ConflictError(`Já existe um job rodando (ID: ${jobAtivo.id}, Fase: ${jobAtivo.fase})`);
+    // 1. Verificar se já existe um job rodando (não se aplica a job já reivindicado pelo worker: ele mesmo está RODANDO)
+    if (!jobReivindicadoId) {
+      const jobAtivo = await this.repository.buscarRodando();
+      if (jobAtivo) {
+        throw new ConflictError(`Já existe um job rodando (ID: ${jobAtivo.id}, Fase: ${jobAtivo.fase})`);
+      }
     }
 
     const originalLog = console.log;
@@ -75,11 +80,14 @@ export class JobRunner {
       }
     };
 
-    // 2. Criar novo job
-    const jobId = crypto.randomUUID();
+    // 2. Criar novo job, ou usar o job já reivindicado pelo worker
+    const jobId = jobReivindicadoId ?? crypto.randomUUID();
     let job;
     try {
-      job = await this.repository.criar(jobId);
+      job = jobReivindicadoId
+        ? await this.repository.buscarPorId(jobId)
+        : await this.repository.criar(jobId);
+      if (!job) throw new Error(`Job ${jobId} não encontrado`);
     } catch (erro: any) {
       // Restaura o console antes de propagar: o redirecionamento acima ainda está ativo aqui
       console.log = originalLog;

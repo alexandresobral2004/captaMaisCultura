@@ -1,4 +1,4 @@
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { jobs } from '../database/schema';
 import { BaseRepository } from '../database/repositories/base.repository';
 import { JobStatus, JobPhase, JobProgresso, JobRecord, ErroFase } from './job-types';
@@ -137,6 +137,60 @@ export class JobRepository extends BaseRepository {
       .where(and(eq(jobs.status, JobStatus.RODANDO), lt(jobs.atualizadoEm, limite)))
       .returning({ id: jobs.id });
     return result.length;
+  }
+
+  /**
+   * Enfileira uma varredura: cria o job com status PENDENTE, para um worker executar depois.
+   */
+  async enfileirar(id: string): Promise<JobRecord> {
+    const now = new Date().toISOString();
+    const result = await this.database.insert(jobs).values({
+      id,
+      status: JobStatus.PENDENTE,
+      fase: null,
+      iniciadoEm: now,
+      atualizadoEm: now,
+    }).returning();
+    return this.mapToJobRecord(result[0]);
+  }
+
+  /** Busca um job PENDENTE (aguardando worker). */
+  async buscarPendente(): Promise<JobRecord | null> {
+    const [pendente] = await this.database
+      .select()
+      .from(jobs)
+      .where(eq(jobs.status, JobStatus.PENDENTE))
+      .limit(1);
+    return pendente ? this.mapToJobRecord(pendente) : null;
+  }
+
+  /**
+   * Reivindica o job PENDENTE mais antigo, trocando para RODANDO de forma atômica.
+   * Se outro worker já tiver um job RODANDO (índice único parcial), devolve null.
+   */
+  async reivindicarProximoPendente(): Promise<JobRecord | null> {
+    const [pendente] = await this.database
+      .select()
+      .from(jobs)
+      .where(eq(jobs.status, JobStatus.PENDENTE))
+      .orderBy(asc(jobs.iniciadoEm))
+      .limit(1);
+    if (!pendente) return null;
+
+    try {
+      const now = new Date().toISOString();
+      const result = await this.database
+        .update(jobs)
+        .set({ status: JobStatus.RODANDO, atualizadoEm: now })
+        .where(and(eq(jobs.id, pendente.id), eq(jobs.status, JobStatus.PENDENTE)))
+        .returning();
+      if (result.length === 0) return null;
+      return this.mapToJobRecord(result[0]);
+    } catch (erro: any) {
+      // 23505: já existe outro RODANDO; este pendente continua na fila
+      if (erro?.code === '23505') return null;
+      throw erro;
+    }
   }
 
   /**
