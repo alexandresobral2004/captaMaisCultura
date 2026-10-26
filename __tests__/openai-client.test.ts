@@ -4,6 +4,8 @@ import {
   apiKeyConfigurada,
   obterApiKey,
   obterModelo,
+  obterModeloRedacao,
+  aceitaTemperatura,
   obterClienteOpenAI,
   OpenAIKeyMissingError,
 } from '../lib/ai/client';
@@ -52,5 +54,18 @@ describe('lib/ai/client', () => {
 
     process.env.OPENAI_API_KEY = 'sk-b';
     expect(obterClienteOpenAI()).not.toBe(a1);
+  });
+
+  it('modelo de redação: gpt-5.6-luna por padrão, respeitando OPENAI_MODEL_REDACAO', () => {
+    delete process.env.OPENAI_MODEL_REDACAO;
+    expect(obterModeloRedacao()).toBe('gpt-5.6-luna');
+    process.env.OPENAI_MODEL_REDACAO = 'gpt-4o';
+    expect(obterModeloRedacao()).toBe('gpt-4o');
+  });
+
+  it('modelos de raciocínio não recebem temperatura', () => {
+    expect(aceitaTemperatura('gpt-5.6-luna')).toBe(false);
+    expect(aceitaTemperatura('o3-mini')).toBe(false);
+    expect(aceitaTemperatura('gpt-4o-mini')).toBe(true);
   });
 });

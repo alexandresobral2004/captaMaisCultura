@@ -86,7 +86,7 @@ export function guiaDaSecao(tipo: TipoSecao, pesquisa: boolean): string {
     case 'acessibilidade':
       return 'Descreva medidas concretas de acessibilidade previstas nas atividades, conforme as exigências do edital, sem prometer o que o projeto não prevê.';
     default:
-      return 'Desenvolva a seção de acordo com o que o edital pede para ela, de forma objetiva e coerente com as demais seções.';
+      return 'Desenvolva a seção de acordo com o que o edital pede para ela, com profundidade e coerência com as demais seções.';
   }
 }
 
@@ -106,4 +106,25 @@ export function numerosNaoSuportados(texto: string, contexto: string): string[] 
     if (!conhecidos.has(chave(n))) achados.add(n);
   }
   return Array.from(achados);
+}
+
+/** Deixa os parágrafos e itens de lista justificados (o editor e as exportações respeitam o estilo). */
+export function justificarHtml(html: string): string {
+  return html.replace(/<(p|li)(\s[^>]*)?>/gi, (m, tag: string, attrs = '') => {
+    if (/text-align/i.test(attrs)) return m;
+    const style = /style\s*=\s*"/i.test(attrs)
+      ? attrs.replace(/style\s*=\s*"/i, 'style="text-align: justify; ')
+      : `${attrs} style="text-align: justify;"`;
+    return `<${tag}${style}>`;
+  });
+}
+
+const CITACAO = /\[\d+(?:\s*[,–-]\s*\d+)*\]|\([A-ZÀ-Ú][^()]{1,60},?\s*(?:19|20)\d{2}[a-z]?\)/;
+
+/** O texto cita fonte (ex.: [1] ou (Autor, 2021)) mas não traz uma lista "Referências" no fim. */
+export function citaSemReferencias(html: string): boolean {
+  const texto = semTags(html);
+  const corpo = html.split(/<h[1-6][^>]*>\s*Refer[eê]ncias\s*<\/h[1-6]>/i);
+  const temLista = corpo.length > 1 && semTags(corpo[corpo.length - 1]).length > 10;
+  return CITACAO.test(semTags(corpo[0] ?? texto)) && !temLista;
 }

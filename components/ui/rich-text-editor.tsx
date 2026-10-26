@@ -332,7 +332,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
             setIsFocused(false);
             handleInput();
           }}
-          className="editor-content p-4 min-h-[180px] focus:outline-none prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed overflow-y-auto"
+          className="editor-content p-4 min-h-[180px] focus:outline-none prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-100 text-sm leading-relaxed overflow-y-auto [&_p]:text-justify [&_li]:text-justify"
           style={{ minHeight: '180px' }}
         />
         {!value && placeholder && (

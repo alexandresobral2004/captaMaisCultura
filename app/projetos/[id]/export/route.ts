@@ -600,7 +600,7 @@ function buildPdf(projeto: any, secao?: string): Promise<Buffer> {
         let clean = line.replace('- ', '• ');
         // Remove any stray single asterisks (leftover italic markers)
         clean = clean.replace(/(?<!\*)\*(?!\*)/g, '');
-        const textOptions = { width: 470, align: 'left' as const };
+        const textOptions = { width: 470, align: 'justify' as const };
         const parts = clean.split('**');
 
         if (parts.length > 1) {

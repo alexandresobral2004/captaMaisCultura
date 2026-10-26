@@ -141,6 +141,42 @@ Retorne só JSON: {"publicoAlvo":"","localizacao":"","beneficiariosDiretos":null
   };
 }
 
+/**
+ * Persona do redator no nicho do projeto (ex.: arte-educadora de circo social, pesquisador em
+ * agroecologia), definida a partir da área e do esboço do usuário. A persona do tipo de edital
+ * (pesquisa ou cultura) continua como base; sem esboço ou com falha da IA, fica só ela.
+ */
+export async function personaDoNicho(
+  edital: EditalContexto,
+  proposta: ContextoGeracao['proposta'],
+): Promise<string> {
+  const base = personaDoRedator(edital);
+  const esboco = [proposta.titulo, proposta.areaAtuacao, proposta.propostaUsuario].filter(Boolean).join('\n');
+  if (!esboco.trim()) return base;
+  try {
+    const resp = await obterClienteOpenAI().chat.completions.create({
+      model: obterModelo('mini'),
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [{
+        role: 'user',
+        content: `Leia o esboço de projeto abaixo e defina o profissional mais indicado para escrevê-lo: alguém que atua no nicho específico do projeto (não genérico como "produtor cultural" ou "pesquisador"), com a formação, a prática de campo e o vocabulário desse nicho.
+
+EDITAL: ${edital.titulo} (${edital.orgao})
+ESBOÇO:
+${esboco.slice(0, 3000)}
+
+Retorne só JSON: {"nicho":"nicho em poucas palavras","persona":"Você é ... (2 a 3 frases em português, em 2ª pessoa, descrevendo formação, anos de prática no nicho, o tipo de público e território com que trabalha e como isso aparece na escrita). Não invente nomes de pessoas ou instituições."}`,
+      }],
+    });
+    const b = JSON.parse(resp.choices[0]?.message?.content || '{}');
+    const persona = typeof b.persona === 'string' ? b.persona.trim() : '';
+    return persona ? `${persona}\nAlém disso: ${base}` : base;
+  } catch {
+    return base;
+  }
+}
+
 const NI = '(não informado: não inventar; escrever de forma genérica ou usar [PREENCHER: ...])';
 const lista = (itens: string[]) => (itens.length ? itens.map(i => `- ${i}`).join('\n') : NI);
 
@@ -203,7 +239,7 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
   };
   const duracao = Number(projeto.prazoMeses) || edital.prazoMeses || 12;
 
-  const [metricas, fontes, referencias, extras] = await Promise.all([
+  const [metricas, fontes, referencias, extras, persona] = await Promise.all([
     extrairMetricas(proposta.titulo, proposta.propostaUsuario, duracao),
     buscarDadosProjetoMCP(proposta.titulo, proposta.areaAtuacao)
       .then(r => r.results.map((x, i) => `[${i + 1}] ${x.title} - ${x.url}\n"${x.content.slice(0, 400)}"`).join('\n\n'))
@@ -212,6 +248,7 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
       .then(r => (r.chunks.length ? formatarContextoRAG(r.chunks) : ''))
       .catch(() => ''),
     new PromptRepository().getAtivo('projetos_cultura', 'instrucoes_adicionais').catch(() => null),
+    personaDoNicho(edital, proposta),
   ]);
 
   return {
@@ -220,7 +257,7 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
     metricas,
     proposta,
     pesquisa: ehEditalDePesquisa(edital),
-    persona: personaDoRedator(edital),
+    persona,
     instrucoesExtras: (extras || '').slice(0, 2000),
     fontes,
     referenciasInternas: referencias,

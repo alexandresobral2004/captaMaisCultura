@@ -1,7 +1,7 @@
-import { obterClienteOpenAI, obterModelo } from '../ai/client';
+import { aceitaTemperatura, obterClienteOpenAI, obterModeloRedacao } from '../ai/client';
 import { textoDoContexto, type ContextoGeracao } from './contexto-geracao';
 import {
-  detectarProibidas, guiaDaSecao, limparHtml, numerosNaoSuportados, ondaDaSecao,
+  citaSemReferencias, detectarProibidas, guiaDaSecao, justificarHtml, limparHtml, numerosNaoSuportados, ondaDaSecao,
   semTags, tipoDaSecao, EXPRESSOES_PROIBIDAS,
 } from './guias-secao';
 
@@ -16,9 +16,10 @@ export interface SecaoEntrada {
 export type ChamarIA = (sistema: string, usuario: string, temperatura: number) => Promise<string>;
 
 export const chamarOpenAI: ChamarIA = async (sistema, usuario, temperatura) => {
+  const modelo = obterModeloRedacao();
   const resp = await obterClienteOpenAI().chat.completions.create({
-    model: obterModelo('mini'),
-    temperature: temperatura,
+    model: modelo,
+    ...(aceitaTemperatura(modelo) ? { temperature: temperatura } : { reasoning_effort: 'medium' as const }),
     messages: [{ role: 'system', content: sistema }, { role: 'user', content: usuario }],
   });
   return resp.choices[0]?.message?.content || '';
@@ -30,12 +31,16 @@ const PARALELO = 3;
 function regrasGerais(ctx: ContextoGeracao): string {
   return `${ctx.persona}
 
-REGRAS (obrigatórias):
-1. Escreva em português, formal, técnico e objetivo, na voz ativa e em 3ª pessoa. Frases curtas.
-2. Retorne SOMENTE o HTML da seção (<p>, <ul><li>, <h3>, <table>, <strong>), sem saudação, explicação ou cerca de código.
-3. NADA INVENTADO: use apenas nomes, números, datas, parceiros, estatísticas e fontes que estejam no contexto ou no rascunho do usuário. Metas e quantidades (percentuais, número de pessoas, unidades, valores) que o usuário não informou NÃO podem ser criadas: escreva [PREENCHER: meta]. Onde faltar qualquer outro dado necessário, escreva [PREENCHER: o que falta].
-4. Atenda aos critérios de avaliação e à elegibilidade do edital, respeitando valor máximo e prazo.
-5. Proibido usar: ${EXPRESSOES_PROIBIDAS.join(', ')}.${ctx.instrucoesExtras ? `\n\nINSTRUÇÕES ADICIONAIS DA INSTITUIÇÃO:\n${ctx.instrucoesExtras}` : ''}`;
+COMO ESCREVER (obrigatório):
+1. Escreva como o especialista descrito acima escreveria de próprio punho: com a vivência, o vocabulário e o olhar desse nicho, explicando o porquê das escolhas como quem conhece o campo por dentro. O avaliador deve sentir que quem escreveu faz esse trabalho.
+2. Linguagem humanizada: texto corrido, natural e próximo, que mostre as pessoas e o território envolvidos. Alterne frases curtas e médias, use conectivos variados e evite jargão burocrático, fórmulas prontas e listas onde um parágrafo explica melhor.
+3. Português do Brasil conforme a norma culta: concordância, regência, crase, acentuação e pontuação corretas. Revise o texto antes de entregar.
+4. Não resuma: desenvolva cada ponto do rascunho e do edital com explicação, exemplo concreto do projeto e consequência esperada. Cada parágrafo deve ter de 4 a 7 frases. Nenhuma ideia do rascunho do usuário pode ficar de fora ou virar só um item de lista.
+5. CITAÇÕES E REFERÊNCIAS: só cite uma fonte que esteja em FONTES DE PESQUISA ou REFERÊNCIAS INTERNAS, nunca de memória, e marque a citação no texto como [n], com o número da fonte. Se a seção tiver ao menos uma citação, termine-a com <h3>Referências</h3> e uma <ul> em formato ABNT (autor ou instituição, título, veículo, ano, URL e data de acesso quando houver na fonte) listando exatamente as fontes citadas, sem acrescentar dados que a fonte não traga. Sem citação, não crie a lista de referências.
+6. Retorne SOMENTE o HTML da seção (<p>, <ul><li>, <h3>, <table>, <strong>), sem repetir o título da seção, sem saudação, explicação ou cerca de código.
+7. NADA INVENTADO: use apenas nomes, números, datas, parceiros, estatísticas e fontes que estejam no contexto ou no rascunho do usuário. Metas e quantidades (percentuais, número de pessoas, unidades, valores) que o usuário não informou NÃO podem ser criadas: escreva [PREENCHER: meta]. Onde faltar qualquer outro dado necessário, escreva [PREENCHER: o que falta]. Desenvolver não é inventar: aprofunde o que foi dito, sem acrescentar fatos. Separe duas coisas: (a) SITUAÇÃO ATUAL do território, do público e da instituição (carências, falta de estrutura, demanda, reconhecimento da comunidade, histórico) só pode ser afirmada se estiver no contexto ou no rascunho; nunca deduza diagnóstico a partir do que o usuário pediu (pedir uma psicóloga não prova que hoje não há acompanhamento). Sem dado, escreva [PREENCHER: o que falta] ou fale do tema em termos gerais da área, sem atribuí-lo a este território. (b) O PLANO do projeto (como as oficinas serão organizadas, sequência pedagógica, instrumentos de registro, ordem das ações) pode ser detalhado com o saber técnico do nicho, no futuro do presente, desde que não contradiga o rascunho nem crie nomes, parceiros, quantidades ou prazos que o usuário não deu. Coloque o marcador no ponto exato da frase, sem comentar no texto que o dado falta (nada de "não foi informado", "deverá ser apresentado" ou "como essas informações não constam").
+8. Atenda aos critérios de avaliação e à elegibilidade do edital, respeitando valor máximo e prazo.
+9. Proibido usar: ${EXPRESSOES_PROIBIDAS.join(', ')}.${ctx.instrucoesExtras ? `\n\nINSTRUÇÕES ADICIONAIS DA INSTITUIÇÃO:\n${ctx.instrucoesExtras}` : ''}`;
 }
 
 function blocoContexto(ctx: ContextoGeracao): string {
@@ -54,17 +59,26 @@ function resumoDasOutras(textos: Record<string, string>, secoes: SecaoEntrada[],
     .join('\n\n');
 }
 
+const comparavel = (t: string) => semTags(t).toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+
+/** Remove o título da seção quando a IA o repete no início do HTML (o editor já mostra o título). */
+export function semTituloRepetido(html: string, titulo: string): string {
+  const m = html.match(/^\s*<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>\s*/i);
+  return m && comparavel(m[1]) === comparavel(titulo) ? html.slice(m[0].length) : html;
+}
+
 async function escreverComValidacao(
-  chamar: ChamarIA, sistema: string, usuarioBase: string, temperatura: number,
+  chamar: ChamarIA, sistema: string, usuarioBase: string, temperatura: number, titulo: string,
 ): Promise<{ html: string; proibidasRestantes: string[] }> {
   let feedback = '';
   let html = '';
   let proibidas: string[] = [];
   for (let i = 0; i < MAX_TENTATIVAS; i++) {
-    html = limparHtml(await chamar(sistema, usuarioBase + feedback, temperatura));
+    html = justificarHtml(semTituloRepetido(limparHtml(await chamar(sistema, usuarioBase + feedback, temperatura)), titulo));
     proibidas = detectarProibidas(html);
-    if (html && proibidas.length === 0) break;
-    feedback = `\n\nA versão anterior foi recusada: ${html ? `usou expressões proibidas (${proibidas.join(', ')})` : 'veio vazia'}. Reescreva sem elas.`;
+    const semRef = citaSemReferencias(html);
+    if (html && proibidas.length === 0 && !semRef) break;
+    feedback = `\n\nA versão anterior foi recusada: ${!html ? 'veio vazia' : [proibidas.length ? `usou expressões proibidas (${proibidas.join(', ')})` : '', semRef ? 'tem citações sem a lista <h3>Referências</h3> no fim' : ''].filter(Boolean).join(' e ')}. Corrija.`;
   }
   return { html, proibidasRestantes: proibidas };
 }
@@ -115,7 +129,7 @@ ${outras ? `\nOUTRAS SEÇÕES DO PROJETO (mantenha coerência com elas):\n${outr
 
 Escreva agora a seção "${secao.titulo}".`;
 
-      const { html, proibidasRestantes } = await escreverComValidacao(chamar, sistema, usuario, 0.4);
+      const { html, proibidasRestantes } = await escreverComValidacao(chamar, sistema, usuario, 0.4, secao.titulo);
       if (!html) {
         avisos.push(`Seção "${secao.titulo}": a IA não devolveu texto. Tente gerar de novo.`);
         return;
@@ -166,7 +180,7 @@ ${outrasTexto ? `\nOUTRAS SEÇÕES (mantenha coerência):\n${outrasTexto}` : ''}
 
 Reescreva a seção em outra estrutura e vocabulário, mantendo todos os fatos, números e metas do texto atual. Não acrescente números, nomes ou fontes novos.`;
 
-  const { html } = await escreverComValidacao(chamar, regrasGerais(ctx), usuario, 0.4);
+  const { html } = await escreverComValidacao(chamar, regrasGerais(ctx), usuario, 0.4, secao.titulo);
   if (!html) throw new Error('A IA não devolveu texto. Tente novamente.');
   const avisos: string[] = [];
   const sem = numerosNaoSuportados(html, `${blocoContexto(ctx)}\n${semTags(atual)}`);

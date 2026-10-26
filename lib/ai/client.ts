@@ -45,6 +45,16 @@ export function obterModelo(nivel: NivelModelo = 'mini'): string {
     : process.env.OPENAI_MODEL || 'gpt-4o-mini';
 }
 
+/** Modelo que redige o texto dos projetos. Respeita OPENAI_MODEL_REDACAO (padrão gpt-5.6-luna). */
+export function obterModeloRedacao(): string {
+  return process.env.OPENAI_MODEL_REDACAO || 'gpt-5.6-luna';
+}
+
+/** Modelos de raciocínio (gpt-5*, o1/o3/o4) só aceitam a temperatura padrão. */
+export function aceitaTemperatura(modelo: string): boolean {
+  return !/^(gpt-5|gpt-6|o\d)/.test(modelo);
+}
+
 let clienteEmCache: { chave: string; cliente: OpenAI } | null = null;
 
 /** Cliente do SDK `openai`, reaproveitado enquanto a chave não mudar. */
