@@ -14,6 +14,9 @@ const nextConfig = {
       '@langchain/openai',
       '@langchain/core',
       'pdfkit',
+      // pdf-parse v2 abre um worker (pdf.worker.mjs) por caminho relativo; empacotado pelo
+      // webpack, o worker some e a extração devolve 0 caracteres em produção.
+      'pdf-parse',
     ],
   },
   // Ignorar erros de build (TypeScript e ESLint) para permitir deploy
