@@ -14,5 +14,16 @@ export async function register() {
       // Sem banco no start, os loaders caem nos arquivos do repositório
       console.error('⚠️ [Filtros] Falha ao sincronizar com o banco; usando arquivos do repositório:', erro);
     }
+
+    // Recuperação na subida: órfãos de um processo que morreu no meio viram "interrompida"
+    try {
+      const { recuperarBuscasOrfasAsync } = await import('./lib/scraper/controle-busca');
+      const { JobRepository, TEMPO_SEM_ATUALIZACAO_MS } = await import('./lib/jobs/job-repository');
+      await recuperarBuscasOrfasAsync();
+      const jobsEncerrados = await new JobRepository().encerrarOrfaos(TEMPO_SEM_ATUALIZACAO_MS);
+      if (jobsEncerrados > 0) console.warn(`⚠️ [Recuperação] ${jobsEncerrados} job(s) órfão(s) encerrado(s) na subida`);
+    } catch (erro) {
+      console.error('⚠️ [Recuperação] Falha ao recuperar órfãos na subida:', erro);
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { JobRepository } from './job-repository';
+import { JobRepository, TEMPO_SEM_ATUALIZACAO_MS } from './job-repository';
 import { JobStatus, JobPhase, JobProgresso, JobResultado, JobRecord, ErroFase } from './job-types';
 import { buscarEditaisPortais, filtrarComClassificador } from '../scraper/fetcher';
 import { analisarEditalComIA } from '../ai/analyzer';
@@ -11,7 +11,6 @@ import { pipelineLogger } from '../scraper/pipeline-logger';
 
 // Intervalo do heartbeat e tempo sem heartbeat até o job ser considerado interrompido (5 min = 10 heartbeats perdidos)
 const HEARTBEAT_MS = 30 * 1000;
-const TEMPO_SEM_ATUALIZACAO_MS = 5 * 60 * 1000;
 
 export class ConflictError extends Error {
   constructor(message: string) {

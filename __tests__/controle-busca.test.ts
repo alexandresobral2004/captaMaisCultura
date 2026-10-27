@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { criarTabelas, migrarSchema } from '../lib/database/ddl';
-import { iniciarBusca, finalizarBusca, situacaoDaBusca, editalJaProcessado } from '../lib/scraper/controle-busca';
+import { iniciarBusca, finalizarBusca, situacaoDaBusca, editalJaProcessado, batidaBuscaSQLite } from '../lib/scraper/controle-busca';
 
 const dia = 24 * 60 * 60 * 1000;
 const base = new Date('2026-10-13T12:00:00Z');
@@ -62,6 +62,30 @@ describe('controle das buscas por novos editais', () => {
     const s = situacaoDaBusca(sqlite, depois(3 * 60 * 60 * 1000));
     expect(s.emAndamento).toBe(false);
     expect(s.restantes).toBe(2);
+  });
+
+  it('busca sem heartbeat há mais de 5 minutos vira interrompida', () => {
+    const r = iniciarBusca(sqlite, base);
+    expect(situacaoDaBusca(sqlite, depois(4 * 60 * 1000)).emAndamento).toBe(true);
+    expect(situacaoDaBusca(sqlite, depois(6 * 60 * 1000)).emAndamento).toBe(false);
+    expect(r.ok).toBe(true);
+  });
+
+  it('heartbeat recente mantém a busca viva mesmo iniciada há horas', () => {
+    const r = iniciarBusca(sqlite, base);
+    if (!r.ok) throw new Error('busca deveria iniciar');
+    batidaBuscaSQLite(sqlite, r.id, depois(3 * 60 * 60 * 1000 - 60 * 1000));
+    expect(situacaoDaBusca(sqlite, depois(3 * 60 * 60 * 1000)).emAndamento).toBe(true);
+  });
+
+  it('heartbeat não reabre busca já finalizada', () => {
+    const r = iniciarBusca(sqlite, base);
+    if (!r.ok) throw new Error('busca deveria iniciar');
+    finalizarBusca(sqlite, r.id, stats, false, depois(60 * 1000));
+    batidaBuscaSQLite(sqlite, r.id, depois(2 * 60 * 1000));
+    const linha = sqlite.prepare('SELECT status, atualizada_em FROM buscas_editais WHERE id = ?').get(r.id) as { status: string; atualizada_em: string };
+    expect(linha.status).toBe('concluida');
+    expect(linha.atualizada_em).toBe(base.toISOString());
   });
 });
 

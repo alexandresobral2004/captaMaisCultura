@@ -622,6 +622,8 @@ export const projetosCientificos = pgTable('projetos_cientificos', {
 export const buscasEditais = pgTable('buscas_editais', {
   id: serial('id').primaryKey(),
   iniciadaEm: text('iniciada_em').notNull(),
+  /** Último sinal de vida da busca em andamento (heartbeat). */
+  atualizadaEm: text('atualizada_em'),
   concluidaEm: text('concluida_em'),
   status: text('status').notNull().default('em_andamento'),
   novos: integer('novos').default(0),
