@@ -1,0 +1,1 @@
+ALTER TABLE "buscas_editais" ADD COLUMN IF NOT EXISTS "atualizada_em" text;

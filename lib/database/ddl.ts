@@ -671,6 +671,7 @@ export function migrarSchema(sqlite: Database.Database) {
       CREATE TABLE IF NOT EXISTS buscas_editais (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         iniciada_em TEXT NOT NULL,
+        atualizada_em TEXT,
         concluida_em TEXT,
         status TEXT NOT NULL DEFAULT 'em_andamento',
         novos INTEGER DEFAULT 0,
@@ -680,6 +681,12 @@ export function migrarSchema(sqlite: Database.Database) {
         mensagem TEXT
       )
     `);
+    // Bancos criados antes do heartbeat não têm a coluna: adiciona sem recriar a tabela
+    const colunasBuscas = sqlite.prepare("PRAGMA table_info(buscas_editais)").all() as any[];
+    if (!colunasBuscas.some((col: any) => col.name === 'atualizada_em')) {
+      sqlite.exec(`ALTER TABLE buscas_editais ADD COLUMN atualizada_em TEXT`);
+      console.log('✅ Migração: coluna atualizada_em adicionada em buscas_editais');
+    }
 
     // Decisões do funil de filtragem, uma linha por edital e etapa (ver lib/scraper/funil.ts)
     sqlite.exec(`

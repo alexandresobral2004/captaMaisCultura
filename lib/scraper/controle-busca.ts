@@ -6,8 +6,10 @@ import { db } from '../database/db';
 export const LIMITE_BUSCAS = 2;
 /** Janela móvel (dias). */
 export const JANELA_DIAS = 7;
-/** Uma busca "em andamento" há mais tempo que isso é considerada interrompida. */
-const TEMPO_MAXIMO_MS = 2 * 60 * 60 * 1000;
+/** Intervalo do heartbeat enquanto a busca roda. */
+export const INTERVALO_BATIDA_MS = 30 * 1000;
+/** Busca "em andamento" sem heartbeat há mais que isso é considerada interrompida (órfã). */
+export const TEMPO_SEM_BATIDA_MS = 5 * 60 * 1000;
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -35,8 +37,15 @@ export interface EstatisticasBusca {
 
 function marcarInterrompidasSQLite(sqlite: BetterSqlite3.Database, agora: Date) {
   sqlite
-    .prepare(`UPDATE buscas_editais SET status = 'erro', concluida_em = ?, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND iniciada_em < ?`)
-    .run(agora.toISOString(), new Date(agora.getTime() - TEMPO_MAXIMO_MS).toISOString());
+    .prepare(`UPDATE buscas_editais SET status = 'erro', concluida_em = ?, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND COALESCE(atualizada_em, iniciada_em) < ?`)
+    .run(agora.toISOString(), new Date(agora.getTime() - TEMPO_SEM_BATIDA_MS).toISOString());
+}
+
+/** Registra o heartbeat de uma busca em andamento. */
+export function batidaBuscaSQLite(sqlite: BetterSqlite3.Database, id: number, agora = new Date()) {
+  sqlite
+    .prepare(`UPDATE buscas_editais SET atualizada_em = ? WHERE id = ? AND status = 'em_andamento'`)
+    .run(agora.toISOString(), id);
 }
 
 export function situacaoDaBusca(sqlite: BetterSqlite3.Database, agora = new Date()): SituacaoBusca {
@@ -78,7 +87,9 @@ export function iniciarBusca(sqlite: BetterSqlite3.Database, agora = new Date())
     const situacao = situacaoDaBusca(sqlite, agora);
     if (situacao.emAndamento) return { ok: false, motivo: 'em_andamento', situacao };
     if (situacao.restantes <= 0) return { ok: false, motivo: 'limite', situacao };
-    const r = sqlite.prepare(`INSERT INTO buscas_editais (iniciada_em, status) VALUES (?, 'em_andamento')`).run(agora.toISOString());
+    const r = sqlite
+      .prepare(`INSERT INTO buscas_editais (iniciada_em, atualizada_em, status) VALUES (?, ?, 'em_andamento')`)
+      .run(agora.toISOString(), agora.toISOString());
     return { ok: true, id: Number(r.lastInsertRowid) };
   });
   return tentar.immediate();
@@ -94,7 +105,19 @@ export function finalizarBusca(sqlite: BetterSqlite3.Database, id: number, stats
 
 async function marcarInterrompidasAsync(db: any, agora: Date) {
   await db.execute(
-    sql`UPDATE buscas_editais SET status = 'erro', concluida_em = ${agora.toISOString()}, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND iniciada_em < ${new Date(agora.getTime() - TEMPO_MAXIMO_MS).toISOString()}`
+    sql`UPDATE buscas_editais SET status = 'erro', concluida_em = ${agora.toISOString()}, mensagem = 'Interrompida' WHERE status = 'em_andamento' AND COALESCE(atualizada_em, iniciada_em) < ${new Date(agora.getTime() - TEMPO_SEM_BATIDA_MS).toISOString()}`
+  );
+}
+
+/** Marca como interrompidas as buscas sem heartbeat. Chamada na subida do sistema e ao consultar a situação. */
+export async function recuperarBuscasOrfasAsync(agora = new Date()) {
+  await marcarInterrompidasAsync(db, agora);
+}
+
+/** Heartbeat: a busca em andamento registra que segue viva. */
+export async function batidaBuscaAsync(id: number, agora = new Date()) {
+  await (db as any).execute(
+    sql`UPDATE buscas_editais SET atualizada_em = ${agora.toISOString()} WHERE id = ${id} AND status = 'em_andamento'`
   );
 }
 
@@ -136,7 +159,7 @@ export async function iniciarBuscaAsync(agora = new Date()): Promise<InicioBusca
     const situacao = await situacaoDaBuscaAsync(agora);
     if (situacao.emAndamento) return { ok: false, motivo: 'em_andamento', situacao };
     if (situacao.restantes <= 0) return { ok: false, motivo: 'limite', situacao };
-    const rows = await tx.execute(sql`INSERT INTO buscas_editais (iniciada_em, status) VALUES (${agora.toISOString()}, 'em_andamento') RETURNING id`);
+    const rows = await tx.execute(sql`INSERT INTO buscas_editais (iniciada_em, atualizada_em, status) VALUES (${agora.toISOString()}, ${agora.toISOString()}, 'em_andamento') RETURNING id`);
     const id = Array.isArray(rows) && rows.length > 0 ? Number((rows[0] as any).id) : 0;
     return { ok: true, id };
   });

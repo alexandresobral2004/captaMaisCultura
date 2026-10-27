@@ -3,6 +3,9 @@ import { jobs } from '../database/schema';
 import { BaseRepository } from '../database/repositories/base.repository';
 import { JobStatus, JobPhase, JobProgresso, JobRecord, ErroFase } from './job-types';
 
+/** Job sem atualização há mais que isso é considerado órfão (processo morto). */
+export const TEMPO_SEM_ATUALIZACAO_MS = 5 * 60 * 1000;
+
 export class JobRepository extends BaseRepository {
   /**
    * Cria um novo job no banco de dados com status RODANDO

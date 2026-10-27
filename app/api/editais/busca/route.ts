@@ -3,7 +3,7 @@ import { buscarEditaisPortais } from '@/lib/scraper/fetcher';
 import { prepararEdital } from '@/lib/scraper/preparar-edital';
 import { saveEdital, getEditalPorId, isEditalExcluido } from '@/lib/db/editais-store';
 import { comecarColeta, comecarProcessamento, registrarItem, terminarBusca, resultadoDoItem } from '@/lib/scraper/progresso-busca';
-import { iniciarBuscaAsync, finalizarBuscaAsync, situacaoDaBuscaAsync, editalJaProcessado } from '@/lib/scraper/controle-busca';
+import { iniciarBuscaAsync, finalizarBuscaAsync, situacaoDaBuscaAsync, editalJaProcessado, batidaBuscaAsync, INTERVALO_BATIDA_MS } from '@/lib/scraper/controle-busca';
 import { verificarAdmin } from '@/lib/api/auth';
 import { registrarDecisao } from '@/lib/scraper/funil';
 import { pipelineLogger } from '@/lib/scraper/pipeline-logger';
@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
   }
   let jaExistentes = 0;
   comecarColeta();
+  // Heartbeat: enquanto este processo estiver vivo, a busca não é marcada como órfã
+  const batida = setInterval(() => {
+    batidaBuscaAsync(inicio.id).catch((err) => console.error('Falha no heartbeat da busca:', err));
+  }, INTERVALO_BATIDA_MS);
 
   try {
     const tempoInicio = Date.now();
@@ -149,5 +153,7 @@ export async function POST(request: NextRequest) {
       { error: 'Erro no processo de busca/download/análise: ' + (error as Error).message },
       { status: 500 }
     );
+  } finally {
+    clearInterval(batida);
   }
 }
