@@ -1,8 +1,8 @@
 # 📚 Índice Geral da Documentação - Capta+
 
 > **📍 Localização:** `docs/00-INDICE.md`
-> **📅 Última revisão:** 07/06/2026
-> **📊 Total de documentos:** 48+
+> **📅 Última revisão:** 27/10/2026
+> **📊 Total de documentos:** 54 de conteúdo (+ índice e 1 apresentação `.pptx`)
 
 Bem-vindo à documentação consolidada do **Capta+** (CaptaMais v3.0) — Sistema de Gestão Inteligente de Editais e Captação de Recursos.
 
@@ -125,7 +125,7 @@ Documentação de testes, análises de problemas e relatórios.
 
 ---
 
-### 📚 [09. Guias & Referências](09-guias-referencias/) — 6 docs
+### 📚 [09. Guias & Referências](09-guias-referencias/) — 8 docs
 
 Guias rápidos, resumos e referências práticas.
 
@@ -137,6 +137,60 @@ Guias rápidos, resumos e referências práticas.
 | 04 | [`04-exploration-summary.md`](09-guias-referencias/04-exploration-summary.md) | 📊 Exploration summary (consolidado de .txt) |
 | 05 | [`05-resumo-implementacao-final.md`](09-guias-referencias/05-resumo-implementacao-final.md) | 🎉 Resumo final da implementação |
 | 06 | [`06-resumo-scripts-final.md`](09-guias-referencias/06-resumo-scripts-final.md) | 📦 Resumo dos scripts criados |
+| 07 | [`fontes-editais-pesquisa-ti.md`](09-guias-referencias/fontes-editais-pesquisa-ti.md) | 🔎 Fontes de editais: pesquisa em TI, IA e parcerias |
+| 08 | [`triagem-de-editais.md`](09-guias-referencias/triagem-de-editais.md) | 🗂️ Triagem de editais (Jev como juiz principal) |
+
+---
+
+### 🧭 [10. Menu de Análise de Projetos](10-menu-analise-projetos/) — 1 doc
+
+Planejamento do menu de análise de projetos.
+
+| # | Documento | Descrição |
+|---|-----------|-----------|
+| 01 | [`01-planejamento-menu-analise.md`](10-menu-analise-projetos/01-planejamento-menu-analise.md) | 🧭 Planejamento do menu de análise de projetos científicos |
+
+---
+
+### 🎨 [11. Melhorias de Interface](11-melhorias-interface/) — 1 doc
+
+Planejamento de melhorias visuais da interface.
+
+| # | Documento | Descrição |
+|---|-----------|-----------|
+| 01 | [`01-planejamento-icones-vibrantes.md`](11-melhorias-interface/01-planejamento-icones-vibrantes.md) | 🎨 Planejamento de ícones vibrantes |
+
+---
+
+### ⚙️ [12. Multi-instância](12-multi-instancia/) — 1 doc
+
+Planejamento para remover o estado em memória do processo (progresso, logs, caches).
+
+| # | Documento | Descrição |
+|---|-----------|-----------|
+| 01 | [`01-plano-estado-em-memoria.md`](12-multi-instancia/01-plano-estado-em-memoria.md) | ⚙️ Plano para tirar progresso, logs e caches da memória do processo |
+
+---
+
+### 🛡️ [13. Jobs, recuperação e geração assíncrona](13-jobs-recuperacao/) — 1 doc
+
+Estado atual e plano para heartbeat, recuperação de órfãos, fila e geração de projeto assíncrona.
+
+| # | Documento | Descrição |
+|---|-----------|-----------|
+| 01 | [`01-plano-jobs-heartbeat-fila.md`](13-jobs-recuperacao/01-plano-jobs-heartbeat-fila.md) | 🛡️ Plano de recuperação de jobs e geração assíncrona de projeto |
+
+---
+
+### 📎 Documentos avulsos e apresentação
+
+Arquivos ainda sem categoria, na raiz de `docs/`, e a apresentação de arquitetura.
+
+| Documento | Descrição |
+|---|---|
+| [`analise-completa-pipeline.md`](analise-completa-pipeline.md) | Análise completa do código, CaptaMais v3.0 (31/05/2026) |
+| [`fluxo-busca-cadastro-editais.md`](fluxo-busca-cadastro-editais.md) | Fluxo completo de busca e cadastro de editais |
+| [`apresentacao/capta-mais-arquitetura-e-escala.pptx`](apresentacao/capta-mais-arquitetura-e-escala.pptx) | Apresentação: arquitetura e escala |
 
 ---
 
@@ -202,12 +256,21 @@ Guias rápidos, resumos e referências práticas.
 | 06-integracoes | 3 | ~1.500 |
 | 07-skills | 3 | ~500 |
 | 08-testes-analise | 7 | ~2.000 |
-| 09-guias-referencias | 6 | ~2.000 |
-| **TOTAL** | **47** | **~16.100** |
+| 09-guias-referencias | 8 | ~2.000 (6 docs medidos) |
+| 10-menu-analise-projetos | 1 | não medido |
+| 11-melhorias-interface | 1 | não medido |
+| Avulsos e apresentação | 3 | não medido |
+| **TOTAL** | **54** | **~16.100 (sem os não medidos)** |
 
 ---
 
 ## 🔄 Histórico de Mudanças
+
+### Revisão de 27/10/2026 — Consolidação da raiz
+- ✅ Removidos da raiz do projeto os 7 arquivos já cobertos em `docs/` (`QUICKSTART.md`, `API_DOCUMENTATION.md` e 5 `.txt` de análise de prosas)
+- ✅ Seções exclusivas do `QUICKSTART.md` (endpoints, exemplo, performance, segurança, FAQ, problemas comuns) migradas para `01-introducao/02-quickstart.md`
+- ✅ Indexados os documentos que faltavam: 09 (2 guias), 10 e 11 (novas pastas), avulsos e apresentação
+- ✅ Corrigidas contagens e estrutura de arquivos
 
 ### v3.3 (07/06/2026) — Editor Científico Avançado com IA
 - ✅ Adicionado documento detalhado sobre o Editor Científico Avançado, busca Tavily, ABNT e proponentes
@@ -243,12 +306,20 @@ docs/
 ├── 01-introducao/                                  4 docs
 ├── 02-arquitetura/                                 5 docs
 ├── 03-fluxos/                                      7 docs
-├── 04-implementacao/                               5 docs
+├── 04-implementacao/                               6 docs
 ├── 05-filtragem-keywords/                          6 docs
 ├── 06-integracoes/                                 3 docs
 ├── 07-skills/                                      3 docs
 ├── 08-testes-analise/                              7 docs
-└── 09-guias-referencias/                           6 docs
+├── 09-guias-referencias/                           8 docs
+├── 10-menu-analise-projetos/                       1 doc
+├── 11-melhorias-interface/                         1 doc
+├── 12-multi-instancia/                             1 doc
+├── 13-jobs-recuperacao/                            1 doc
+├── 10-guia-de-estudo.md                            guia de estudo (começe aqui)
+├── analise-completa-pipeline.md                    avulso
+├── fluxo-busca-cadastro-editais.md                 avulso
+└── apresentacao/                                   1 apresentação (.pptx)
 ```
 
 ---
@@ -281,6 +352,6 @@ Para dúvidas ou problemas:
 
 ---
 
-**Última atualização:** 04/06/2026
+**Última atualização:** 27/10/2026
 **Versão do sistema:** CaptaMais v3.0
 **Mantido por:** Equipe Capta+
