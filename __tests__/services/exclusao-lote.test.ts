@@ -30,6 +30,18 @@ describe('exclusão de editais em lote', () => {
     expect(await store.getEditalPorId(a.id)).toBeNull();
   });
 
+  it('exclui edital com pdf_path antigo fora do armazenamento, mas bloqueia traversal', async () => {
+    const repo = new EditalRepository();
+    const antigo = await repo.create(makeEditalDTO({ link: 'https://x.gov.br/antigo', pdfPath: '/tmp/capta-varredura/antigo.pdf' } as any));
+    const r = await new EditalService().deletarVarios([antigo.id]);
+    expect(r.excluidos).toEqual([antigo.id]);
+    expect(await store.getEditalPorId(antigo.id)).toBeNull();
+
+    const traversal = await repo.create(makeEditalDTO({ link: 'https://x.gov.br/traversal', pdfPath: '../../etc/x.pdf' } as any));
+    const r2 = await new EditalService().deletarVarios([traversal.id]);
+    expect(r2.falhas).toEqual([{ id: traversal.id, erro: expect.stringContaining('Directory Traversal') }]);
+  });
+
   it('excluído com prazo vencido não volta: as buscas o reconhecem por id e por link, e salvar de novo é ignorado', async () => {
     const repo = new EditalRepository();
     const a = await repo.create(makeEditalDTO({ link: 'https://x.gov.br/edital-a', dataLimite: '2020-01-31' }));
