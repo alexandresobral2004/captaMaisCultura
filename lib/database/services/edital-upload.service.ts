@@ -1,4 +1,4 @@
-import { EditalService } from './edital.service';
+import { EditalService, prazoVencido } from './edital.service';
 import { FileService } from './file.service';
 import { validarComOpenAI } from '../../filtros-ti/openai-classifier';
 import { analisarEditalComIA } from '../../ai/analyzer';
@@ -21,6 +21,8 @@ interface UploadResult {
   tipoFerramenta: string;
   scoreRelevancia: number;
   confiancaIA: number;
+  dataLimite: string | null;
+  prazoVencido: boolean;
   erros: string[];
 }
 
@@ -281,6 +283,8 @@ export class EditalUploadService {
       tipoFerramenta: finalEdital?.tipoFerramenta || validacaoIA?.tipo || 'N/A',
       scoreRelevancia: finalEdital?.analiseIA?.scoreAdequacao || validacaoIA?.score || 0,
       confiancaIA: finalEdital?.scoreConfiancaIa || validacaoIA?.confiança || 0,
+      dataLimite: finalEdital?.dataLimite || null,
+      prazoVencido: prazoVencido(finalEdital?.dataLimite),
       erros
     };
   }

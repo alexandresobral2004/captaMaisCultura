@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { formatarDataBr } from '@/lib/utils/formatar-data';
 import { X, FileUp, CheckCircle, XCircle } from 'lucide-react';
 
 interface UploadPdfModalProps {
@@ -272,6 +273,13 @@ export function UploadPdfModal({ aberto, onFechar, onProcessado }: UploadPdfModa
                       <span className="text-green-400">{uploadResult.confiancaIA}%</span>
                     </div>
                   </div>
+
+                  {uploadResult.prazoVencido && (
+                    <div className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-300">
+                      Este edital está vencido{uploadResult.dataLimite ? ` (prazo: ${formatarDataBr(uploadResult.dataLimite)})` : ''}.
+                      Editais vencidos ficam fora da lista de editais abertos, então ele não vai aparecer lá.
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3">
