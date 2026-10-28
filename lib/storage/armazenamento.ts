@@ -140,7 +140,7 @@ let instancia: Armazenamento | null = null;
 export function obterArmazenamento(): Armazenamento {
   if (instancia) return instancia;
 
-  const driver = (process.env.ARMAZENAMENTO_DRIVER || 'local').toLowerCase();
+  const driver = (process.env.ARMAZENAMENTO_DRIVER || 'local').trim().toLowerCase();
   if (driver === 's3') {
     const faltando = ['BUCKET', 'ENDPOINT', 'REGION', 'ACCESS_KEY_ID', 'SECRET_ACCESS_KEY']
       .filter((nome) => !process.env[`ARMAZENAMENTO_${nome}`]);
