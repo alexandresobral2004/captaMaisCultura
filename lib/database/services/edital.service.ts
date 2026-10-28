@@ -94,9 +94,16 @@ export class EditalService {
       throw new Error(`Edital ${id} nao encontrado`);
     }
 
-    // 1. Deletar arquivo fisico se existir
+    // 1. Deletar arquivo fisico se existir.
+    // Caminho antigo (absoluto ou de disco) nao e chave do armazenamento: nao ha arquivo a remover,
+    // mas a exclusao logica precisa seguir. Traversal continua falhando.
     if (edital.pdfPath) {
-      await this.fileService.deletarArquivo(edital.pdfPath);
+      try {
+        await this.fileService.deletarArquivo(edital.pdfPath);
+      } catch (erro) {
+        if (!(erro as Error).message.includes('Chave de armazenamento inválida')) throw erro;
+        console.warn(`[Editais] pdf_path fora do armazenamento, arquivo nao removido: ${edital.pdfPath}`);
+      }
     }
 
     // 2. Deletar analise e palavras-chave (dados derivados - hard delete)
