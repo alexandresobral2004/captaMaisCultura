@@ -15,6 +15,7 @@ import postgres from 'postgres';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { opcaoSslPostgres } from './ssl';
+import { ativarWal } from './sqlite-wal';
 
 export type AppDb = ReturnType<typeof drizzleSQLite<typeof schema>>;
 
@@ -25,8 +26,9 @@ function criarConexaoSQLite() {
   const dbDir = dirname(DB_PATH);
   if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
 
-  const sqlite = new BetterSQLite(DB_PATH);
-  sqlite.pragma('journal_mode = WAL');
+  // timeout: espera até 5 s quando outro processo segura o lock (o build do Next abre o banco em paralelo)
+  const sqlite = new BetterSQLite(DB_PATH, { timeout: 5000 });
+  ativarWal(sqlite);
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('synchronous = NORMAL');
   sqlite.pragma('cache_size = -64000');
