@@ -14,6 +14,7 @@ import BetterSQLite from 'better-sqlite3';
 import postgres from 'postgres';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
+import { opcaoSslPostgres } from './ssl';
 
 export type AppDb = ReturnType<typeof drizzleSQLite<typeof schema>>;
 
@@ -53,8 +54,9 @@ function criarConexaoSQLite() {
 
 // postgres() não abre conexão até a primeira query, então a criação pode ser síncrona e lazy
 function criarConexaoPostgres() {
-  const isLocalhost = DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1');
-  const client = postgres(DATABASE_URL, { ssl: isLocalhost ? false : 'require' });
+  const client = postgres(DATABASE_URL, {
+    ssl: opcaoSslPostgres(DATABASE_URL, { DATABASE_SSL: process.env.DATABASE_SSL }),
+  });
   const _db = drizzlePg(client, { schema });
   return {
     db: _db as any,
