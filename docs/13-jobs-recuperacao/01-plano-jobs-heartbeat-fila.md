@@ -19,7 +19,7 @@ Há dois caminhos de varredura, e eles têm mecanismos diferentes.
 | Heartbeat a cada edital processado | ➖ Desnecessário | O loop por edital (`job-runner.ts:158` e `:198`) não bate heartbeat. Só `atualizarFase` grava `atualizadoEm`, por fase (`job-repository.ts:27-35`). O timer de 30 s já cobre fases longas. |
 | Considerar vivo quem bateu nos últimos 5 min | ✅ Feito | `job-runner.ts:14` (`TEMPO_SEM_ATUALIZACAO_MS = 5 min`) |
 | Recuperação com UPDATE condicional | ✅ Feito | `lib/jobs/job-repository.ts:122-131` (`encerrarOrfaos`) |
-| Recuperação na subida do sistema | ❌ Falta | `encerrarOrfaos` só roda no início de `executar()`. `instrumentation.ts` só carrega filtros. |
+| Recuperação na subida do sistema | ✅ Feito (Fase 1) | `instrumentation.ts` encerra órfãos de busca e de job ao subir o servidor |
 | Fila com `FOR UPDATE SKIP LOCKED` | ⚠️ Equivalente, não igual | `job-repository.ts:171-196` faz SELECT e depois UPDATE condicional (`WHERE status = 'pendente'`). Há índice único parcial (`uniq_jobs_um_rodando`) que garante um único job rodando. Seguro, mas `SKIP LOCKED` só faria diferença com vários jobs rodando em paralelo. |
 | Worker separado | ✅ Feito | `scripts/worker.ts`, ativado por `SERVICE_ROLE=worker` (`Dockerfile:22-24`) |
 | Resposta 202 ao disparar | ✅ Feito | `app/api/jobs/run-weekly-scan/route.ts:65` |
@@ -30,8 +30,8 @@ Há dois caminhos de varredura, e eles têm mecanismos diferentes.
 | Proposta | Estado | Evidência |
 |---|---|---|
 | Executa fora da requisição HTTP | ❌ Não | `app/api/editais/busca/route.ts` roda a varredura dentro do próprio `POST` |
-| Heartbeat | ❌ Não | Não existe. A busca usa só `iniciada_em` |
-| Recuperação | ⚠️ Lazy e com 2 horas | `lib/scraper/controle-busca.ts:36-43` e `:95-102` marcam como interrompida o que passou de `TEMPO_MAXIMO_MS` (2 h). Só roda quando alguém consulta a situação. |
+| Heartbeat | ✅ Feito (Fase 1) | Batida a cada 30 s em `buscas_editais.atualizada_em` (`INTERVALO_BATIDA_MS`) |
+| Recuperação | ✅ Feito (Fase 1) | Sem batida há mais de 5 min vira `erro` / "Interrompida" (`TEMPO_SEM_BATIDA_MS`). Roda na subida e ao consultar a situação. Antes era de 2 h. |
 | Resposta quando há busca rodando | ⚠️ 429, não 409 | `app/api/editais/busca/route.ts:21-27`. Com o `TEMPO_MAXIMO_MS` de 2 h, a recuperação acontece sozinha, mas com atraso de até 2 h. |
 
 **Correção ao texto de origem:** "409 até alguém intervir" não é o comportamento atual. No caminho A, o órfão é encerrado sozinho após 5 minutos sem heartbeat, na próxima execução. No caminho B, é encerrado sozinho após 2 horas. O problema real é a latência de recuperação e a falta de retomada, não a necessidade de intervenção manual.
@@ -97,4 +97,6 @@ Há dois caminhos de varredura, e eles têm mecanismos diferentes.
 
 ---
 
-**Status:** planejado, não iniciado.
+**Status:**
+- Fase 1 implementada e em produção (27/10/2026): commit `f3d4d37`, merge `875df49`. Migração `0003` registrada no journal.
+- Fases 2 a 6 planejadas, não iniciadas. A Fase 2 (varredura manual pela fila) é a que elimina a causa do sintoma.

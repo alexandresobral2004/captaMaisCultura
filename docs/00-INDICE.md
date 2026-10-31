@@ -125,7 +125,7 @@ Documentação de testes, análises de problemas e relatórios.
 
 ---
 
-### 📚 [09. Guias & Referências](09-guias-referencias/) — 8 docs
+### 📚 [09. Guias & Referências](09-guias-referencias/) — 9 docs
 
 Guias rápidos, resumos e referências práticas.
 
@@ -139,6 +139,7 @@ Guias rápidos, resumos e referências práticas.
 | 06 | [`06-resumo-scripts-final.md`](09-guias-referencias/06-resumo-scripts-final.md) | 📦 Resumo dos scripts criados |
 | 07 | [`fontes-editais-pesquisa-ti.md`](09-guias-referencias/fontes-editais-pesquisa-ti.md) | 🔎 Fontes de editais: pesquisa em TI, IA e parcerias |
 | 08 | [`triagem-de-editais.md`](09-guias-referencias/triagem-de-editais.md) | 🗂️ Triagem de editais (Jev como juiz principal) |
+| 09 | [`09-evolucao-pos-llamaparse.md`](09-guias-referencias/09-evolucao-pos-llamaparse.md) | 📈 Evolução do Capta+ após o LlamaParse (junho a outubro/2026) |
 
 ---
 
@@ -256,15 +257,26 @@ Arquivos ainda sem categoria, na raiz de `docs/`, e a apresentação de arquitet
 | 06-integracoes | 3 | ~1.500 |
 | 07-skills | 3 | ~500 |
 | 08-testes-analise | 7 | ~2.000 |
-| 09-guias-referencias | 8 | ~2.000 (6 docs medidos) |
+| 09-guias-referencias | 9 | ~2.000 (6 docs medidos) |
 | 10-menu-analise-projetos | 1 | não medido |
 | 11-melhorias-interface | 1 | não medido |
 | Avulsos e apresentação | 3 | não medido |
-| **TOTAL** | **54** | **~16.100 (sem os não medidos)** |
+| **TOTAL** | **55** | **~16.100 (sem os não medidos)** |
 
 ---
 
 ## 🔄 Histórico de Mudanças
+
+### Revisão de 28/10/2026 — Evolução após o LlamaParse
+- ✅ Novo documento `09-guias-referencias/09-evolucao-pos-llamaparse.md` com o que mudou no Capta+ desde 04/06/2026 (extração de PDF, triagem com Jev, jobs, infraestrutura, segurança)
+- ✅ Itens pendentes e não entregues separados (extração de prazo pelo Jev, Docling)
+
+### Revisão de 27/10/2026 — Busca sem órfãos presos e planos de arquitetura
+- ✅ Busca manual com heartbeat (30 s) e órfã em 5 min (antes 2 h); recuperação na subida do servidor (`0003`)
+- ✅ Migração `0003_buscas_heartbeat` registrada em produção; pre-deploy `db:migrate` confirmado em web e worker
+- ✅ Guia de estudo (`10-guia-de-estudo.md`) atualizado: busca manual (seção 4.1b), migrações e estado atual
+- ✅ Planos `12-multi-instancia` e `13-jobs-recuperacao` criados; Fase 1 de jobs implementada
+- ✅ Dois arquivos de plano e a seção 13 do índice incluídos
 
 ### Revisão de 27/10/2026 — Consolidação da raiz
 - ✅ Removidos da raiz do projeto os 7 arquivos já cobertos em `docs/` (`QUICKSTART.md`, `API_DOCUMENTATION.md` e 5 `.txt` de análise de prosas)

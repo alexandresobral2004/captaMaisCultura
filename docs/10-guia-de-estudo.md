@@ -21,7 +21,7 @@ projetos a partir de editais. A aplicação é uma app Next.js (`next dev`, `nex
 |---|---|---|
 | Framework | Next.js (App Router) | pastas `app/` (páginas e rotas de API) |
 | Banco | Postgres + Drizzle | schema em `lib/database/schema.ts`; migrations em `lib/database/migrations-pg/` |
-| Migrations | `scripts/db-migrate.mjs` | roda como pre-deploy no Railway |
+| Migrations | `scripts/db-migrate.mjs` | roda como pre-deploy no Railway, em **web e worker** (cada serviço precisa ter o comando configurado) |
 | Banco de testes | better-sqlite3 | `lib/database/db.ts` usa SQLite quando `DATABASE_PATH` está definido ou em testes |
 | Testes | Vitest | `npm test` roda `__tests__/` inteiro |
 | Agendamento | node-cron | `lib/jobs/scheduler.ts` |
@@ -57,9 +57,23 @@ Uma execução da varredura é um registro na tabela `jobs` com `status` (`PENDE
 - **Uma por vez:** o índice único parcial `uniq_jobs_um_rodando` (migration `0001`) impede dois jobs `RODANDO`
   ao mesmo tempo. Um INSERT concorrente falha com código `23505`, que o runner converte em `ConflictError`.
 - **Heartbeat:** enquanto o processo vive, `job-runner.ts` atualiza `atualizado_em` a cada 30 s (`HEARTBEAT_MS`).
-- **Órfãos:** antes de cada execução, `encerrarOrfaos` marca como `ERRO` os jobs `RODANDO` sem heartbeat
-  há mais de 5 min (`TEMPO_SEM_ATUALIZACAO_MS`). Isso cobre processo morto por deploy, reinício ou OOM.
+- **Órfãos:** `encerrarOrfaos` marca como `ERRO` os jobs `RODANDO` sem heartbeat há mais de 5 min
+  (`TEMPO_SEM_ATUALIZACAO_MS`, em `job-repository.ts`). Roda antes de cada execução e na subida do servidor
+  (`instrumentation.ts`). Isso cobre processo morto por deploy, reinício ou OOM.
 - **Limite:** um deadline geral para o job ainda não existe. Só há timeout no `fetch` do agendador (60 min).
+
+### 4.1b Busca manual (botão "Buscar novos editais")
+A busca manual não usa a fila. Roda dentro do `POST /api/editais/busca` e tem seu próprio controle em
+`buscas_editais` (`lib/scraper/controle-busca.ts`):
+
+- **Uma por vez:** se já há busca `em_andamento`, a resposta é **429** ("Já existe uma busca em andamento").
+- **Heartbeat:** a cada 30 s (`INTERVALO_BATIDA_MS`), a busca grava `atualizada_em`. O intervalo é limpo ao fim.
+- **Órfã:** sem batida há mais de 5 min (`TEMPO_SEM_BATIDA_MS`), a busca vira `erro` / "Interrompida".
+  Isso é feito na subida do servidor e ao consultar a situação.
+- **Limite semanal:** 2 buscas em 7 dias. Busca que falhou não consome o limite.
+- **Limitação:** a varredura ainda roda dentro da requisição web. Se o processo morre, a busca não retoma,
+  só é marcada como interrompida. O plano para mover isso à fila está em
+  `docs/13-jobs-recuperacao/01-plano-jobs-heartbeat-fila.md`.
 
 ### 4.2 Pipeline de um edital
 Resumo do caminho de cada edital dentro do job:
@@ -127,6 +141,9 @@ Antes de qualquer deploy, confira `SESSION_SECRET`, `SCAN_TOKEN` e `NEXT_PUBLIC_
 
 **Pronto (commitado):**
 - Índice de "uma busca por vez" no banco e heartbeat com recuperação de órfãos (`c7051bc`).
+- Heartbeat e recuperação de órfãos também na **busca manual** (5 min sem batida, antes eram 2 h), com
+  recuperação na subida do servidor e migração `0003` (coluna `atualizada_em`). Commit `f3d4d37`,
+  merge `875df49`. Em produção desde 27/10/2026, com a migração registrada no journal.
 - Commit geral de alterações pendentes de geração de projetos e apresentação (`291b7a3`).
 
 **Pronto (armazenamento e configurações):**
