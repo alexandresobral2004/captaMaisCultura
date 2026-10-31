@@ -1,5 +1,7 @@
 import { JobRepository, TEMPO_SEM_ATUALIZACAO_MS } from './job-repository';
-import { JobStatus, JobPhase, JobProgresso, JobResultado, JobRecord, ErroFase } from './job-types';
+import { JobStatus, JobPhase, JobProgresso, JobResultado, JobRecord, ErroFase, TipoJob } from './job-types';
+import { executarBuscaManual } from '../scraper/busca-manual';
+import { buscaDoJobAsync, iniciarExecucaoBuscaAsync, batidaBuscaPorJobAsync } from '../scraper/controle-busca';
 import { buscarEditaisPortais, filtrarComClassificador } from '../scraper/fetcher';
 import { analisarEditalComIA } from '../ai/analyzer';
 import { prepararEdital } from '../scraper/preparar-edital';
@@ -99,11 +101,19 @@ export class JobRunner {
       throw erro;
     }
 
+    const ehBuscaManual = job.tipo === TipoJob.BUSCA_MANUAL;
+
     // Heartbeat: enquanto o processo estiver vivo, atualiza atualizadoEm para o job não ser marcado como órfão
     const heartbeat = setInterval(() => {
       this.repository.heartbeat(jobId).catch((erro: any) => {
         originalError(`Falha no heartbeat do job ${jobId}:`, erro?.message);
       });
+      // Busca manual: o sinal de vida também vale para a linha de buscas_editais
+      if (ehBuscaManual) {
+        batidaBuscaPorJobAsync(jobId).catch((erro: any) => {
+          originalError(`Falha no heartbeat da busca do job ${jobId}:`, erro?.message);
+        });
+      }
     }, HEARTBEAT_MS);
 
     const progresso: JobProgresso = {
@@ -115,6 +125,9 @@ export class JobRunner {
     };
 
     try {
+      if (ehBuscaManual) {
+        return await this.executarBuscaManualJob(jobId);
+      }
       console.log(`🚀 [JOB ${jobId}] Iniciando varredura semanal de editais...`);
 
       // ============================================
@@ -279,6 +292,23 @@ export class JobRunner {
       console.log = originalLog;
       console.warn = originalWarn;
       console.error = originalError;
+    }
+  }
+
+  /** Job de busca manual: roda a busca na linha de buscas_editais ligada ao job e fecha os dois. */
+  private async executarBuscaManualJob(jobId: string): Promise<JobResultado> {
+    const busca = await buscaDoJobAsync(jobId);
+    if (!busca) throw new Error(`Busca do job ${jobId} não encontrada`);
+    await iniciarExecucaoBuscaAsync(busca.id);
+
+    try {
+      await executarBuscaManual(jobId, busca.id);
+      const jobFinal = await this.repository.finalizar(jobId, JobStatus.CONCLUIDO);
+      return this.formatarResultado(jobFinal!);
+    } catch (erro) {
+      // executarBuscaManual já marcou a busca como erro; aqui fecha o job
+      const jobFinal = await this.repository.finalizar(jobId, JobStatus.ERRO);
+      return this.formatarResultado(jobFinal!, erro instanceof Error ? erro.message : String(erro));
     }
   }
 

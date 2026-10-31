@@ -102,6 +102,8 @@ export interface Edital {
 
   statusAnalise?: 'pendente' | 'pdf_baixado' | 'analisado' | 'sem_pdf' | 'descartado' | 'erro' | 'duvida';
   erroAnalise?: string;
+  /** Falhas de análise seguidas; o pipeline retenta enquanto for menor que 3 (P17). */
+  tentativasAnalise?: number;
 
   confiancaClassificacao?: number;
   confiancaPorCampo?: { [campo: string]: number };
@@ -234,6 +236,7 @@ function dbToEdital(row: any, analise?: any): Edital {
     confiancaPorCampo: safeJsonParse(row.confiancaPorCampo ?? row.confianca_por_campo) ?? undefined,
     statusAnalise: row.statusAnalise ?? row.status_analise ?? undefined,
     erroAnalise: row.erroAnalise ?? row.erro_analise ?? undefined,
+    tentativasAnalise: row.tentativasAnalise ?? row.tentativas_analise ?? undefined,
     statusRevisao: row.statusRevisao ?? row.status_revisao ?? undefined,
     validadoManualmente: Boolean(row.validadoManualmente ?? row.validado_manualmente) || undefined,
     dataAprovacao: (row.dataAprovacao ?? row.data_aprovacao) ? new Date(row.dataAprovacao ?? row.data_aprovacao) : undefined,
@@ -302,6 +305,7 @@ function editalToDb(edital: Partial<Edital>): CreateEditalDTO {
     status: edital.status,
     statusAnalise: edital.statusAnalise,
     erroAnalise: edital.erroAnalise,
+    tentativasAnalise: edital.tentativasAnalise,
     statusRevisao: edital.statusRevisao,
     validadoManualmente: edital.validadoManualmente,
     dataAprovacao: edital.dataAprovacao ? new Date(edital.dataAprovacao).toISOString() : undefined,

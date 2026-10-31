@@ -33,6 +33,9 @@ const vazio = (): ProgressoBusca => ({
   descartados: 0, jaExistentes: 0, atual: null, percentual: null, atualizadoEm: new Date().toISOString(),
 });
 
+/** Progresso de uma busca que ainda não começou (ou não existe). */
+export const progressoInicial = vazio;
+
 const g = globalThis as unknown as { __progressoBusca?: ProgressoBusca };
 
 export function lerProgresso(): ProgressoBusca {

@@ -16,6 +16,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AnaliseEditalDrawer } from "@/components/editais/AnaliseEditalDrawer";
 import type { Edital } from "@/components/editais/tipos";
 import { ProgressoBuscaEditais } from "@/components/editais/ProgressoBuscaEditais";
+import { enfileirarBuscaManual, mensagemFinal } from "@/components/editais/fluxo-busca";
+import type { ProgressoBusca as ProgressoBuscaTipo } from "@/lib/scraper/progresso-busca";
 import { UploadPdfModal } from "@/components/editais/UploadPdfModal";
 import { formatarDataBr } from '@/lib/utils/formatar-data';
 import type { SituacaoBusca } from '@/lib/scraper/controle-busca';
@@ -96,6 +98,7 @@ export default function EditaisPage() {
   // Busca de novos editais: no máximo 2 por semana (controlado no servidor)
   const [situacaoBusca, setSituacaoBusca] = useState<SituacaoBusca | null>(null);
   const [resumoBusca, setResumoBusca] = useState<string | null>(null);
+  const [jobBusca, setJobBusca] = useState<string | null>(null);
 
   const carregarSituacaoBusca = useCallback(async () => {
     try {
@@ -110,26 +113,34 @@ export default function EditaisPage() {
     carregarSituacaoBusca();
   }, [carregarSituacaoBusca]);
 
+  // A busca roda no worker: aqui só enfileira e acompanha pelo jobId até a etapa final
   const handleBuscarEditais = async () => {
     setSearching(true);
     setError(null);
     setResumoBusca(null);
     try {
-      const res = await fetch('/api/editais/busca', { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data.situacao) setSituacaoBusca(data.situacao);
-        throw new Error(typeof data.error === 'string' ? data.error : 'Não foi possível buscar novos editais.');
+      const r = await enfileirarBuscaManual();
+      if (!r.ok) {
+        setError(r.mensagem);
+        setSearching(false);
+        carregarSituacaoBusca();
+        return;
       }
-      if (data.situacao) setSituacaoBusca(data.situacao);
-      if (data.resumo) setResumoBusca(`${data.resumo.novos} novos, ${data.resumo.jaExistentes} já estavam no sistema, ${data.resumo.descartados} descartados.`);
-      await fetchEditais();
+      setJobBusca(r.jobId);
     } catch (err) {
       setError((err as Error).message);
-      carregarSituacaoBusca();
-    } finally {
       setSearching(false);
+      carregarSituacaoBusca();
     }
+  };
+
+  const handleFimBusca = (progresso: ProgressoBuscaTipo) => {
+    setJobBusca(null);
+    setSearching(false);
+    if (progresso.etapa === 'erro') setError(mensagemFinal(progresso));
+    else setResumoBusca(mensagemFinal(progresso));
+    fetchEditais();
+    carregarSituacaoBusca();
   };
 
   // Re-analisa um edital manualmente
@@ -722,7 +733,7 @@ export default function EditaisPage() {
       />
       <UploadPdfModal aberto={showUploadModal} onFechar={() => setShowUploadModal(false)} onProcessado={fetchEditais} />
       
-      <ProgressoBuscaEditais ativo={searching} />
+      <ProgressoBuscaEditais ativo={searching} jobId={jobBusca} onFinal={handleFimBusca} />
 
       <ProcessingOverlay
         isOpen={analyzing !== null || reanalyzing !== null}

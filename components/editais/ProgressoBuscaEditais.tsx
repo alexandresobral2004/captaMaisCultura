@@ -4,23 +4,37 @@ import { useEffect, useState } from "react"
 import { Sparkles } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
 import type { ProgressoBusca } from "@/lib/scraper/progresso-busca"
+import { consultarProgresso, ehFimDaBusca } from "./fluxo-busca"
 
-/** Janela com a animação e a barra de andamento da busca por novos editais. */
-export function ProgressoBuscaEditais({ ativo }: { ativo: boolean }) {
+/**
+ * Janela com a animação e a barra de andamento da busca por novos editais.
+ * Consulta o job pelo jobId; ao chegar à etapa final, chama onFinal uma vez.
+ */
+export function ProgressoBuscaEditais({
+  ativo,
+  jobId,
+  onFinal,
+}: {
+  ativo: boolean
+  jobId: string | null
+  onFinal: (progresso: ProgressoBusca) => void
+}) {
   const [p, setP] = useState<ProgressoBusca | null>(null)
 
   useEffect(() => {
-    if (!ativo) {
+    if (!ativo || !jobId) {
       setP(null)
       return
     }
     let parar = false
     const ler = async () => {
-      try {
-        const res = await fetch("/api/editais/busca/progresso", { cache: "no-store" })
-        if (res.ok && !parar) setP(await res.json())
-      } catch {
-        /* tenta de novo no próximo ciclo */
+      const progresso = await consultarProgresso(jobId)
+      if (!progresso || parar) return
+      setP(progresso)
+      if (ehFimDaBusca(progresso)) {
+        parar = true
+        clearInterval(timer)
+        onFinal(progresso)
       }
     }
     ler()
@@ -29,7 +43,9 @@ export function ProgressoBuscaEditais({ ativo }: { ativo: boolean }) {
       parar = true
       clearInterval(timer)
     }
-  }, [ativo])
+    // onFinal muda a cada render da página; o ciclo de consulta depende só de ativo e do job
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo, jobId])
 
   if (!ativo) return null
 

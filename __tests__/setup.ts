@@ -27,7 +27,7 @@ const PG_TABLES = [
   'palavras_chave', 'arquivos_anexos', 'motivos_pontuacao',
   'projetos_cientificos', 'projetos', 'rag_chunks', 'logs_sistema',
   'prompts_historico', 'prompts_customizados', 'prompts_sistema',
-  'jobs', 'portais', 'editais',
+  'jobs', 'buscas_editais', 'portais', 'editais',
 ];
 
 if (IS_POSTGRES) {

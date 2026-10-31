@@ -301,6 +301,14 @@ export function criarTabelas(sqlite: Database.Database) {
       atualizado_em TEXT NOT NULL
     );
   `);
+    // Bancos SQLite criados antes da fila de busca manual ganham as colunas novas
+    const colunasJobs = (sqlite.prepare("PRAGMA table_info(jobs)").all() as any[]).map((col: any) => col.name);
+    if (!colunasJobs.includes('tipo')) {
+      sqlite.exec(`ALTER TABLE jobs ADD COLUMN tipo TEXT NOT NULL DEFAULT 'varredura_semanal'`);
+    }
+    if (!colunasJobs.includes('progresso')) {
+      sqlite.exec(`ALTER TABLE jobs ADD COLUMN progresso TEXT`);
+    }
 
     sqlite.exec(`
     CREATE TABLE IF NOT EXISTS portais (
@@ -371,6 +379,12 @@ export function migrarSchema(sqlite: Database.Database) {
     if (!hasErroAnalise) {
       sqlite.exec(`ALTER TABLE editais ADD COLUMN erro_analise TEXT`);
       console.log('✅ Migração: coluna erro_analise adicionada');
+    }
+
+    const hasTentativasAnalise = columns.some((col: any) => col.name === 'tentativas_analise');
+    if (!hasTentativasAnalise) {
+      sqlite.exec(`ALTER TABLE editais ADD COLUMN tentativas_analise INTEGER DEFAULT 0`);
+      console.log('✅ Migração: coluna tentativas_analise adicionada');
     }
 
     // Migração: revisão humana (aba "Revisão Humana" filtrava por um campo que não era gravado)
@@ -463,6 +477,8 @@ export function migrarSchema(sqlite: Database.Database) {
         CREATE TABLE IF NOT EXISTS jobs (
           id TEXT PRIMARY KEY,
           status TEXT NOT NULL DEFAULT 'PENDENTE',
+          tipo TEXT NOT NULL DEFAULT 'varredura_semanal',
+          progresso TEXT,
           fase TEXT,
           total_encontrados INTEGER DEFAULT 0,
           total_validados INTEGER DEFAULT 0,
@@ -686,6 +702,10 @@ export function migrarSchema(sqlite: Database.Database) {
     if (!colunasBuscas.some((col: any) => col.name === 'atualizada_em')) {
       sqlite.exec(`ALTER TABLE buscas_editais ADD COLUMN atualizada_em TEXT`);
       console.log('✅ Migração: coluna atualizada_em adicionada em buscas_editais');
+    }
+    if (!colunasBuscas.some((col: any) => col.name === 'job_id')) {
+      sqlite.exec(`ALTER TABLE buscas_editais ADD COLUMN job_id TEXT`);
+      console.log('✅ Migração: coluna job_id adicionada em buscas_editais');
     }
 
     // Decisões do funil de filtragem, uma linha por edital e etapa (ver lib/scraper/funil.ts)

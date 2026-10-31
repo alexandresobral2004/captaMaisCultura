@@ -1,12 +1,36 @@
-import { and, asc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
 import { jobs } from '../database/schema';
 import { BaseRepository } from '../database/repositories/base.repository';
-import { JobStatus, JobPhase, JobProgresso, JobRecord, ErroFase } from './job-types';
+import { JobStatus, JobPhase, JobProgresso, JobRecord, ErroFase, TipoJob } from './job-types';
+import type { ProgressoBusca } from '../scraper/progresso-busca';
+import type { Consulta } from '../database/consulta';
 
 /** Job sem atualização há mais que isso é considerado órfão (processo morto). */
 export const TEMPO_SEM_ATUALIZACAO_MS = 5 * 60 * 1000;
+/** Job PENDENTE sem worker por mais que isso é considerado sem worker disponível. */
+export const TEMPO_PENDENTE_MS = 3 * 60 * 1000;
+export const MENSAGEM_WORKER_INDISPONIVEL = 'Worker indisponível';
+
+/** Lê o progresso gravado no banco. Texto ausente ou fora do formato vira null. */
+function lerProgressoGravado(texto: string | null): ProgressoBusca | null {
+  if (!texto) return null;
+  let dados: unknown;
+  try {
+    dados = JSON.parse(texto);
+  } catch {
+    return null;
+  }
+  if (typeof dados !== 'object' || dados === null) return null;
+  return 'etapa' in dados && typeof dados.etapa === 'string' ? dados as ProgressoBusca : null;
+}
 
 export class JobRepository extends BaseRepository {
+  /** @param executor transação aberta, quando o enfileiramento precisa ser atômico com outras gravações */
+  constructor(executor?: Consulta) {
+    super();
+    if (executor) this.database = executor;
+  }
+
   /**
    * Cria um novo job no banco de dados com status RODANDO
    */
@@ -122,9 +146,9 @@ export class JobRepository extends BaseRepository {
    * Cobre processos encerrados no meio (deploy, reinício, parada da VM) que
    * nunca chegaram a finalizar o job.
    */
-  async encerrarOrfaos(limiteMs: number): Promise<number> {
-    const agoraIso = new Date().toISOString();
-    const limite = new Date(Date.now() - limiteMs).toISOString();
+  async encerrarOrfaos(limiteMs: number, agora = new Date()): Promise<number> {
+    const agoraIso = agora.toISOString();
+    const limite = new Date(agora.getTime() - limiteMs).toISOString();
     const mensagem = `Job interrompido: sem heartbeat por mais de ${Math.round(limiteMs / 60000)} minutos`;
 
     // Um único UPDATE condicionado: dois workers não encerram o mesmo job por engano
@@ -145,16 +169,36 @@ export class JobRepository extends BaseRepository {
   /**
    * Enfileira uma varredura: cria o job com status PENDENTE, para um worker executar depois.
    */
-  async enfileirar(id: string): Promise<JobRecord> {
+  async enfileirar(id: string, tipo: TipoJob = TipoJob.VARREDURA_SEMANAL): Promise<JobRecord> {
     const now = new Date().toISOString();
     const result = await this.database.insert(jobs).values({
       id,
       status: JobStatus.PENDENTE,
+      tipo,
       fase: null,
       iniciadoEm: now,
       atualizadoEm: now,
     }).returning();
     return this.mapToJobRecord(result[0]);
+  }
+
+  /**
+   * Marca como ERRO os jobs PENDENTE há mais de `limiteMs`: o worker não os reivindicou (worker parado).
+   */
+  async encerrarPendentesVencidos(limiteMs: number, agora = new Date()): Promise<number> {
+    const agoraIso = agora.toISOString();
+    const limite = new Date(agora.getTime() - limiteMs).toISOString();
+    const result = await this.database
+      .update(jobs)
+      .set({
+        status: JobStatus.ERRO,
+        finalizadoEm: agoraIso,
+        atualizadoEm: agoraIso,
+        erroDetalhes: JSON.stringify([{ mensagem: MENSAGEM_WORKER_INDISPONIVEL, timestamp: agoraIso }]),
+      })
+      .where(and(eq(jobs.status, JobStatus.PENDENTE), lt(jobs.iniciadoEm, limite)))
+      .returning({ id: jobs.id });
+    return result.length;
   }
 
   /** Busca um job PENDENTE (aguardando worker). */
@@ -206,6 +250,25 @@ export class JobRepository extends BaseRepository {
       .where(eq(jobs.id, id));
   }
 
+  /** Grava o andamento da busca manual no próprio job (lido de qualquer instância pela tela). */
+  async gravarProgresso(id: string, progresso: ProgressoBusca): Promise<void> {
+    await this.database
+      .update(jobs)
+      .set({ progresso: JSON.stringify(progresso), atualizadoEm: new Date().toISOString() })
+      .where(eq(jobs.id, id));
+  }
+
+  /** Job mais recente de um tipo (por data de início). */
+  async buscarUltimoDeTipo(tipo: TipoJob): Promise<JobRecord | null> {
+    const [ultimo] = await this.database
+      .select()
+      .from(jobs)
+      .where(eq(jobs.tipo, tipo))
+      .orderBy(desc(jobs.iniciadoEm))
+      .limit(1);
+    return ultimo ? this.mapToJobRecord(ultimo) : null;
+  }
+
   /**
    * Busca um job por ID
    */
@@ -227,6 +290,8 @@ export class JobRepository extends BaseRepository {
     return {
       id: raw.id,
       status: raw.status as JobStatus,
+      tipo: raw.tipo === TipoJob.BUSCA_MANUAL ? TipoJob.BUSCA_MANUAL : TipoJob.VARREDURA_SEMANAL,
+      progresso: lerProgressoGravado(raw.progresso),
       fase: raw.fase as JobPhase | null,
       totalEncontrados: raw.totalEncontrados || 0,
       totalValidados: raw.totalValidados || 0,

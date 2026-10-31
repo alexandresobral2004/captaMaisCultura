@@ -33,6 +33,7 @@ export interface CreateEditalDTO {
   status?: string;
   statusAnalise?: string;
   erroAnalise?: string;
+  tentativasAnalise?: number;
   statusRevisao?: 'pendente' | 'aprovado' | 'rejeitado';
   validadoManualmente?: boolean;
   dataAprovacao?: string;
@@ -219,6 +220,7 @@ export class EditalRepository extends BaseRepository {
       status: (data.status || 'Aberto') as any,
       statusAnalise: (data.statusAnalise || 'pendente') as any,
       erroAnalise: data.erroAnalise || null,
+      tentativasAnalise: data.tentativasAnalise ?? 0,
       statusRevisao: data.statusRevisao ?? null,
       validadoManualmente: data.validadoManualmente ?? null,
       dataAprovacao: data.dataAprovacao ?? null,
@@ -269,6 +271,7 @@ export class EditalRepository extends BaseRepository {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.statusAnalise !== undefined) updateData.statusAnalise = data.statusAnalise;
     if (data.erroAnalise !== undefined) updateData.erroAnalise = data.erroAnalise;
+    if (data.tentativasAnalise !== undefined) updateData.tentativasAnalise = data.tentativasAnalise;
     if (data.statusRevisao !== undefined) updateData.statusRevisao = data.statusRevisao;
     if (data.validadoManualmente !== undefined) updateData.validadoManualmente = data.validadoManualmente;
     if (data.dataAprovacao !== undefined) updateData.dataAprovacao = data.dataAprovacao;

@@ -96,9 +96,19 @@ export async function processarEditalUnico(edital: Edital): Promise<boolean> {
     console.error(`🔥 Erro crítico ao processar edital [${edital.id}]:`, error.message);
     edital.statusAnalise = 'erro';
     edital.erroAnalise = mensagemErroAnalise(error);
+    edital.tentativasAnalise = (edital.tentativasAnalise ?? 0) + 1;
     await saveEdital(edital);
     return false;
   }
+}
+
+/** Número de falhas de análise a partir do qual o edital sai da fila automática (P17). */
+export const LIMITE_TENTATIVAS_ANALISE = 3;
+
+/** Entra na fila: pendente, ou com erro que ainda não esgotou as tentativas. */
+export function precisaAnalisar(e: Pick<Edital, 'statusAnalise' | 'tentativasAnalise'>): boolean {
+  if (e.statusAnalise === 'pendente' || !e.statusAnalise) return true;
+  return e.statusAnalise === 'erro' && (e.tentativasAnalise ?? 0) < LIMITE_TENTATIVAS_ANALISE;
 }
 
 /**
@@ -106,9 +116,8 @@ export async function processarEditalUnico(edital: Edital): Promise<boolean> {
  */
 export async function processarFilaDeEditais() {
   const editais = await getAllEditais(true);
-  
-  // Pegamos apenas os pendentes ou com erro que queremos re-tentar (opcional)
-  const pendentes = editais.filter(e => e.statusAnalise === 'pendente' || !e.statusAnalise);
+
+  const pendentes = editais.filter(precisaAnalisar);
   
   if (pendentes.length === 0) {
     console.log('✅ Nenhum edital pendente de análise no momento.');

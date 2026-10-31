@@ -38,6 +38,8 @@ export const editais = pgTable('editais', {
   status: text('status').notNull().default('Aberto'),
   statusAnalise: text('status_analise').default('pendente'),
   erroAnalise: text('erro_analise'),
+  /** Quantas vezes a análise falhou; o pipeline retenta até 3. */
+  tentativasAnalise: integer('tentativas_analise').default(0),
   statusRevisao: text('status_revisao'),
   validadoManualmente: boolean('validado_manualmente'),
   dataAprovacao: text('data_aprovacao'),
@@ -450,7 +452,10 @@ export const configuracoes = pgTable('configuracoes', {
 export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
   status: text('status').notNull().default('PENDENTE'),
+  tipo: text('tipo').notNull().default('varredura_semanal'),
   fase: text('fase'),
+  // Andamento da busca manual (JSON stringificado); null nas varreduras semanais
+  progresso: text('progresso'),
   // Contadores de progresso por fase
   totalEncontrados: integer('total_encontrados').default(0),
   totalValidados: integer('total_validados').default(0),
@@ -469,6 +474,8 @@ export const jobs = pgTable('jobs', {
     iniciadoEmIdx: index('idx_jobs_iniciado_em').on(table.iniciadoEm),
     // Trava no banco: no máximo um job RODANDO por vez (duas execuções simultâneas falham no INSERT)
     umRodandoIdx: uniqueIndex('uniq_jobs_um_rodando').on(table.status).where(sql`status = 'RODANDO'`),
+    // Fila: no máximo um job ativo (PENDENTE ou RODANDO) de qualquer tipo. A expressão constante (1) faz o índice valer para a tabela toda
+    umAtivoIdx: uniqueIndex('uniq_jobs_um_ativo').on(sql`(1)`).where(sql`status IN ('PENDENTE','RODANDO')`),
   };
 });
 
@@ -625,6 +632,8 @@ export const buscasEditais = pgTable('buscas_editais', {
   /** Último sinal de vida da busca em andamento (heartbeat). */
   atualizadaEm: text('atualizada_em'),
   concluidaEm: text('concluida_em'),
+  /** Job da fila que executa esta busca (busca manual). */
+  jobId: text('job_id'),
   status: text('status').notNull().default('em_andamento'),
   novos: integer('novos').default(0),
   jaExistentes: integer('ja_existentes').default(0),

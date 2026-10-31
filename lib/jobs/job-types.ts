@@ -1,8 +1,16 @@
+import type { ProgressoBusca } from '../scraper/progresso-busca';
+
 export enum JobStatus {
   PENDENTE = 'PENDENTE',
   RODANDO = 'RODANDO',
   CONCLUIDO = 'CONCLUIDO',
   ERRO = 'ERRO'
+}
+
+/** Varredura semanal automática ou busca manual disparada pela tela de editais. */
+export enum TipoJob {
+  VARREDURA_SEMANAL = 'varredura_semanal',
+  BUSCA_MANUAL = 'busca_manual'
 }
 
 export enum JobPhase {
@@ -29,7 +37,10 @@ export interface ErroFase {
 export interface JobRecord extends JobProgresso {
   id: string;
   status: JobStatus;
+  tipo: TipoJob;
   fase: JobPhase | null;
+  /** Andamento da busca manual, lido pela tela. Null nas varreduras semanais. */
+  progresso: ProgressoBusca | null;
   erroDetalhes: string | null; // JSON serializado de ErroFase[]
   iniciadoEm: string;
   finalizadoEm: string | null;
