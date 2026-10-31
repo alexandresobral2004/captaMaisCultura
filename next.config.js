@@ -19,13 +19,6 @@ const nextConfig = {
       'pdf-parse',
     ],
   },
-  // Ignorar erros de build (TypeScript e ESLint) para permitir deploy
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   async headers() {
     return [
       {

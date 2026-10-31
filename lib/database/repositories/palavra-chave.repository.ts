@@ -1,9 +1,12 @@
 import { eq } from 'drizzle-orm';
+import type { InferSelectModel } from 'drizzle-orm';
 import { palavrasChave } from '../schema';
 import { BaseRepository } from './base.repository';
 
+type PalavraChave = InferSelectModel<typeof palavrasChave>;
+
 export class PalavraChaveRepository extends BaseRepository {
-  async findByEditalId(editalId: string) {
+  async findByEditalId(editalId: string): Promise<PalavraChave[]> {
     return this.database
       .select()
       .from(palavrasChave)

@@ -1,1 +1,1 @@
-{ "extends": "next/core-web-vitals", "rules": { "react/no-unescaped-entities": "off", "react-hooks/exhaustive-deps": "warn" } }
+{ "extends": "next/core-web-vitals", "plugins": ["@typescript-eslint"], "rules": { "react/no-unescaped-entities": "off", "react-hooks/exhaustive-deps": "warn" } }
