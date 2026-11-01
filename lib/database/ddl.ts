@@ -286,6 +286,15 @@ export function criarTabelas(sqlite: Database.Database) {
     `);
 
     sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS limites_taxa (
+      chave TEXT PRIMARY KEY,
+      contador INTEGER NOT NULL,
+      expira_em INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_limites_expira ON limites_taxa(expira_em);
+    `);
+
+    sqlite.exec(`
     CREATE TABLE IF NOT EXISTS jobs (
       id TEXT PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'PENDENTE',
@@ -344,6 +353,7 @@ export function criarTabelas(sqlite: Database.Database) {
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_nivel ON logs_sistema(nivel);`);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_criado_em ON logs_sistema(criado_em);`);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_contexto ON logs_sistema(contexto);`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_contexto_id ON logs_sistema(contexto, id);`);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_cenario ON logs_sistema(cenario_falha);`);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_logs_acao ON logs_sistema(acao_tomada);`);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);`);

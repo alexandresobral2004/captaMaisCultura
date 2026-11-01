@@ -1,7 +1,10 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { enfileirarVarredura, VarreduraEmAndamento } from './enfileirar';
+import { limparLimitesExpirados } from '../database/repositories/limites-taxa.repository';
+import { apagarLogsPipelineAntigos } from '../scraper/pipeline-eventos';
 
 let taskAgendada: ScheduledTask | null = null;
+let taskLimpezaLimites: ScheduledTask | null = null;
 
 /**
  * Inicia o agendamento de varredura semanal
@@ -35,6 +38,21 @@ export function iniciarScheduler() {
     console.log('\n' + '='.repeat(70) + '\n');
   });
 
+  // Apaga contagens de limite de taxa já expiradas (login e cadastro), de hora em hora
+  taskLimpezaLimites = cron.schedule('0 * * * *', async () => {
+    try {
+      await limparLimitesExpirados();
+    } catch (erro) {
+      console.error('❌ Erro ao limpar limites de taxa expirados:', erro);
+    }
+    // Logs do pipeline com mais de 7 dias (o worker grava; a limpeza fica aqui, junto dos limites)
+    try {
+      await apagarLogsPipelineAntigos();
+    } catch (erro) {
+      console.error('❌ Erro ao limpar logs antigos do pipeline:', erro);
+    }
+  });
+
   console.log('✅ Agendador iniciado\n');
 }
 
@@ -45,6 +63,10 @@ export function pararScheduler() {
   if (taskAgendada) {
     taskAgendada.stop();
     console.log('⏹️ Agendador parado');
+  }
+  if (taskLimpezaLimites) {
+    taskLimpezaLimites.stop();
+    taskLimpezaLimites = null;
   }
 }
 

@@ -1,10 +1,18 @@
 import { vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
+import os from 'os';
+import path from 'path';
 import * as schema from '../lib/database/schema';
 import { criarTabelas, migrarSchema } from '../lib/database/ddl';
 
 export const IS_POSTGRES = (process.env.DATABASE_URL ?? '').startsWith('postgres');
+
+// Sem DATABASE_PATH, o módulo db usaria data/db/editais.db do projeto: testes deixariam contadores (limite de taxa) lá.
+// Cada processo de teste ganha um arquivo temporário próprio.
+if (!IS_POSTGRES && !process.env.DATABASE_PATH) {
+  process.env.DATABASE_PATH = path.join(os.tmpdir(), `capta-teste-${process.pid}.db`);
+}
 
 // ─── Modo SQLite (padrão) ─────────────────────────────────────────────────────
 
@@ -27,7 +35,8 @@ const PG_TABLES = [
   'palavras_chave', 'arquivos_anexos', 'motivos_pontuacao',
   'projetos_cientificos', 'projetos', 'rag_chunks', 'logs_sistema',
   'prompts_historico', 'prompts_customizados', 'prompts_sistema',
-  'jobs', 'buscas_editais', 'portais', 'editais',
+  'jobs', 'buscas_editais', 'portais', 'editais', 'limites_taxa',
+  'configuracoes',
 ];
 
 if (IS_POSTGRES) {

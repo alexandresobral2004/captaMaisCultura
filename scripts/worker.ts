@@ -12,12 +12,22 @@ import { JobRunner } from '../lib/jobs/job-runner';
 import { JobRepository } from '../lib/jobs/job-repository';
 import { iniciarScheduler, pararScheduler } from '../lib/jobs/scheduler';
 import { sincronizarFiltros } from '../lib/scraper/filtros/loaders';
+import { pipelineLogger } from '../lib/scraper/pipeline-logger';
 
 const INTERVALO_MS = 5000;
 let encerrando = false;
 
 function dormir(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Grava o que ainda está na fila de logs. Falha de log não pode derrubar o encerramento. */
+async function descarregarLogs(): Promise<void> {
+  try {
+    await pipelineLogger.descarregar();
+  } catch (erro) {
+    console.error('⚠️ [Worker] Falha ao gravar logs pendentes:', erro instanceof Error ? erro.name : 'desconhecido');
+  }
 }
 
 async function main() {
@@ -49,6 +59,7 @@ async function main() {
     }
   }
 
+  await descarregarLogs();
   console.log('👋 [Worker] Encerrado');
 }
 
@@ -56,6 +67,8 @@ process.on('SIGTERM', () => {
   console.log('⏹️ [Worker] SIGTERM recebido; encerrando após o job atual');
   encerrando = true;
   pararScheduler();
+  // Handler síncrono: a gravação roda em paralelo; o fim do main espera a fila também
+  void descarregarLogs();
 });
 
 main().catch((erro) => {

@@ -1,8 +1,8 @@
 import { SCORE_MEDIO } from '../triagem/limiares';
 
 /**
- * Andamento da busca por novos editais, lido pela tela enquanto a busca roda.
- * Fica em memória do servidor (globalThis, para sobreviver ao recarregamento de módulos do Next).
+ * Andamento da busca por novos editais. Cada busca tem o seu acumulador (criarAcumuladorBusca);
+ * quem lê o andamento de fora (tela, outra réplica) lê o snapshot gravado no job, não a memória.
  */
 export type EtapaBusca = 'ociosa' | 'coletando' | 'processando' | 'concluida' | 'erro';
 
@@ -36,44 +36,59 @@ const vazio = (): ProgressoBusca => ({
 /** Progresso de uma busca que ainda não começou (ou não existe). */
 export const progressoInicial = vazio;
 
-const g = globalThis as unknown as { __progressoBusca?: ProgressoBusca };
-
-export function lerProgresso(): ProgressoBusca {
-  return g.__progressoBusca ?? vazio();
-}
-
-function gravar(p: ProgressoBusca) {
-  p.percentual = p.etapa === 'concluida' ? 100 : p.etapa === 'processando' && p.total > 0 ? Math.min(99, Math.round((p.verificados / p.total) * 100)) : null;
-  p.atualizadoEm = new Date().toISOString();
-  g.__progressoBusca = p;
-}
-
-export function comecarColeta() {
-  gravar({ ...vazio(), etapa: 'coletando' });
-}
-
-export function comecarProcessamento(total: number) {
-  gravar({ ...lerProgresso(), etapa: 'processando', total });
+function comPercentual(p: ProgressoBusca): ProgressoBusca {
+  const percentual = p.etapa === 'concluida' ? 100 : p.etapa === 'processando' && p.total > 0 ? Math.min(99, Math.round((p.verificados / p.total) * 100)) : null;
+  return { ...p, percentual, atualizadoEm: new Date().toISOString() };
 }
 
 export type ResultadoItem = 'ja_existia' | 'descartado' | 'edital_util' | 'edital_revisar' | 'edital';
 
-export function registrarItem(resultado: ResultadoItem, titulo: string | null = null) {
-  const p = { ...lerProgresso(), atual: titulo };
-  p.verificados++;
-  if (resultado === 'ja_existia') p.jaExistentes++;
-  else if (resultado === 'descartado') p.descartados++;
-  else {
-    p.saoEditais++;
-    if (resultado === 'edital_util') p.uteis++;
-    if (resultado === 'edital_revisar') p.paraRevisar++;
-  }
-  gravar(p);
+export interface AcumuladorBusca {
+  ler(): ProgressoBusca;
+  comecarColeta(): void;
+  comecarProcessamento(total: number): void;
+  registrarItem(resultado: ResultadoItem, titulo?: string | null): void;
+  terminarBusca(falhou?: boolean): void;
 }
 
-export function terminarBusca(falhou = false) {
-  gravar({ ...lerProgresso(), etapa: falhou ? 'erro' : 'concluida', atual: null });
+/** Contagem de uma busca. Cada execução cria o seu, então duas buscas nunca dividem números. */
+export function criarAcumuladorBusca(): AcumuladorBusca {
+  let atual = vazio();
+  const gravar = (p: ProgressoBusca) => {
+    atual = comPercentual(p);
+  };
+  return {
+    ler: () => ({ ...atual }),
+    comecarColeta: () => gravar({ ...vazio(), etapa: 'coletando' }),
+    comecarProcessamento: (total) => gravar({ ...atual, etapa: 'processando', total }),
+    registrarItem(resultado, titulo = null) {
+      const p = { ...atual, atual: titulo, verificados: atual.verificados + 1 };
+      if (resultado === 'ja_existia') p.jaExistentes++;
+      else if (resultado === 'descartado') p.descartados++;
+      else {
+        p.saoEditais++;
+        if (resultado === 'edital_util') p.uteis++;
+        if (resultado === 'edital_revisar') p.paraRevisar++;
+      }
+      gravar(p);
+    },
+    terminarBusca: (falhou = false) => gravar({ ...atual, etapa: falhou ? 'erro' : 'concluida', atual: null }),
+  };
 }
+
+// Compatibilidade: API antiga de módulo (usada só pelo teste progresso-busca.test.ts).
+// Estado num acumulador do processo, sem globalThis. Código de produção usa criarAcumuladorBusca.
+const acumuladorPadrao = criarAcumuladorBusca();
+/** @deprecated Use criarAcumuladorBusca(). */
+export const lerProgresso = () => acumuladorPadrao.ler();
+/** @deprecated Use criarAcumuladorBusca(). */
+export const comecarColeta = () => acumuladorPadrao.comecarColeta();
+/** @deprecated Use criarAcumuladorBusca(). */
+export const comecarProcessamento = (total: number) => acumuladorPadrao.comecarProcessamento(total);
+/** @deprecated Use criarAcumuladorBusca(). */
+export const registrarItem = (resultado: ResultadoItem, titulo: string | null = null) => acumuladorPadrao.registrarItem(resultado, titulo);
+/** @deprecated Use criarAcumuladorBusca(). */
+export const terminarBusca = (falhou = false) => acumuladorPadrao.terminarBusca(falhou);
 
 /** Classifica um item novo já processado para a contagem da barra. */
 export function resultadoDoItem(statusAnalise: string | undefined, score: number): ResultadoItem {

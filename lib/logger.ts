@@ -2,6 +2,9 @@ import { db } from './database/db';
 import { logsSistema } from './database/schema';
 import { eq, desc, and, gte, lte, like, or, sql } from 'drizzle-orm';
 
+/** Logs do pipeline ficam em logs_sistema e no SSE; o visualizador admin não os lista nem conta. */
+const foraDoPipeline = sql`(${logsSistema.contexto} IS NULL OR ${logsSistema.contexto} <> 'pipeline')`;
+
 export type LogNivel = 'error' | 'warning' | 'info';
 
 export type LogAcao = 'retry' | 'mark_error' | 'human_review' | 'skip' | 'fallback' | 'ignore';
@@ -249,6 +252,8 @@ class SystemLogger {
       );
     }
 
+    conditions.push(foraDoPipeline);
+
     const offset = (page - 1) * limit;
 
     try {
@@ -303,14 +308,14 @@ class SystemLogger {
     this.init();
 
     try {
-      const totalResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema);
-      const errosResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(eq(logsSistema.nivel, 'error'));
-      const warningsResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(eq(logsSistema.nivel, 'warning'));
-      const infosResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(eq(logsSistema.nivel, 'info'));
+      const totalResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(foraDoPipeline);
+      const errosResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(and(eq(logsSistema.nivel, 'error'), foraDoPipeline));
+      const warningsResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(and(eq(logsSistema.nivel, 'warning'), foraDoPipeline));
+      const infosResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(logsSistema).where(and(eq(logsSistema.nivel, 'info'), foraDoPipeline));
 
       const ultimoErroResult = await db.select({ criadoEm: logsSistema.criadoEm })
         .from(logsSistema)
-        .where(eq(logsSistema.nivel, 'error'))
+        .where(and(eq(logsSistema.nivel, 'error'), foraDoPipeline))
         .orderBy(desc(logsSistema.criadoEm))
         .limit(1);
 
@@ -319,7 +324,7 @@ class SystemLogger {
         count: sql<number>`COUNT(*)`.mapWith(Number)
       })
         .from(logsSistema)
-        .where(sql`${logsSistema.cenarioFalha} IS NOT NULL`)
+        .where(and(sql`${logsSistema.cenarioFalha} IS NOT NULL`, foraDoPipeline))
         .groupBy(logsSistema.cenarioFalha);
 
       const porAcaoResult = await db.select({
@@ -327,7 +332,7 @@ class SystemLogger {
         count: sql<number>`COUNT(*)`.mapWith(Number)
       })
         .from(logsSistema)
-        .where(sql`${logsSistema.acaoTomada} IS NOT NULL`)
+        .where(and(sql`${logsSistema.acaoTomada} IS NOT NULL`, foraDoPipeline))
         .groupBy(logsSistema.acaoTomada);
 
       const porCenario: Record<string, number> = {};
@@ -390,6 +395,8 @@ class SystemLogger {
         )
       );
     }
+
+    conditions.push(foraDoPipeline);
 
     try {
       const result = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) })

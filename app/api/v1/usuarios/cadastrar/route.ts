@@ -9,7 +9,7 @@ const service = new UsuarioService();
 export async function POST(request: NextRequest) {
   try {
     // Aplicar Rate Limit (máximo 3 cadastros de usuário por IP a cada 1 hora)
-    const limiter = rateLimit(request, 'cadastrar', { limit: 3, windowMs: 60 * 60 * 1000 });
+    const limiter = await rateLimit(request, 'cadastrar', { limit: 3, windowMs: 60 * 60 * 1000 });
     if (!limiter.success) {
       return handleRateLimitResponse(limiter.resetTime);
     }

@@ -1,26 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-interface RateLimitRecord {
-  count: number;
-  resetTime: number;
-}
-
-const cache = new Map<string, RateLimitRecord>();
-
-// Limpar registros expirados a cada 10 minutos para evitar vazamento de memória
-if (typeof global !== 'undefined') {
-  const globalRef = global as any;
-  if (!globalRef.__rateLimitInterval) {
-    globalRef.__rateLimitInterval = setInterval(() => {
-      const now = Date.now();
-      cache.forEach((value, key) => {
-        if (now > value.resetTime) {
-          cache.delete(key);
-        }
-      });
-    }, 1000 * 60 * 10);
-  }
-}
+import { isIP } from 'node:net';
+import { contarTentativa } from '../../database/repositories/limites-taxa.repository';
 
 export interface RateLimitOptions {
   limit: number;      // Número máximo de requisições permitidas
@@ -29,72 +9,52 @@ export interface RateLimitOptions {
 
 /**
  * Controle de taxa por chave arbitrária (ex.: e-mail). Não depende de headers do cliente.
+ * Contagem no banco: vale para todas as réplicas.
  */
 export function rateLimitPorChave(chave: string, keyPrefix: string, options: RateLimitOptions) {
   return contar(`${keyPrefix}:${chave.toLowerCase()}`, options);
 }
 
-/**
- * Executa o controle de taxa (Rate Limit) baseado no IP do cliente.
- * Atenção: x-forwarded-for é controlado pelo cliente; só é confiável atrás de um proxy
- * que o reescreva. Combine com rateLimitPorChave em rotas sensíveis (ex.: login).
- */
-export function rateLimit(request: NextRequest, keyPrefix: string, options: RateLimitOptions) {
-  const ipHeader = request.headers.get('x-forwarded-for') ||
-                   request.headers.get('x-real-ip') ||
-                   '127.0.0.1';
+const CHAVE_DESCONHECIDO = 'desconhecido';
 
-  // Pegar apenas o primeiro IP caso venha uma lista (proxies)
-  const clientIp = ipHeader.split(',')[0].trim();
-  return contar(`${keyPrefix}:${clientIp}`, options);
+/**
+ * Quantos proxies confiáveis ficam na frente da app (TRUSTED_PROXY_HOPS, padrão 1).
+ * Cada proxy acrescenta um IP à direita do x-forwarded-for; o cliente real é o que sobra nessa posição.
+ */
+function proxiesConfiaveis(): number {
+  const valor = Number.parseInt(process.env.TRUSTED_PROXY_HOPS ?? '1', 10);
+  return Number.isInteger(valor) && valor >= 1 ? valor : 1;
 }
 
-function contar(key: string, options: RateLimitOptions) {
-  const now = Date.now();
+function ipDoCliente(request: NextRequest): string {
+  const encadeado = request.headers.get('x-forwarded-for');
+  let candidato: string | undefined;
+  if (encadeado) {
+    const partes = encadeado.split(',').map((parte) => parte.trim());
+    candidato = partes[partes.length - proxiesConfiaveis()];
+  } else {
+    candidato = request.headers.get('x-real-ip') ?? undefined;
+  }
+  const ip = candidato ?? '';
+  return isIP(ip) !== 0 ? ip : CHAVE_DESCONHECIDO;
+}
 
-  let record = cache.get(key);
-  
-  if (!record) {
-    record = {
-      count: 1,
-      resetTime: now + options.windowMs,
-    };
-    cache.set(key, record);
-    return {
-      success: true,
-      limit: options.limit,
-      remaining: options.limit - 1,
-      resetTime: record.resetTime,
-    };
-  }
-  
-  if (now > record.resetTime) {
-    record.count = 1;
-    record.resetTime = now + options.windowMs;
-    return {
-      success: true,
-      limit: options.limit,
-      remaining: options.limit - 1,
-      resetTime: record.resetTime,
-    };
-  }
-  
-  record.count += 1;
-  
-  if (record.count > options.limit) {
-    return {
-      success: false,
-      limit: options.limit,
-      remaining: 0,
-      resetTime: record.resetTime,
-    };
-  }
-  
+/**
+ * Executa o controle de taxa (Rate Limit) baseado no IP do cliente.
+ * O IP vem do proxy confiável (ver TRUSTED_PROXY_HOPS): o primeiro valor do x-forwarded-for é forjável.
+ * Sem IP válido, todos caem no mesmo balde ("desconhecido"). Combine com rateLimitPorChave em rotas sensíveis.
+ */
+export function rateLimit(request: NextRequest, keyPrefix: string, options: RateLimitOptions) {
+  return contar(`${keyPrefix}:${ipDoCliente(request)}`, options);
+}
+
+async function contar(key: string, options: RateLimitOptions) {
+  const resultado = await contarTentativa(key, options.windowMs, options.limit);
   return {
-    success: true,
+    success: resultado.permitido,
     limit: options.limit,
-    remaining: options.limit - record.count,
-    resetTime: record.resetTime,
+    remaining: Math.max(0, options.limit - resultado.tentativas),
+    resetTime: resultado.expiraEm,
   };
 }
 
@@ -107,7 +67,7 @@ export function handleRateLimitResponse(resetTime: number) {
     { error: `Muitas requisições. Por favor, tente novamente em ${secondsLeft} segundos.` },
     { status: 429 }
   );
-  
+
   response.headers.set('Retry-After', String(secondsLeft));
   return response;
 }

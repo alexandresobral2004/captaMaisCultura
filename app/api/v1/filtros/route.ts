@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { loadWhitelist, loadBlacklist, clearLoadersCache } from '@/lib/scraper/filtros/loaders';
+import { loadWhitelist, loadBlacklist, clearLoadersCache, sincronizarFiltros } from '@/lib/scraper/filtros/loaders';
 
 export async function GET() {
   try {
     // Força reload para garantir dados frescos na UI
+    await sincronizarFiltros();
     clearLoadersCache();
     const whitelist = loadWhitelist();
     const blacklist = loadBlacklist();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { loadWhitelist, clearLoadersCache, gravarFiltro } from '@/lib/scraper/filtros/loaders';
+import { loadWhitelist, clearLoadersCache, gravarFiltro, sincronizarFiltros } from '@/lib/scraper/filtros/loaders';
 import { WhitelistSchema } from '@/lib/scraper/filtros/types';
 
 const CategoriaEnum = z.enum(['tecnologia', 'contexto_institucional', 'contexto_geral']);
@@ -31,6 +31,7 @@ export async function PUT(req: NextRequest) {
     const { categoria, termo } = parsed.data;
     const termoNorm = termo.trim().toLowerCase();
 
+    await sincronizarFiltros();
     clearLoadersCache();
     const whitelist = loadWhitelist();
 
@@ -87,6 +88,7 @@ export async function DELETE(req: NextRequest) {
     const { categoria, termo } = parsed.data;
     const termoNorm = termo.trim().toLowerCase();
 
+    await sincronizarFiltros();
     clearLoadersCache();
     const whitelist = loadWhitelist();
 

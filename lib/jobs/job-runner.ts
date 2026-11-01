@@ -83,6 +83,7 @@ export class JobRunner {
 
     // 2. Criar novo job, ou usar o job já reivindicado pelo worker
     const jobId = jobReivindicadoId ?? crypto.randomUUID();
+    pipelineLogger.iniciarJob(jobId);
     let job;
     try {
       job = jobReivindicadoId
@@ -292,6 +293,12 @@ export class JobRunner {
       console.log = originalLog;
       console.warn = originalWarn;
       console.error = originalError;
+      // Último lote de logs do job: não depende do timer. Falha de log não derruba o fim do job.
+      try {
+        await pipelineLogger.descarregar();
+      } catch {
+        // Log é registro: sem detalhes aqui, para não voltar ao redirecionamento do console
+      }
     }
   }
 

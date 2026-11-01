@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validarWhitelistTI } from '@/lib/filtros-ti/whitelist';
 import { analisarBlacklist } from '@/lib/scraper/filtros/blacklist-engine';
-import { clearLoadersCache } from '@/lib/scraper/filtros/loaders';
+import { clearLoadersCache, sincronizarFiltros } from '@/lib/scraper/filtros/loaders';
 
 const BodySchema = z.object({
   titulo: z.string().min(1, 'Título é obrigatório').max(500),
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const { titulo, descricao } = parsed.data;
 
     // Garante que os filtros carregam a versão mais recente dos JSONs
+    await sincronizarFiltros();
     clearLoadersCache();
 
     // Etapa 1 — Whitelist

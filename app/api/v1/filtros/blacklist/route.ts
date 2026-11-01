@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { loadBlacklist, clearLoadersCache, gravarFiltro } from '@/lib/scraper/filtros/loaders';
+import { loadBlacklist, clearLoadersCache, gravarFiltro, sincronizarFiltros } from '@/lib/scraper/filtros/loaders';
 import { BlacklistSchema } from '@/lib/scraper/filtros/types';
 
 const AddTermoSchema = z.object({
@@ -46,6 +46,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    await sincronizarFiltros();
     clearLoadersCache();
     const blacklist = loadBlacklist();
 
@@ -136,6 +137,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    await sincronizarFiltros();
     clearLoadersCache();
     const blacklist = loadBlacklist();
 

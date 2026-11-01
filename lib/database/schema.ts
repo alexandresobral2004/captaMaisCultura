@@ -1,4 +1,4 @@
-import { pgTable, text, integer, real, boolean as pgBoolean, index, uniqueIndex, serial, customType } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, real, bigint, boolean as pgBoolean, index, uniqueIndex, serial, customType } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 
@@ -424,6 +424,7 @@ export const logsSistema = pgTable('logs_sistema', {
     nivelIdx: index('idx_logs_nivel').on(table.nivel),
     criadoEmIdx: index('idx_logs_criado_em').on(table.criadoEm),
     contextoIdx: index('idx_logs_contexto').on(table.contexto),
+    contextoIdIdx: index('idx_logs_contexto_id').on(table.contexto, table.id),
     cenarioIdx: index('idx_logs_cenario').on(table.cenarioFalha),
     acaoIdx: index('idx_logs_acao').on(table.acaoTomada),
   };
@@ -448,6 +449,15 @@ export const configuracoes = pgTable('configuracoes', {
   valor: text('valor').notNull(),
   atualizadoEm: text('atualizado_em').notNull(),
 });
+
+// Contadores de limite de taxa (login, cadastro) compartilhados entre réplicas. expira_em em ms desde 1970.
+export const limitesTaxa = pgTable('limites_taxa', {
+  chave: text('chave').primaryKey(),
+  contador: integer('contador').notNull(),
+  expiraEm: bigint('expira_em', { mode: 'number' }).notNull(),
+}, (table) => ({
+  expiraIdx: index('idx_limites_expira').on(table.expiraEm),
+}));
 
 export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),

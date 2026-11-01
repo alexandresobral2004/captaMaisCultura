@@ -193,10 +193,10 @@ describe('Rate limit por chave', () => {
     const { rateLimitPorChave } = await import('../lib/api/middleware/rate-limit');
     const opcoes = { limit: 5, windowMs: 60_000 };
     for (let i = 0; i < 5; i++) {
-      expect(rateLimitPorChave('Vitima@Teste.com', 'teste-login', opcoes).success).toBe(true);
+      expect((await rateLimitPorChave('Vitima@Teste.com', 'teste-login', opcoes)).success).toBe(true);
     }
-    expect(rateLimitPorChave('vitima@teste.com', 'teste-login', opcoes).success).toBe(false);
-    expect(rateLimitPorChave('outro@teste.com', 'teste-login', opcoes).success).toBe(true);
+    expect((await rateLimitPorChave('vitima@teste.com', 'teste-login', opcoes)).success).toBe(false);
+    expect((await rateLimitPorChave('outro@teste.com', 'teste-login', opcoes)).success).toBe(true);
   });
 });
 

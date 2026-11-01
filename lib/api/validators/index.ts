@@ -91,7 +91,7 @@ export const AnaliseIASchema = z.object({
 // Schema para Cadastro de Usuários
 export const CadastroUsuarioSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(100, 'Nome muito longo'),
-  email: z.string().email('Email inválido'),
+  email: z.string().max(254, 'Email muito longo').email('Email inválido'),
   password: z
     .string()
     .min(8, 'Senha deve ter no mínimo 8 caracteres')
@@ -107,7 +107,7 @@ export const CadastroUsuarioSchema = z.object({
 
 // Schema para Login de Usuários
 export const LoginUsuarioSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().max(254, 'Email muito longo').email('Email inválido'),
   password: z.string().min(1, 'Senha é obrigatória'),
 });
 

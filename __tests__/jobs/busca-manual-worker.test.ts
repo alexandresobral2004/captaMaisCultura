@@ -49,4 +49,23 @@ describe.skipIf(!IS_POSTGRES)('worker executa a busca manual', () => {
     const [busca] = await db.select().from(schema.buscasEditais);
     expect(busca).toMatchObject({ status: 'concluida', novos: 0, jaExistentes: 1, descartados: 0, comErro: 0 });
   });
+
+  it('ao terminar o job, o último log do pipeline já está no banco (sem esperar o timer)', async () => {
+    const repo = new JobRepository();
+    await repo.enfileirar('job-logs', TipoJob.BUSCA_MANUAL);
+    await db.insert(schema.buscasEditais).values({
+      iniciadaEm: new Date().toISOString(),
+      status: 'pendente',
+      jobId: 'job-logs',
+    });
+    await repo.reivindicarProximoPendente();
+    await new JobRunner().executar('job-logs');
+
+    // Retorno imediato após executar: o timer de 1 s ainda não teria gravado nada
+    const linhas = (await db.select().from(schema.logsSistema)) as { contexto: string | null; detalhes: string | null }[];
+    const mensagens = linhas
+      .filter((l) => l.contexto === 'pipeline')
+      .map((l) => (JSON.parse(l.detalhes ?? '{}') as { message: string }).message);
+    expect(mensagens.some((m) => m.startsWith('Busca concluída'))).toBe(true);
+  });
 });

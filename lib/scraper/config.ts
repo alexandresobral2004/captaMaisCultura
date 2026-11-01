@@ -19,9 +19,6 @@ export interface PortalConfig {
 const service = new PortalService();
 const CONFIG_FILE = path.join(process.cwd(), 'data', 'portais-config.json');
 
-let portaisCache: PortalConfig[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL = 60000;
 let migrationDone = false;
 
 function lerJsonFallback(): PortalConfig[] {
@@ -49,24 +46,6 @@ function lerJsonFallback(): PortalConfig[] {
   return [];
 }
 
-export function getPortais(): PortalConfig[] {
-  const now = Date.now();
-  if (portaisCache && (now - cacheTimestamp) < CACHE_TTL) {
-    return portaisCache as PortalConfig[];
-  }
-
-  try {
-    const portais = service.listarSync();
-    portaisCache = portais as unknown as PortalConfig[];
-    cacheTimestamp = now;
-    return portais as unknown as PortalConfig[];
-  } catch (error) {
-    console.warn('Erro ao buscar portais do banco, usando JSON:', error);
-    const json = lerJsonFallback();
-    return json.filter(p => p.ativo);
-  }
-}
-
 export async function getPortaisAsync(): Promise<PortalConfig[]> {
   if (!migrationDone) {
     migrationDone = true;
@@ -79,8 +58,6 @@ export async function getPortaisAsync(): Promise<PortalConfig[]> {
 
   try {
     const portais = await service.listar();
-    portaisCache = portais as unknown as PortalConfig[];
-    cacheTimestamp = Date.now();
     return portais as unknown as PortalConfig[];
   } catch (error) {
     console.warn('Erro ao buscar portais do banco:', error);
@@ -110,26 +87,22 @@ export async function getPortal(id: string): Promise<PortalConfig | null> {
 
 export async function criarPortal(data: PortalDTO): Promise<PortalConfig> {
   const portal = await service.criar(data);
-  invalidarCache();
   return portal as unknown as PortalConfig;
 }
 
 export async function atualizarPortal(id: string, data: Partial<PortalDTO>): Promise<PortalConfig> {
   const portal = await service.atualizar(id, data);
-  invalidarCache();
   return portal as unknown as PortalConfig;
 }
 
 export async function togglePortal(id: string): Promise<PortalConfig> {
   const portal = await service.toggleAtivo(id);
-  invalidarCache();
   return portal as unknown as PortalConfig;
 }
 
 export async function removerPortal(id: string): Promise<void> {
   try {
     await service.deletar(id);
-    invalidarCache();
     console.log(`Portal [${id}] removido com sucesso.`);
   } catch (error: any) {
     if (error.message?.includes('não encontrado')) {
@@ -144,14 +117,6 @@ export async function atualizarUltimoScan(id: string): Promise<void> {
   await service.atualizarUltimoScan(id);
 }
 
-function invalidarCache(): void {
-  portaisCache = null;
-  cacheTimestamp = 0;
-}
-
-export function invalidateCache(): void {
-  invalidarCache();
-}
 
 export async function migrarJsonParaBanco(): Promise<number> {
   try {
@@ -183,7 +148,6 @@ export async function migrarJsonParaBanco(): Promise<number> {
     }
 
     console.log(`${portaisJson.length} portais migrados do JSON para o banco.`);
-    invalidarCache();
     return portaisJson.length;
   } catch (error) {
     console.error('Erro na migração de portais:', error);

@@ -1,7 +1,7 @@
 import { buscarEditaisPortais } from './fetcher';
 import { prepararEdital } from './preparar-edital';
 import { saveEdital, getEditalPorId, isEditalExcluido } from '../db/editais-store';
-import { comecarColeta, comecarProcessamento, registrarItem, terminarBusca, resultadoDoItem, lerProgresso } from './progresso-busca';
+import { criarAcumuladorBusca, resultadoDoItem } from './progresso-busca';
 import { finalizarBuscaAsync, editalJaProcessado, EstatisticasBusca } from './controle-busca';
 import { registrarDecisao } from './funil';
 import { pipelineLogger } from './pipeline-logger';
@@ -13,16 +13,19 @@ import { JobRepository } from '../jobs/job-repository';
  */
 export async function executarBuscaManual(jobId: string, buscaId: number): Promise<EstatisticasBusca> {
   let jaExistentes = 0;
+  // Andamento só desta execução: cada busca tem o seu acumulador
+  const progresso = criarAcumuladorBusca();
   // Snapshot do andamento no próprio job: a tela lê do banco, e não da memória deste processo
   // Dado só de exibição: se a gravação falhar, a busca segue (não pode virar erro por causa disso)
   const salvarSnapshot = async () => {
     try {
-      await new JobRepository().gravarProgresso(jobId, lerProgresso());
+      await new JobRepository().gravarProgresso(jobId, progresso.ler());
     } catch (erro) {
       console.error(`[BUSCA ${jobId}] Falha ao gravar o andamento na tela:`, erro);
     }
   };
-  comecarColeta();
+  pipelineLogger.iniciarJob(jobId);
+  progresso.comecarColeta();
   await salvarSnapshot();
 
   try {
@@ -31,7 +34,7 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
     pipelineLogger.logBusca('Iniciando busca consolidada de editais...');
     const novosEditais = await buscarEditaisPortais();
 
-    comecarProcessamento(novosEditais.length);
+    progresso.comecarProcessamento(novosEditais.length);
     await salvarSnapshot();
     console.log(`\n📊 API: ${novosEditais.length} editais localizados. Iniciando download de PDFs e análise IA...`);
     pipelineLogger.logBusca(`Encontrados ${novosEditais.length} editais válidos nos portais. Iniciando processamento...`);
@@ -47,7 +50,7 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
         if (await isEditalExcluido(edital.id, edital.link)) {
           jaExistentes++;
           registrarDecisao({ editalId: edital.id, titulo: edital.titulo, etapa: 'duplicado', resultado: 'duplicado', motivo: 'Excluído pelo usuário' });
-          registrarItem('ja_existia', edital.titulo);
+          progresso.registrarItem('ja_existia', edital.titulo);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Excluído pelo usuário');
           continue;
         }
@@ -57,7 +60,7 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
         if (existente && editalJaProcessado(existente)) {
           jaExistentes++;
           registrarDecisao({ editalId: edital.id, titulo: edital.titulo, etapa: 'duplicado', resultado: 'duplicado', motivo: 'Já existe no banco' });
-          registrarItem('ja_existia', edital.titulo);
+          progresso.registrarItem('ja_existia', edital.titulo);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Já existe no banco');
           continue;
         }
@@ -68,7 +71,7 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
           pipelineLogger.logResultado(edital.id, edital.titulo, 'rejeitado', 'Fora do escopo');
           erroCount++;
           registrarDecisao({ editalId: edital.id, titulo: edital.titulo, etapa: 'fora_escopo', resultado: 'descartado', motivo: 'Marcado fora do escopo' });
-          registrarItem('descartado', edital.titulo);
+          progresso.registrarItem('descartado', edital.titulo);
           continue;
         }
         const preparado = await prepararEdital(edital);
@@ -88,7 +91,7 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
           motivo: `Score ${preparado.scoreFinal}, status ${editalSalvo.statusAnalise}`,
           probabilidade: preparado.scoreFinal / 100,
         });
-        registrarItem(resultadoDoItem(editalSalvo.statusAnalise, preparado.scoreFinal), edital.titulo);
+        progresso.registrarItem(resultadoDoItem(editalSalvo.statusAnalise, preparado.scoreFinal), edital.titulo);
       } catch (err) {
         console.error(`❌ Erro ao processar edital [${edital.id}]:`, err);
         pipelineLogger.logErro(edital.id, `Erro de processamento: ${(err as Error).message}`);
@@ -98,7 +101,7 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
         await saveEdital(edital);
         editaisAnalisados.push(edital);
         erroCount++;
-        registrarItem('descartado', edital.titulo);
+        progresso.registrarItem('descartado', edital.titulo);
       } finally {
         // Vale também para os `continue` do laço
         await salvarSnapshot();
@@ -112,15 +115,18 @@ export async function executarBuscaManual(jobId: string, buscaId: number): Promi
     const novos = sucessoCount - descartados;
     const estatisticas: EstatisticasBusca = { novos, jaExistentes, descartados, comErro: erroCount };
     await finalizarBuscaAsync(buscaId, estatisticas);
-    terminarBusca();
+    progresso.terminarBusca();
     await salvarSnapshot();
     return estatisticas;
   } catch (error) {
     console.error('Erro na busca manual:', error);
-    terminarBusca(true);
+    progresso.terminarBusca(true);
     await salvarSnapshot();
     // Busca que falhou não gasta o limite semanal
     await finalizarBuscaAsync(buscaId, { novos: 0, jaExistentes, descartados: 0, comErro: 0, mensagem: (error as Error).message }, true);
     throw error;
+  } finally {
+    // Último lote de logs da busca: sai antes de devolver o resultado ao worker
+    await pipelineLogger.descarregar();
   }
 }

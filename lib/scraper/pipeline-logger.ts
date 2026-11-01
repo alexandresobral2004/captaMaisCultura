@@ -1,4 +1,9 @@
 import { randomUUID as uuidv4 } from 'crypto';
+import { db } from '../database/db';
+import { logsSistema } from '../database/schema';
+
+/** No máximo uma gravação em lote por este intervalo. */
+const INTERVALO_GRAVACAO_MS = 1000;
 
 export type LogLevel = 'info' | 'success' | 'warning' | 'error' | 'step';
 
@@ -16,24 +21,24 @@ export interface PipelineLogEvent {
   scoreIA?: number;
 }
 
-type Subscriber = (event: PipelineLogEvent) => void;
+type LinhaLog = typeof logsSistema.$inferInsert;
+
+/** Nome e código do erro, sem a mensagem (que pode carregar dados). */
+function resumoDoErro(erro: unknown): { nome: string; codigo: unknown } {
+  const nome = erro instanceof Error ? erro.name : 'desconhecido';
+  const codigo = typeof erro === 'object' && erro !== null && 'code' in erro ? erro.code : undefined;
+  return { nome, codigo };
+}
 
 class PipelineLogger {
-  private buffer: PipelineLogEvent[] = [];
-  private subscribers: Set<Subscriber> = new Set();
-  private maxBufferSize = 200;
-
-  subscribe(callback: Subscriber): () => void {
-    this.subscribers.add(callback);
-    return () => {
-      this.subscribers.delete(callback);
-    };
-  }
-
-  getBuffer(): PipelineLogEvent[] {
-    return [...this.buffer];
-  }
-
+  private jobAtual: string | null = null;
+  private pendentes: LinhaLog[] = [];
+  private agendado: ReturnType<typeof setTimeout> | null = null;
+  private ultimaGravacao = 0;
+  /** Gravações em fila: uma por vez, na ordem em que foram disparadas. Nunca rejeita. */
+  private gravando: Promise<void> = Promise.resolve();
+  /** Verdadeiro enquanto a falha de gravação é reportada no console: não pode virar evento do pipeline. */
+  private reportandoFalha = false;
   private emit(event: Omit<PipelineLogEvent, 'id' | 'ts'>) {
     const fullEvent: PipelineLogEvent = {
       ...event,
@@ -41,12 +46,71 @@ class PipelineLogger {
       ts: new Date().toISOString(),
     };
 
-    this.buffer.push(fullEvent);
-    if (this.buffer.length > this.maxBufferSize) {
-      this.buffer.shift();
-    }
+    this.enfileirar(fullEvent);
+  }
 
-    this.subscribers.forEach((sub) => sub(fullEvent));
+  /** Eventos seguintes ficam ligados a este job (o worker roda um job por vez). */
+  iniciarJob(jobId: string) {
+    this.jobAtual = jobId;
+  }
+
+  private enfileirar(evento: PipelineLogEvent) {
+    if (this.reportandoFalha) return;
+    this.pendentes.push({
+      nivel: evento.level === 'error' ? 'error' : evento.level === 'warning' ? 'warning' : 'info',
+      mensagem: evento.message,
+      contexto: 'pipeline',
+      detalhes: JSON.stringify({ ...evento, jobId: this.jobAtual }),
+      criadoEm: evento.ts,
+    });
+    if (this.agendado === null) {
+      // Espera ao menos o intervalo: junta os eventos da janela num lote só
+      const espera = Math.max(INTERVALO_GRAVACAO_MS, this.ultimaGravacao + INTERVALO_GRAVACAO_MS - Date.now());
+      this.agendado = setTimeout(() => {
+        this.agendado = null;
+        void this.gravarPendentes();
+      }, espera);
+    }
+  }
+
+  /** Grava já o que está na fila (fim da busca), respeitando o intervalo mínimo entre gravações. */
+  async descarregar(): Promise<void> {
+    if (this.pendentes.length > 0) {
+      if (this.agendado !== null) {
+        clearTimeout(this.agendado);
+        this.agendado = null;
+      }
+      const espera = this.ultimaGravacao + INTERVALO_GRAVACAO_MS - Date.now();
+      if (espera > 0) await new Promise((resolve) => setTimeout(resolve, espera));
+      this.gravarPendentes();
+    }
+    // Espera a fila inteira, inclusive gravações já em curso
+    await this.gravando;
+  }
+
+  /** Tira da fila o que está pendente e o põe no fim da cadeia de gravação. */
+  private gravarPendentes(): Promise<void> {
+    if (this.pendentes.length === 0) return this.gravando;
+    const lote = this.pendentes;
+    this.pendentes = [];
+    this.gravando = this.gravando.then(() => this.gravarLote(lote));
+    return this.gravando;
+  }
+
+  private async gravarLote(lote: LinhaLog[]): Promise<void> {
+    this.ultimaGravacao = Date.now();
+    try {
+      await db.insert(logsSistema).values(lote);
+    } catch (erro) {
+      // Log é registro, não regra de negócio: a falha não pode derrubar a busca.
+      // O reporte não volta ao pipeline (senão a falha se repetiria a cada gravação).
+      this.reportandoFalha = true;
+      try {
+        console.error('[PipelineLogger] Falha ao gravar logs do pipeline:', resumoDoErro(erro));
+      } finally {
+        this.reportandoFalha = false;
+      }
+    }
   }
 
   logBusca(message: string, detail?: string) {

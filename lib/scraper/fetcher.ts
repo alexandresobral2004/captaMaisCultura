@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { getPortais, removerPortal, PortalConfig } from './config';
+import { getPortaisAtivos, removerPortal, PortalConfig } from './config';
+import { sincronizarFiltros } from './filtros/loaders';
 import { Edital, saveEdital, parseDateString } from '../db/editais-store';
 import { buscarEditaisProsas } from './prosas-scraper';
 import { buscarEditaisCapta } from './capta-scraper';
@@ -26,6 +27,9 @@ function extrairData(texto: string): Date | null {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function buscarEditaisPortais(): Promise<Edital[]> {
+  // Filtros são editados por outras réplicas: recarrega do banco antes de filtrar
+  await sincronizarFiltros().catch((e) => console.warn('[Fetcher] Falha ao sincronizar filtros:', e));
+
   const novosEditais: Edital[] = [];
   const agora = new Date();
   const tempoInicio = Date.now();
@@ -296,7 +300,7 @@ export async function buscarEditaisPortais(): Promise<Edital[]> {
 
   // 7. Portais sem coletor próprio (cadastrados em "Onde buscar"), via coletor genérico
   try {
-    const genericos = getPortais().filter(p => p.ativo && p.tipo === 'html' && !PORTAIS_COM_COLETOR_PROPRIO.includes(p.id));
+    const genericos = (await getPortaisAtivos()).filter(p => p.tipo === 'html' && !PORTAIS_COM_COLETOR_PROPRIO.includes(p.id));
     for (const portal of genericos) {
       const inicio = Date.now();
       console.log(`  📥 Consultando ${portal.nome} (coletor genérico)...`);

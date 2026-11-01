@@ -31,17 +31,6 @@ export class PortalService {
     return results.map(this.mapToPortal);
   }
 
-  listarSync(): Portal[] {
-    // Versão síncrona usada em contextos que não suportam async
-    // Em Postgres, retorna array vazio e loga aviso (use listar() assíncrono)
-    try {
-      return (db as any).select().from(portais).all?.() ?? [];
-    } catch {
-      console.warn('[PortalService] listarSync() não suportado com Postgres; use listar()');
-      return [];
-    }
-  }
-
   async listarAtivos(): Promise<Portal[]> {
     const results = await db.select().from(portais).where(eq(portais.ativo, true));
     return results.map(this.mapToPortal);

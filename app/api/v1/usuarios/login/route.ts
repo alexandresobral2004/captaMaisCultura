@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   let requestEmail = 'desconhecido';
   try {
     // Aplicar Rate Limit (máximo 5 tentativas de login por IP a cada 15 minutos)
-    const limiter = rateLimit(request, 'login', { limit: 5, windowMs: 15 * 60 * 1000 });
+    const limiter = await rateLimit(request, 'login', { limit: 5, windowMs: 15 * 60 * 1000 });
     if (!limiter.success) {
       console.warn('⚠️ [LOGIN] Rate limit atingido para uma tentativa de login.');
       return handleRateLimitResponse(limiter.resetTime);
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const validatedData = LoginUsuarioSchema.parse(body);
 
     // Limite por e-mail: não pode ser contornado trocando o IP/headers
-    const limiterEmail = rateLimitPorChave(validatedData.email, 'login-email', { limit: 5, windowMs: 15 * 60 * 1000 });
+    const limiterEmail = await rateLimitPorChave(validatedData.email, 'login-email', { limit: 5, windowMs: 15 * 60 * 1000 });
     if (!limiterEmail.success) {
       return handleRateLimitResponse(limiterEmail.resetTime);
     }
