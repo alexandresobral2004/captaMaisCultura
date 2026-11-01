@@ -7,9 +7,8 @@ import { analisarEditalComIA } from '../ai/analyzer';
 import { prepararEdital } from '../scraper/preparar-edital';
 import { saveEdital, Edital, isEditalExcluido } from '../db/editais-store';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import { pipelineLogger } from '../scraper/pipeline-logger';
+import { salvarNotificacao } from '../database/repositories/notificacao.repository';
 
 // Intervalo do heartbeat e tempo sem heartbeat até o job ser considerado interrompido (5 min = 10 heartbeats perdidos)
 const HEARTBEAT_MS = 30 * 1000;
@@ -246,28 +245,19 @@ export class JobRunner {
       if (progresso.totalAnalisados > 0) {
         try {
           const { randomUUID: uuidv4 } = await import('crypto');
-          const notificacaoId = uuidv4();
-          const NOTIFICACOES_DIR = path.join(process.cwd(), 'data', 'notificacoes');
-          
-          if (!fs.existsSync(NOTIFICACOES_DIR)) {
-            fs.mkdirSync(NOTIFICACOES_DIR, { recursive: true });
-          }
-
-          const notif = {
-            id: notificacaoId,
+          const titulo = `${progresso.totalAnalisados} novos editais disponíveis`;
+          await salvarNotificacao({
+            id: uuidv4(),
             tipo: 'editais_novos',
-            titulo: `${progresso.totalAnalisados} novos editais disponíveis`,
+            titulo,
             descricao: `Encontrados ${progresso.totalAnalisados} editais aguardando revisão. Acesse o painel para analisar.`,
             quantidade: progresso.totalAnalisados,
             link: '/editais?tab=review',
             urgencia: 'alta',
             lida: false,
             criadoEm: new Date()
-          };
-
-          const filePath = path.join(NOTIFICACOES_DIR, `${notif.id}.json`);
-          fs.writeFileSync(filePath, JSON.stringify(notif, null, 2), 'utf-8');
-          console.log(`✅ Notificação criada: ${notif.titulo}`);
+          });
+          console.log(`✅ Notificação criada: ${titulo}`);
         } catch (erro: any) {
           console.error(`Erro ao criar notificação:`, erro.message);
           progresso.totalErros++;

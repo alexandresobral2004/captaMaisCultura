@@ -472,12 +472,17 @@ export const usoIa = pgTable('uso_ia', {
   criadoIdx: index('idx_uso_ia_criado').on(table.criadoEm),
 }));
 
-export const avisosCusto = pgTable('avisos_custo', {
-  mes: text('mes').primaryKey(),
-  criadoEm: text('criado_em').notNull(),
-  totalUsd: real('total_usd').notNull(),
-  limiteUsd: real('limite_usd').notNull(),
+// Central de notificações: compartilhada entre web e worker (no Railway o disco é efêmero)
+export const notificacoes = pgTable('notificacoes', {
+  id: text('id').primaryKey(),
+  tipo: text('tipo').notNull(),
+  titulo: text('titulo').notNull(),
+  descricao: text('descricao').notNull().default(''),
+  quantidade: integer('quantidade').notNull().default(1),
+  link: text('link').notNull(),
   lida: integer('lida').notNull().default(0),
+  urgencia: text('urgencia').notNull().default('media'),
+  criadoEm: text('criado_em').notNull(),
 });
 
 export const jobs = pgTable('jobs', {

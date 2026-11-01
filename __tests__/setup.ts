@@ -36,7 +36,7 @@ const PG_TABLES = [
   'projetos_cientificos', 'projetos', 'rag_chunks', 'logs_sistema',
   'prompts_historico', 'prompts_customizados', 'prompts_sistema',
   'jobs', 'buscas_editais', 'portais', 'editais', 'limites_taxa',
-  'configuracoes',
+  'configuracoes', 'notificacoes',
 ];
 
 if (IS_POSTGRES) {

@@ -303,12 +303,16 @@ export function criarTabelas(sqlite: Database.Database) {
       projeto_id TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_uso_ia_criado ON uso_ia(criado_em);
-    CREATE TABLE IF NOT EXISTS avisos_custo (
-      mes TEXT PRIMARY KEY,
-      criado_em TEXT NOT NULL,
-      total_usd REAL NOT NULL,
-      limite_usd REAL NOT NULL,
-      lida INTEGER NOT NULL DEFAULT 0
+    CREATE TABLE IF NOT EXISTS notificacoes (
+      id TEXT PRIMARY KEY,
+      tipo TEXT NOT NULL,
+      titulo TEXT NOT NULL,
+      descricao TEXT NOT NULL DEFAULT '',
+      quantidade INTEGER NOT NULL DEFAULT 1,
+      link TEXT NOT NULL,
+      lida INTEGER NOT NULL DEFAULT 0,
+      urgencia TEXT NOT NULL DEFAULT 'media',
+      criado_em TEXT NOT NULL
     );
     `);
 

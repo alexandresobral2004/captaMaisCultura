@@ -1,89 +1,12 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { randomUUID as uuidv4 } from 'crypto';
-import { avisosCustoComoNotificacao, marcarAvisoCustoLido, PREFIXO_AVISO_CUSTO } from '../../../../lib/ai/avisos-custo';
-
-export interface Notificacao {
-  id: string;
-  tipo: 'editais_novos' | 'edital_publicado' | 'erro_analise' | 'editais_aguardando_revisao' | 'alerta_custo_ia';
-  titulo: string;
-  descricao: string;
-  quantidade?: number;
-  link: string;
-  lida: boolean;
-  criadoEm: Date;
-  urgencia?: 'baixa' | 'media' | 'alta';
-}
-
-const NOTIFICACOES_DIR = path.join(process.cwd(), 'data', 'notificacoes');
-
-// Garantir que o diretório exista
-function initNotificacoesDir() {
-  if (!fs.existsSync(NOTIFICACOES_DIR)) {
-    fs.mkdirSync(NOTIFICACOES_DIR, { recursive: true });
-  }
-}
-
-/**
- * Salvar notificação em arquivo
- */
-function salvarNotificacao(notificacao: Notificacao) {
-  initNotificacoesDir();
-  const filePath = path.join(NOTIFICACOES_DIR, `${notificacao.id}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(notificacao, null, 2), 'utf-8');
-}
-
-/**
- * Buscar todas as notificações (helper interno)
- */
-function obterNotificacoes(filtro?: { lida?: boolean; tipo?: string }): Notificacao[] {
-  initNotificacoesDir();
-
-  if (!fs.existsSync(NOTIFICACOES_DIR)) {
-    return [];
-  }
-
-  const arquivos = fs.readdirSync(NOTIFICACOES_DIR);
-  let notificacoes: Notificacao[] = [];
-
-  for (const arquivo of arquivos) {
-    if (arquivo.endsWith('.json')) {
-      try {
-        const conteudo = fs.readFileSync(path.join(NOTIFICACOES_DIR, arquivo), 'utf-8');
-        const notif = JSON.parse(conteudo) as Notificacao;
-        notif.criadoEm = new Date(notif.criadoEm);
-
-        // Aplicar filtros
-        if (filtro?.lida !== undefined && notif.lida !== filtro.lida) continue;
-        if (filtro?.tipo && notif.tipo !== filtro.tipo) continue;
-
-        notificacoes.push(notif);
-      } catch (erro) {
-        console.error(`Erro ao ler notificação ${arquivo}:`, erro);
-      }
-    }
-  }
-
-  // Ordenar por data (mais recentes primeiro)
-  notificacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
-
-  return notificacoes;
-}
-
-/**
- * Marcar notificação como lida (helper interno)
- */
-function marcarComoLida(id: string) {
-  initNotificacoesDir();
-  const filePath = path.join(NOTIFICACOES_DIR, `${id}.json`);
-
-  if (fs.existsSync(filePath)) {
-    const notif = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Notificacao;
-    notif.lida = true;
-    fs.writeFileSync(filePath, JSON.stringify(notif, null, 2), 'utf-8');
-  }
-}
+import {
+  salvarNotificacao,
+  listarNotificacoes,
+  contarNaoLidas,
+  marcarNotificacaoLida,
+  type Notificacao,
+} from '../../../../lib/database/repositories/notificacao.repository';
 
 /**
  * POST - Criar nova notificação
@@ -112,7 +35,7 @@ export async function POST(request: Request) {
       urgencia: urgencia || 'media'
     };
 
-    salvarNotificacao(notificacao);
+    await salvarNotificacao(notificacao);
 
     console.log(`🔔 Notificação criada: ${titulo}`);
 
@@ -140,26 +63,16 @@ export async function GET(request: Request) {
     const tipo = url.searchParams.get('tipo');
     const limite = parseInt(url.searchParams.get('limite') || '10', 10);
 
-    const filtro: { lida?: boolean; tipo?: string } = {};
-    if (lida !== null) filtro.lida = lida === 'true';
-    if (tipo) filtro.tipo = tipo;
-
-    // Avisos de custo ficam no banco (compartilhado entre web e worker); os demais, em arquivo
-    const avisos = (await avisosCustoComoNotificacao()).filter(
-      (n) => (filtro.lida === undefined || n.lida === filtro.lida) && (!filtro.tipo || n.tipo === filtro.tipo)
-    );
-    const todas = [...obterNotificacoes(filtro), ...avisos].sort(
-      (a, b) => b.criadoEm.getTime() - a.criadoEm.getTime()
-    );
-    const notificacoes = todas.slice(0, limite);
-
-    // Contar não-lidas
-    const naoLidas = [...obterNotificacoes({ lida: false }), ...avisos.filter((n) => !n.lida)];
+    const notificacoes = await listarNotificacoes({
+      lida: lida === null ? undefined : lida === 'true',
+      tipo: tipo || undefined,
+      limite,
+    });
 
     return NextResponse.json({
       success: true,
       quantidade: notificacoes.length,
-      naoLidas: naoLidas.length,
+      naoLidas: await contarNaoLidas(),
       notificacoes
     });
   } catch (error) {
@@ -186,11 +99,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (id.startsWith(PREFIXO_AVISO_CUSTO)) {
-      await marcarAvisoCustoLido(id);
-    } else {
-      marcarComoLida(id);
-    }
+    await marcarNotificacaoLida(id);
 
     return NextResponse.json({
       success: true,
