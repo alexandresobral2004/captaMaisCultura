@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID as uuidv4 } from 'crypto';
+import { avisosCustoComoNotificacao, marcarAvisoCustoLido, PREFIXO_AVISO_CUSTO } from '../../../../lib/ai/avisos-custo';
 
 export interface Notificacao {
   id: string;
-  tipo: 'editais_novos' | 'edital_publicado' | 'erro_analise' | 'editais_aguardando_revisao';
+  tipo: 'editais_novos' | 'edital_publicado' | 'erro_analise' | 'editais_aguardando_revisao' | 'alerta_custo_ia';
   titulo: string;
   descricao: string;
   quantidade?: number;
@@ -143,10 +144,17 @@ export async function GET(request: Request) {
     if (lida !== null) filtro.lida = lida === 'true';
     if (tipo) filtro.tipo = tipo;
 
-    const notificacoes = obterNotificacoes(filtro).slice(0, limite);
+    // Avisos de custo ficam no banco (compartilhado entre web e worker); os demais, em arquivo
+    const avisos = (await avisosCustoComoNotificacao()).filter(
+      (n) => (filtro.lida === undefined || n.lida === filtro.lida) && (!filtro.tipo || n.tipo === filtro.tipo)
+    );
+    const todas = [...obterNotificacoes(filtro), ...avisos].sort(
+      (a, b) => b.criadoEm.getTime() - a.criadoEm.getTime()
+    );
+    const notificacoes = todas.slice(0, limite);
 
     // Contar não-lidas
-    const naoLidas = obterNotificacoes({ lida: false });
+    const naoLidas = [...obterNotificacoes({ lida: false }), ...avisos.filter((n) => !n.lida)];
 
     return NextResponse.json({
       success: true,
@@ -178,7 +186,11 @@ export async function PUT(request: Request) {
       );
     }
 
-    marcarComoLida(id);
+    if (id.startsWith(PREFIXO_AVISO_CUSTO)) {
+      await marcarAvisoCustoLido(id);
+    } else {
+      marcarComoLida(id);
+    }
 
     return NextResponse.json({
       success: true,

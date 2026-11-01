@@ -1,4 +1,5 @@
-import { consultarJev, jevDisponivel } from '../ai/jev';
+import { consultarJev, jevDisponivel, obterModeloJev } from '../ai/jev';
+import { registrarUsoJev } from '../ai/uso-ia';
 import { DOCUMENTO_ACEITAR, DOCUMENTO_DESCARTAR, DOCUMENTO_MINIMO_DE_GRUPOS, DOCUMENTO_GRUPOS_SEM_JEV } from '../triagem/limiares';
 
 /** Termos que só aparecem em item de menu ou página institucional: valem em qualquer tamanho de título. */
@@ -80,11 +81,18 @@ export interface ResultadoValidacao {
   probabilidade?: number;
 }
 
-export type JulgarEdital = (entrada: { titulo: string; orgao: string; termos: string[]; trechos: string[] }) => Promise<number>;
+export type JulgarEdital = (entrada: {
+  titulo: string;
+  orgao: string;
+  termos: string[];
+  trechos: string[];
+  /** Só para o registro de custo; não vai ao Jev. */
+  editalId?: string;
+}) => Promise<number>;
 
 /** Pergunta ao Jev, com as palavras e os trechos encontrados, se o documento é mesmo um edital. */
-export const julgarComJev: JulgarEdital = async (entrada) => {
-  const { answers } = await consultarJev(entrada, {
+export const julgarComJev: JulgarEdital = async ({ editalId, ...estado }) => {
+  const { answers, usage, model } = await consultarJev(estado, {
     edital: {
       type: 'noul',
       instructions:
@@ -95,6 +103,7 @@ export const julgarComJev: JulgarEdital = async (entrada) => {
       },
     },
   });
+  void registrarUsoJev({ origem: 'validacao_documento', editalId }, model || obterModeloJev(), usage);
   return answers.edital.noul;
 };
 
@@ -109,7 +118,7 @@ export const CORTE_DESCARTAR = DOCUMENTO_DESCARTAR;
  *    Sem Jev, vale só a regra: muitos grupos aceita, poucos vai para revisão.
  */
 export async function validarDocumentoEdital(
-  doc: { titulo: string; orgao: string; texto: string },
+  doc: { titulo: string; orgao: string; texto: string; editalId?: string },
   julgar: JulgarEdital | null = jevDisponivel() ? julgarComJev : null
 ): Promise<ResultadoValidacao> {
   const { termos, trechos } = buscarSinaisDeEdital(doc.texto);
@@ -138,7 +147,7 @@ export async function validarDocumentoEdital(
   if (!julgar) return pelaRegra('Jev indisponível');
 
   try {
-    const probabilidade = await julgar({ titulo: doc.titulo, orgao: doc.orgao, termos: palavras, trechos });
+    const probabilidade = await julgar({ titulo: doc.titulo, orgao: doc.orgao, termos: palavras, trechos, editalId: doc.editalId });
     const pct = Math.round(probabilidade * 100);
     const decisao = probabilidade >= CORTE_ACEITAR ? 'valido' : probabilidade <= CORTE_DESCARTAR ? 'descartado' : 'duvida';
     return {

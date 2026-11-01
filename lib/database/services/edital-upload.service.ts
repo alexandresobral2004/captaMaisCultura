@@ -110,7 +110,8 @@ export class EditalUploadService {
           undefined,
           orgao,
           undefined,
-          undefined
+          undefined,
+          { editalId: id }
         );
 
         if (resultado.ok) {

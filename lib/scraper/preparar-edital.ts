@@ -77,7 +77,7 @@ export async function prepararEdital(edital: Edital): Promise<EditalPreparado> {
 
   // Antes de pontuar, confere se o texto baixado é de um edital (palavras-chave + decisão do Jev)
   if (pdfEncontrado) {
-    const validacao = await validarDocumentoEdital({ titulo: edital.titulo, orgao: edital.orgao, texto: resultado.texto });
+    const validacao = await validarDocumentoEdital({ titulo: edital.titulo, orgao: edital.orgao, texto: resultado.texto, editalId: edital.id });
     const c4 = camadaDocumento(validacao.grupos);
     registrarDecisao({
       editalId: edital.id,

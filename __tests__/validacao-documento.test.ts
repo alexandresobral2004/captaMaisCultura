@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { tituloInstitucional, buscarSinaisDeEdital, validarDocumentoEdital } from '../lib/scraper/validacao-documento';
 
 const EDITAL = `EDITAL Nº 12/2026. DO OBJETO: selecionar propostas de pesquisa. DAS INSCRIÇÕES: o prazo vai até 30/11/2026.
@@ -93,5 +93,40 @@ describe('tituloInstitucional: não descarta chamadas por palavra comum', () => 
     'Dúvidas Frequentes em relação ao Portal gov.br', 'Guia de Edição de Serviços do Portal Gov.br',
   ])('passa a descartar o menu "%s"', t => {
     expect(tituloInstitucional(t)).toBe(true);
+  });
+});
+
+describe('registro de uso do Jev no documento', () => {
+  it('julgarComJev grava o uso com o editalId e não manda o editalId ao Jev', async () => {
+    const { db } = await import('../lib/database/db');
+    const { usoIa } = await import('../lib/database/schema');
+    const { julgarComJev } = await import('../lib/scraper/validacao-documento');
+    await db.delete(usoIa);
+    process.env.TYPESAFE_API_KEY = 'tsk-teste';
+    const corpos: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: { body: string }) => {
+      corpos.push(JSON.parse(init.body));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          model: 'jev-1.0.0',
+          usage: { input_tokens: 30, output_tokens: 2 },
+          answers: { edital: { type: 'noul', noul: 0.9 } },
+        }),
+      };
+    }));
+    try {
+      await julgarComJev({ titulo: 'Edital', orgao: 'X', termos: ['inscrições'], trechos: ['trecho'], editalId: 'edital-9' });
+      await vi.waitFor(async () => {
+        const linhas = await db.select().from(usoIa);
+        expect(linhas).toHaveLength(1);
+        expect(linhas[0]).toMatchObject({ origem: 'validacao_documento', editalId: 'edital-9', modelo: 'jev-1.0.0' });
+      });
+      expect(corpos[0]).not.toHaveProperty('editalId');
+    } finally {
+      process.env.TYPESAFE_API_KEY = '';
+      vi.unstubAllGlobals();
+    }
   });
 });

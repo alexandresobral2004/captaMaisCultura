@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axios from 'axios';
 import { validarComOpenAI } from '../lib/filtros-ti/openai-classifier';
 import { cacheValidacao } from '../lib/filtros-ti/cache';
+import { db } from '../lib/database/db';
+import { usoIa } from '../lib/database/schema';
 
 vi.mock('axios');
 
@@ -154,5 +156,33 @@ describe('OpenAI Classifier (Filtro TI)', () => {
       expect(result.erroTipo).toBe('timeout');
       expect(result.mensagem).toContain('OpenAI API request timed out');
     }
+  });
+
+  it('grava o uso da OpenAI com o editalId e o modelo realmente usado', async () => {
+    await db.delete(usoIa);
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: {
+        model: 'gpt-4o-mini-2024-07-18',
+        usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+        choices: [{ message: { content: JSON.stringify({ válido: true, tecnologia: 'IA & Machine Learning', tipo: 'Plataforma', score: 80, confiança: 90, razão: 'IA' }) } }],
+      },
+    });
+
+    await validarComOpenAI('Edital IA', 'Plataforma de IA', undefined, undefined, undefined, undefined, {
+      pularJev: true,
+      editalId: 'edital-3',
+    });
+
+    await vi.waitFor(async () => {
+      const linhas = await db.select().from(usoIa);
+      expect(linhas).toHaveLength(1);
+      expect(linhas[0]).toMatchObject({
+        origem: 'classificador_ti',
+        editalId: 'edital-3',
+        modelo: 'gpt-4o-mini-2024-07-18',
+        tokensEntrada: 100,
+        tokensSaida: 20,
+      });
+    });
   });
 });

@@ -5,6 +5,8 @@ import {
   eixoDasRespostas,
   julgamentoCulturaDasRespostas,
 } from '../lib/filtros-ti/jev-classifier';
+import { db } from '../lib/database/db';
+import { usoIa } from '../lib/database/schema';
 
 function respostaJev(p: {
   chamada: number;
@@ -157,5 +159,47 @@ describe('chave do Jev', () => {
     expect(jevDisponivel()).toBe(false);
     process.env.JEV_API_KEY = 'jev-teste';
     expect(jevDisponivel()).toBe(true);
+  });
+});
+
+describe('registro de uso do Jev', () => {
+  beforeEach(async () => {
+    process.env.TYPESAFE_API_KEY = 'tsk-teste';
+    await db.delete(usoIa);
+  });
+
+  afterEach(() => {
+    process.env.TYPESAFE_API_KEY = '';
+    vi.unstubAllGlobals();
+  });
+
+  it('grava a chamada com o editalId e o modelo devolvido pelo Jev', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.96, relevante: 0.92 })));
+
+    await julgarEditalComJev({ titulo: 'Edital de IA', descricao: 'Fomento', editalId: 'edital-1' });
+
+    await vi.waitFor(async () => {
+      const linhas = await db.select().from(usoIa);
+      expect(linhas).toHaveLength(1);
+      expect(linhas[0]).toMatchObject({
+        origem: 'triagem_jev',
+        editalId: 'edital-1',
+        modelo: 'jev-1.0.0',
+        tokensEntrada: 10,
+        tokensSaida: 5,
+      });
+    });
+  });
+
+  it('validarComJev repassa o editalId das opções até o registro', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respostaJev({ chamada: 0.96, relevante: 0.92 })));
+
+    await validarComJev('Edital de IA', 'Fomento', undefined, undefined, undefined, undefined, { editalId: 'edital-2' });
+
+    await vi.waitFor(async () => {
+      const linhas = await db.select().from(usoIa);
+      expect(linhas).toHaveLength(1);
+      expect(linhas[0]).toMatchObject({ editalId: 'edital-2' });
+    });
   });
 });

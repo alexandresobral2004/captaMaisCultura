@@ -6,7 +6,6 @@
  */
 
 import { validarConteudoComKeywords, resumoValidacaoKeywords } from './lib/scraper/keyword-validator';
-import { extrairDadosEditais, formatarDadosExtraidos } from './lib/scraper/edital-extractor';
 
 // Cenários de teste
 const CENARIOS_TESTE = {
@@ -237,14 +236,6 @@ async function testarCenarios() {
         aprovados++;
         console.log('✅ RESULTADO: EDITAL VÁLIDO\n');
 
-        // Testar extração se validado
-        try {
-          const dados = await extrairDadosEditais(texto, resultado, `Edital ${nome}`);
-          console.log('📊 DADOS EXTRAÍDOS:');
-          console.log(formatarDadosExtraidos(dados));
-        } catch (erro) {
-          console.log(`⚠️ Erro ao extrair dados: ${(erro as Error).message}\n`);
-        }
       } else {
         rejeitados++;
         console.log('❌ RESULTADO: REJEITADO\n');

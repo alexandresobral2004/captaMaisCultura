@@ -7,6 +7,7 @@ import { mensagemErroAnalise } from './erros-analise';
 import { logger, LogCenarioFalha, LogAcao } from '../logger';
 
 import { apiKeyConfigurada, criarChatModel, obterClienteOpenAI, obterModelo } from './client';
+import { callbackUsoIA, registrarUsoDeResposta } from './uso-ia';
 type ModoAnalise = 'completo' | 'simplificado';
 
 interface AnalisarOptions {
@@ -68,7 +69,7 @@ CONSISTÊNCIA:
 SEÇÕES REQUERIDAS DA PROPOSTA:
 - Identifique as seções/capítulos obrigatórios que a proposta técnica do projeto deve conter de acordo com o edital (ex: "Justificativa", "Objetivos", "Metodologia", "Cronograma", "Orçamento", "Ficha Técnica/Equipe", "Acessibilidade", "Democratização de Acesso"). Listar como um array simples de strings em 'secoesRequeridas'.`;
 
-async function executarPromptJSON(openai: OpenAI, sistema: string, texto: string) {
+async function executarPromptJSON(openai: OpenAI, sistema: string, texto: string, editalId: string) {
   const response = await openai.chat.completions.create({
     model: obterModelo('mini'),
     response_format: { type: 'json_object' },
@@ -79,12 +80,14 @@ async function executarPromptJSON(openai: OpenAI, sistema: string, texto: string
     temperature: 0.1
   });
 
+  void registrarUsoDeResposta({ origem: 'analise_edital', editalId }, response, obterModelo('mini'));
   const content = response.choices[0]?.message?.content || '{}';
   return JSON.parse(content);
 }
 
 async function analisarComSchemaUnificado(
-  texto: string
+  texto: string,
+  editalId: string
 ): Promise<AnaliseEditalResult> {
   const model = criarChatModel({ nivel: 'mini', temperature: 0.1 });
 
@@ -92,10 +95,13 @@ async function analisarComSchemaUnificado(
     name: 'analise_edital',
   });
 
-  const response = await modelWithSchema.invoke([
-    { role: 'system', content: SYSTEM_PROMPT_COMPLETO },
-    { role: 'user', content: `Documento:\n${texto}` },
-  ]);
+  const response = await modelWithSchema.invoke(
+    [
+      { role: 'system', content: SYSTEM_PROMPT_COMPLETO },
+      { role: 'user', content: `Documento:\n${texto}` },
+    ],
+    { callbacks: [callbackUsoIA('analise_edital', obterModelo('mini'), editalId)] }
+  );
 
   return response;
 }
@@ -236,7 +242,7 @@ export async function analisarEditalComIA(
     if (modo === 'simplificado') {
       try {
         const openai = obterClienteOpenAI();
-        const resultado = await executarPromptJSON(openai, promptAnaliseSimplificada(), textoParaAnalise);
+        const resultado = await executarPromptJSON(openai, promptAnaliseSimplificada(), textoParaAnalise, editalId);
 
         editalOriginal.analiseIA = {
           resumo: resultado.resumo || editalOriginal.analiseIA?.resumo || '',
@@ -289,7 +295,7 @@ export async function analisarEditalComIA(
 
     // Modo completo: schema unificado via LangChain (1 chamada em vez de 3)
     try {
-      const resultado = await analisarComSchemaUnificado(textoParaAnalise);
+      const resultado = await analisarComSchemaUnificado(textoParaAnalise, editalId);
       mapearParaEdital(editalOriginal, resultado);
 
       editalOriginal.statusAnalise = 'analisado';

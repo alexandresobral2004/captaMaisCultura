@@ -42,6 +42,7 @@ export async function POST(
 
     // Contexto padrão para projetos científicos
     const edilContext = {
+      id: contexto?.editalId,
       titulo: contexto?.editalId
         ? `Edital ${contexto.editalId}`
         : 'Projeto de Pesquisa Institucional',

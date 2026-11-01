@@ -1,4 +1,5 @@
 import { consultarJev, jevDisponivel, obterModeloJev, JevError, type PerguntaJev } from '../ai/jev';
+import { registrarUsoJev } from '../ai/uso-ia';
 import { normalizarTecnologia, normalizarTipo, type AiClassificationResult } from './openai-classifier';
 
 /** Categorias e tipos aceitos: os mesmos do classificador OpenAI (normalizados depois). */
@@ -100,6 +101,8 @@ const PERGUNTAS = {
 const certeza = (p: number) => Math.max(p, 1 - p) * 100;
 
 export interface EntradaEdital {
+  /** Edital cadastrado, para o registro de custo. Não é enviado ao Jev. */
+  editalId?: string;
   titulo: string;
   descricao: string;
   valor?: string;
@@ -120,7 +123,7 @@ export async function julgarEditalComJev(entrada: EntradaEdital): Promise<Respos
   if (!jevDisponivel()) return null;
 
   try {
-    const { answers } = await consultarJev(
+    const { answers, usage, model } = await consultarJev(
       {
         titulo: entrada.titulo,
         descricao: entrada.descricao.substring(0, 3000),
@@ -132,6 +135,7 @@ export async function julgarEditalComJev(entrada: EntradaEdital): Promise<Respos
       },
       PERGUNTAS
     );
+    void registrarUsoJev({ origem: 'triagem_jev', editalId: entrada.editalId }, model || obterModeloJev(), usage);
     return answers;
   } catch (erro) {
     const msg = erro instanceof JevError ? erro.message : (erro as Error).message;
@@ -216,9 +220,17 @@ export async function validarComJev(
   orgao?: string,
   termosBranco?: string[],
   tipoEdital?: string,
-  opcoes: { aceitarIncerto?: boolean } = {}
+  opcoes: { aceitarIncerto?: boolean; editalId?: string } = {}
 ): Promise<AiClassificationResult | null> {
-  const respostas = await julgarEditalComJev({ titulo, descricao, valor, orgao, termosBranco, tipoEdital });
+  const respostas = await julgarEditalComJev({
+    titulo,
+    descricao,
+    valor,
+    orgao,
+    termosBranco,
+    tipoEdital,
+    editalId: opcoes.editalId,
+  });
   if (!respostas) return null;
   return resultadoTIDasRespostas(respostas, titulo, opcoes);
 }

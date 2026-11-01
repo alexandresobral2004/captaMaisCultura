@@ -1,4 +1,5 @@
 import { obterClienteOpenAI, obterModelo } from '../ai/client';
+import { registrarUsoDeResposta, type RefUso } from '../ai/uso-ia';
 import { personaDoRedator, ehEditalDePesquisa } from '../ai/persona-edital';
 import { buscarDadosProjetoMCP } from '../ai/tavily-mcp.client';
 import { buscarContextoRAG, formatarContextoRAG } from '../rag/rag-service';
@@ -48,6 +49,9 @@ export interface ContextoGeracao {
   instrucoesExtras: string;
   fontes: string;
   referenciasInternas: string;
+  /** Edital e projeto de origem, para o registro de custo. */
+  editalId?: string;
+  projetoId?: string;
 }
 
 export class ProponenteAusenteError extends Error {
@@ -108,7 +112,9 @@ export function editalDoProjeto(edital: any): EditalContexto {
 }
 
 /** Extrai métricas explícitas na descrição do projeto; o que não constar fica vazio ou null. */
-export async function extrairMetricas(titulo: string, descricao: string, duracaoMeses: number): Promise<MetricasContexto> {
+export async function extrairMetricas(
+  titulo: string, descricao: string, duracaoMeses: number, ref: RefUso = {},
+): Promise<MetricasContexto> {
   const vazio: MetricasContexto = {
     publicoAlvo: '', localizacao: '', duracaoMeses, beneficiariosDiretos: null,
     beneficiariosIndiretos: null, produtosEntregues: [], indicadoresImpacto: [],
@@ -128,6 +134,7 @@ Descrição: ${descricao}
 Retorne só JSON: {"publicoAlvo":"","localizacao":"","beneficiariosDiretos":null,"beneficiariosIndiretos":null,"produtosEntregues":[],"indicadoresImpacto":[]}`,
     }],
   });
+  void registrarUsoDeResposta({ origem: 'geracao_projeto', ...ref }, resp, obterModelo('mini'));
   const b = JSON.parse(resp.choices[0]?.message?.content || '{}');
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
   return {
@@ -149,6 +156,7 @@ Retorne só JSON: {"publicoAlvo":"","localizacao":"","beneficiariosDiretos":null
 export async function personaDoNicho(
   edital: EditalContexto,
   proposta: ContextoGeracao['proposta'],
+  ref: RefUso = {},
 ): Promise<string> {
   const base = personaDoRedator(edital);
   const esboco = [proposta.titulo, proposta.areaAtuacao, proposta.propostaUsuario].filter(Boolean).join('\n');
@@ -169,6 +177,7 @@ ${esboco.slice(0, 3000)}
 Retorne só JSON: {"nicho":"nicho em poucas palavras","persona":"Você é ... (2 a 3 frases em português, em 2ª pessoa, descrevendo formação, anos de prática no nicho, o tipo de público e território com que trabalha e como isso aparece na escrita). Não invente nomes de pessoas ou instituições."}`,
       }],
     });
+    void registrarUsoDeResposta({ origem: 'geracao_projeto', ...ref }, resp, obterModelo('mini'));
     const b = JSON.parse(resp.choices[0]?.message?.content || '{}');
     const persona = typeof b.persona === 'string' ? b.persona.trim() : '';
     return persona ? `${persona}\nAlém disso: ${base}` : base;
@@ -239,8 +248,9 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
   };
   const duracao = Number(projeto.prazoMeses) || edital.prazoMeses || 12;
 
+  const ref: RefUso = { editalId: projeto.editalId, projetoId: projeto.id };
   const [metricas, fontes, referencias, extras, persona] = await Promise.all([
-    extrairMetricas(proposta.titulo, proposta.propostaUsuario, duracao),
+    extrairMetricas(proposta.titulo, proposta.propostaUsuario, duracao, ref),
     buscarDadosProjetoMCP(proposta.titulo, proposta.areaAtuacao)
       .then(r => r.results.map((x, i) => `[${i + 1}] ${x.title} - ${x.url}\n"${x.content.slice(0, 400)}"`).join('\n\n'))
       .catch(() => ''),
@@ -248,7 +258,7 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
       .then(r => (r.chunks.length ? formatarContextoRAG(r.chunks) : ''))
       .catch(() => ''),
     new PromptRepository().getAtivo('projetos_cultura', 'instrucoes_adicionais').catch(() => null),
-    personaDoNicho(edital, proposta),
+    personaDoNicho(edital, proposta, ref),
   ]);
 
   return {
@@ -261,5 +271,7 @@ export async function montarContextoGeracao(projeto: any): Promise<ContextoGerac
     instrucoesExtras: (extras || '').slice(0, 2000),
     fontes,
     referenciasInternas: referencias,
+    editalId: ref.editalId,
+    projetoId: ref.projetoId,
   };
 }

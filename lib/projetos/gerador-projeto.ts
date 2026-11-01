@@ -1,4 +1,5 @@
 import { aceitaTemperatura, obterClienteOpenAI, obterModeloRedacao } from '../ai/client';
+import { registrarUsoDeResposta, type RefUso } from '../ai/uso-ia';
 import { textoDoContexto, type ContextoGeracao } from './contexto-geracao';
 import {
   citaSemReferencias, detectarProibidas, guiaDaSecao, justificarHtml, limparHtml, numerosNaoSuportados, ondaDaSecao,
@@ -13,15 +14,16 @@ export interface SecaoEntrada {
 }
 
 /** Chamada à IA (injetável para teste). Devolve o texto da resposta. */
-export type ChamarIA = (sistema: string, usuario: string, temperatura: number) => Promise<string>;
+export type ChamarIA = (sistema: string, usuario: string, temperatura: number, ref?: RefUso) => Promise<string>;
 
-export const chamarOpenAI: ChamarIA = async (sistema, usuario, temperatura) => {
+export const chamarOpenAI: ChamarIA = async (sistema, usuario, temperatura, ref = {}) => {
   const modelo = obterModeloRedacao();
   const resp = await obterClienteOpenAI().chat.completions.create({
     model: modelo,
     ...(aceitaTemperatura(modelo) ? { temperature: temperatura } : { reasoning_effort: 'medium' as const }),
     messages: [{ role: 'system', content: sistema }, { role: 'user', content: usuario }],
   });
+  void registrarUsoDeResposta({ origem: 'geracao_projeto', ...ref }, resp, modelo);
   return resp.choices[0]?.message?.content || '';
 };
 
@@ -68,13 +70,13 @@ export function semTituloRepetido(html: string, titulo: string): string {
 }
 
 async function escreverComValidacao(
-  chamar: ChamarIA, sistema: string, usuarioBase: string, temperatura: number, titulo: string,
+  chamar: ChamarIA, sistema: string, usuarioBase: string, temperatura: number, titulo: string, ref: RefUso,
 ): Promise<{ html: string; proibidasRestantes: string[] }> {
   let feedback = '';
   let html = '';
   let proibidas: string[] = [];
   for (let i = 0; i < MAX_TENTATIVAS; i++) {
-    html = justificarHtml(semTituloRepetido(limparHtml(await chamar(sistema, usuarioBase + feedback, temperatura)), titulo));
+    html = justificarHtml(semTituloRepetido(limparHtml(await chamar(sistema, usuarioBase + feedback, temperatura, ref)), titulo));
     proibidas = detectarProibidas(html);
     const semRef = citaSemReferencias(html);
     if (html && proibidas.length === 0 && !semRef) break;
@@ -108,6 +110,7 @@ export async function gerarSecoes(
   const sistema = regrasGerais(ctx);
   const contexto = blocoContexto(ctx);
   const numerosBase = baseDeNumeros(ctx, secoes);
+  const ref: RefUso = { editalId: ctx.editalId, projetoId: ctx.projetoId };
   const textos: Record<string, string> = Object.fromEntries(secoes.map(s => [s.chave, s.conteudo]));
   const geradas: Record<string, string> = {};
   const avisos: string[] = [];
@@ -129,7 +132,7 @@ ${outras ? `\nOUTRAS SEÇÕES DO PROJETO (mantenha coerência com elas):\n${outr
 
 Escreva agora a seção "${secao.titulo}".`;
 
-      const { html, proibidasRestantes } = await escreverComValidacao(chamar, sistema, usuario, 0.4, secao.titulo);
+      const { html, proibidasRestantes } = await escreverComValidacao(chamar, sistema, usuario, 0.4, secao.titulo, ref);
       if (!html) {
         avisos.push(`Seção "${secao.titulo}": a IA não devolveu texto. Tente gerar de novo.`);
         return;
@@ -156,6 +159,7 @@ export async function aprimorarSecao(
 ): Promise<{ conteudoNovo: string; avisos: string[] }> {
   const chamar = opcoes.chamar ?? chamarOpenAI;
   const tipo = tipoDaSecao(secao.titulo);
+  const ref: RefUso = { editalId: ctx.editalId, projetoId: ctx.projetoId };
   const atual = semTags(secao.conteudo) ? secao.conteudo : '';
   const outrasTexto = outras
     .filter(o => semTags(o.conteudo))
@@ -180,7 +184,7 @@ ${outrasTexto ? `\nOUTRAS SEÇÕES (mantenha coerência):\n${outrasTexto}` : ''}
 
 Reescreva a seção em outra estrutura e vocabulário, mantendo todos os fatos, números e metas do texto atual. Não acrescente números, nomes ou fontes novos.`;
 
-  const { html } = await escreverComValidacao(chamar, regrasGerais(ctx), usuario, 0.4, secao.titulo);
+  const { html } = await escreverComValidacao(chamar, regrasGerais(ctx), usuario, 0.4, secao.titulo, ref);
   if (!html) throw new Error('A IA não devolveu texto. Tente novamente.');
   const avisos: string[] = [];
   const sem = numerosNaoSuportados(html, `${blocoContexto(ctx)}\n${semTags(atual)}`);

@@ -292,6 +292,24 @@ export function criarTabelas(sqlite: Database.Database) {
       expira_em INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_limites_expira ON limites_taxa(expira_em);
+    CREATE TABLE IF NOT EXISTS uso_ia (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      criado_em TEXT NOT NULL,
+      origem TEXT NOT NULL,
+      modelo TEXT NOT NULL,
+      tokens_entrada INTEGER NOT NULL,
+      tokens_saida INTEGER NOT NULL,
+      edital_id TEXT,
+      projeto_id TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_uso_ia_criado ON uso_ia(criado_em);
+    CREATE TABLE IF NOT EXISTS avisos_custo (
+      mes TEXT PRIMARY KEY,
+      criado_em TEXT NOT NULL,
+      total_usd REAL NOT NULL,
+      limite_usd REAL NOT NULL,
+      lida INTEGER NOT NULL DEFAULT 0
+    );
     `);
 
     sqlite.exec(`
@@ -317,6 +335,11 @@ export function criarTabelas(sqlite: Database.Database) {
     }
     if (!colunasJobs.includes('progresso')) {
       sqlite.exec(`ALTER TABLE jobs ADD COLUMN progresso TEXT`);
+    }
+    // Bancos com uso_ia criada antes do projeto_id ganham a coluna
+    const colunasUsoIa = (sqlite.prepare("PRAGMA table_info(uso_ia)").all() as any[]).map((col: any) => col.name);
+    if (!colunasUsoIa.includes('projeto_id')) {
+      sqlite.exec(`ALTER TABLE uso_ia ADD COLUMN projeto_id TEXT`);
     }
 
     sqlite.exec(`

@@ -4,6 +4,7 @@ import { cacheValidacao, gerarChaveCache, CACHE_TTL } from './cache';
 import { loadCategorias } from '../scraper/filtros/loaders';
 
 import { lerApiKey, obterModelo } from '../ai/client';
+import { registrarUsoDeResposta } from '../ai/uso-ia';
 import { validarComJev } from './jev-classifier';
 export type AiClassificationResult =
   | {
@@ -39,7 +40,7 @@ export async function validarComOpenAI(
   orgao?: string,
   termosBranco?: string[],
   tipoEdital?: string,
-  opcoes: { pularJev?: boolean } = {}
+  opcoes: { pularJev?: boolean; editalId?: string } = {}
 ): Promise<AiClassificationResult> {
   const modelo = obterModelo('mini');
 
@@ -57,6 +58,7 @@ export async function validarComOpenAI(
       ? null
       : await validarComJev(titulo, descricao, valor, orgao, termosBranco, tipoEdital, {
           aceitarIncerto: !lerApiKey(),
+          editalId: opcoes.editalId,
         });
     if (jev && jev.ok) {
       // Sem chave da OpenAI o Jev pode ter respondido incerto: não cachear para reavaliar depois
@@ -197,6 +199,7 @@ RESPONDA EM JSON VÁLIDO (sem markdown, sem explicação adicional):
     );
 
     clearTimeout(timeoutId);
+    void registrarUsoDeResposta({ origem: 'classificador_ti', editalId: opcoes.editalId }, response.data, modelo);
 
     const content = response.data.choices?.[0]?.message?.content || '';
 

@@ -1,3 +1,5 @@
+import type { RefUso } from '../ai/uso-ia';
+
 export interface SecaoConferencia {
   titulo: string;
   texto: string;
@@ -65,7 +67,7 @@ const listaDe = (valor: unknown): string[] => {
 /** Confere o texto do projeto contra o edital. `julgar` recebe o prompt e devolve o JSON em texto (injetável). */
 export async function conferirProjeto(
   projeto: any,
-  julgar: (prompt: string) => Promise<string>,
+  julgar: (prompt: string, ref?: RefUso) => Promise<string>,
 ): Promise<ResultadoConferenciaProjeto> {
   const edital = projeto.edital as any;
   const analise = edital?.analiseIA;
@@ -96,7 +98,7 @@ ${criterios.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 TEXTO DO PROJETO:
 ${secoes.map(s => `## ${s.titulo}\n${s.texto.slice(0, 3500)}`).join('\n\n')}
 
-Responda só JSON: {"criterios":[{"situacao":"atendido","observacao":"..."}]} na mesma ordem dos critérios.`) || '{}');
+Responda só JSON: {"criterios":[{"situacao":"atendido","observacao":"..."}]} na mesma ordem dos critérios.`, { editalId: projeto.editalId, projetoId: projeto.id }) || '{}');
     const itens: any[] = Array.isArray(bruto.criterios) ? bruto.criterios : [];
     conferidos = criterios.map((criterio, i) => ({
       criterio,

@@ -82,6 +82,7 @@ export const NotificacaoBell: React.FC = () => {
       {/* BOTÃO DO SINO */}
       <button
         onClick={() => setAberto(!aberto)}
+        className={naoLidas > 0 ? 'sino-alerta' : undefined}
         style={{
           position: 'relative',
           background: 'none',

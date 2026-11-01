@@ -459,6 +459,27 @@ export const limitesTaxa = pgTable('limites_taxa', {
   expiraIdx: index('idx_limites_expira').on(table.expiraEm),
 }));
 
+export const usoIa = pgTable('uso_ia', {
+  id: serial('id').primaryKey(),
+  criadoEm: text('criado_em').notNull(),
+  origem: text('origem').notNull(),
+  modelo: text('modelo').notNull(),
+  tokensEntrada: integer('tokens_entrada').notNull(),
+  tokensSaida: integer('tokens_saida').notNull(),
+  editalId: text('edital_id'),
+  projetoId: text('projeto_id'),
+}, (table) => ({
+  criadoIdx: index('idx_uso_ia_criado').on(table.criadoEm),
+}));
+
+export const avisosCusto = pgTable('avisos_custo', {
+  mes: text('mes').primaryKey(),
+  criadoEm: text('criado_em').notNull(),
+  totalUsd: real('total_usd').notNull(),
+  limiteUsd: real('limite_usd').notNull(),
+  lida: integer('lida').notNull().default(0),
+});
+
 export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
   status: text('status').notNull().default('PENDENTE'),

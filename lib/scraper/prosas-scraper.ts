@@ -373,6 +373,7 @@ async function tentarBuscaComSessao(cookies: string[] | null): Promise<Edital[]>
 
             // Triagem por eixo (Cultura ou TI/Pesquisa) conforme a configuração do portal
             const triagem = await triarEditalDoPortal('prosas', {
+              editalId: idEdital,
               titulo: proc.nome,
               descricao: proc.descricao || '',
               valor: proc.valor_limite?.toString(),

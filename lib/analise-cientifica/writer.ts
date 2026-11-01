@@ -15,7 +15,10 @@ import {
 import { PromptRepository } from '../database/repositories/prompt.repository';
 
 import { obterClienteOpenAI, obterModelo } from '@/lib/ai/client';
+import { registrarUsoDeResposta } from '@/lib/ai/uso-ia';
 interface EditalContext {
+  /** Edital analisado, para o registro de custo. */
+  id?: string;
   titulo: string;
   orgao: string;
   valor?: number;
@@ -83,6 +86,7 @@ export class ProposalWriterCientifico {
       temperature: 0.5,
     });
 
+    void registrarUsoDeResposta({ origem: 'redacao_projeto', editalId: edil.id, projetoId: proposal.id }, response, this.model);
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('Resposta vazia da IA');
 
@@ -123,6 +127,7 @@ export class ProposalWriterCientifico {
       temperature: 0.3,
     });
 
+    void registrarUsoDeResposta({ origem: 'redacao_projeto', editalId: edil.id, projetoId: projeto.id }, response, this.model);
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('Resposta vazia da IA');
 
@@ -144,7 +149,9 @@ export class ProposalWriterCientifico {
   async polirSecao(
     secao: string,
     conteudo: string,
-    tipoEdital: string
+    tipoEdital: string,
+    projetoId?: string,
+    editalId?: string
   ): Promise<string> {
     // Tentar obter prompt customizado primeiro
     const promptCustomizado = await this.promptRepository.getAtivo('projetos_pesquisa', 'polimento');
@@ -157,6 +164,7 @@ export class ProposalWriterCientifico {
       temperature: 0.4,
     });
 
+    void registrarUsoDeResposta({ origem: 'redacao_projeto', editalId, projetoId }, response, this.model);
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('Resposta vazia da IA');
 
@@ -169,7 +177,8 @@ export class ProposalWriterCientifico {
   async analisarAdequacao(
     tituloProjeto: string,
     areaTematica: string,
-    edil: EditalContext
+    edil: EditalContext,
+    projetoId?: string
   ): Promise<{
     adequado: boolean;
     scoreAdequacao: number;
@@ -189,6 +198,7 @@ export class ProposalWriterCientifico {
       temperature: 0.3,
     });
 
+    void registrarUsoDeResposta({ origem: 'redacao_projeto', editalId: edil.id, projetoId }, response, this.model);
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('Resposta vazia da IA');
 
@@ -314,9 +324,10 @@ export class ProjetoCientificoService {
   async analisarAdequacao(
     tituloProjeto: string,
     areaTematica: string,
-    edil: EditalContext
+    edil: EditalContext,
+    projetoId?: string
   ): Promise<ReturnType<ProposalWriterCientifico['analisarAdequacao']>> {
-    return await this.writer.analisarAdequacao(tituloProjeto, areaTematica, edil);
+    return await this.writer.analisarAdequacao(tituloProjeto, areaTematica, edil, projetoId);
   }
 }
 

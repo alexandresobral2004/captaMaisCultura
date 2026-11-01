@@ -123,6 +123,7 @@ export async function buscarEditaisFinep(): Promise<Edital[]> {
       }
 
       const triagem = await triarEditalDoPortal('finep', {
+        editalId: idEdital,
         titulo,
         descricao: '',
         orgao: 'FINEP',
@@ -248,6 +249,7 @@ export async function buscarEditaisCNPq(): Promise<Edital[]> {
       }
 
       const triagem = await triarEditalDoPortal('cnpq', {
+        editalId: idEdital,
         titulo,
         descricao: '',
         orgao: 'CNPq',
@@ -373,6 +375,7 @@ export async function buscarEditaisCapes(): Promise<Edital[]> {
       }
 
       const triagem = await triarEditalDoPortal('capes', {
+        editalId: idEdital,
         titulo,
         descricao: '',
         orgao: 'CAPES',
@@ -527,6 +530,7 @@ export async function buscarEditaisMinisterioCiencia(): Promise<Edital[]> {
       const ehEventoCientifico = temPalavraEvento && temPalavraCiencia;
 
       const triagem = await triarEditalDoPortal('mcti', {
+        editalId: idEdital,
         titulo,
         descricao: descricao,
         orgao: 'Ministério da Ciência do Brasil',

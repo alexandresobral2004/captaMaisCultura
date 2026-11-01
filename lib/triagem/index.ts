@@ -103,7 +103,7 @@ async function triarPesquisa(
       entrada.orgao,
       termosBranco.length > 0 ? termosBranco : entrada.termosBranco,
       entrada.tipoEdital,
-      { pularJev: respostas !== null }
+      { pularJev: respostas !== null, editalId: entrada.editalId }
     );
     if (desempate.ok) validacaoIA = desempate;
   }

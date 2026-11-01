@@ -182,7 +182,7 @@ export async function buscarEditaisPortalGenerico(portal: PortalConfig): Promise
       if (prazo) item.dataLimite = prazo;
     }
 
-    const triagem = await triarEditalDoPortal(portal.id, { titulo: item.titulo, descricao: item.trecho ?? '', orgao: portal.nome });
+    const triagem = await triarEditalDoPortal(portal.id, { titulo: item.titulo, descricao: item.trecho ?? '', orgao: portal.nome, editalId: id });
     if (!triagem.aceito) {
       rejeitados++;
       pipelineLogger.logResultado(id, item.titulo, 'rejeitado', `Triagem (${triagem.etapa})`);

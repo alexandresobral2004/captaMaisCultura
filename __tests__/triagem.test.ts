@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { triarEdital } from '../lib/triagem';
+import { validarComOpenAI } from '../lib/filtros-ti/openai-classifier';
 
 // A OpenAI (reserva) nunca é chamada de verdade nos testes
 vi.mock('../lib/filtros-ti/openai-classifier', async (orig) => ({
@@ -177,5 +178,21 @@ describe('triarEdital: Jev incerto nunca vira rejeição direta', () => {
     jevComResposta(respostaJev({ eixo: 'Cultura', chamada: 0.97, cultura: 0.6 }));
     const r = await triarEdital({ titulo: 'Edital de teatro', descricao: 'Resultado final previsto para dezembro', eixoPortal: 'Cultura' });
     expect(r).toMatchObject({ aceito: true, incerto: true, etapa: 'cultura' });
+  });
+});
+
+describe('editalId na triagem', () => {
+  it('repassa o editalId à OpenAI de desempate, para o registro de custo', async () => {
+    const chaveAnterior = process.env.TYPESAFE_API_KEY;
+    delete process.env.TYPESAFE_API_KEY;
+    vi.mocked(validarComOpenAI).mockClear();
+    try {
+      await triarEdital({ titulo: 'Edital de inteligência artificial', descricao: 'Fomento a plataformas de IA', editalId: 'edital-7' });
+      expect(validarComOpenAI).toHaveBeenCalled();
+      const opcoes = vi.mocked(validarComOpenAI).mock.calls[0][6];
+      expect(opcoes).toMatchObject({ editalId: 'edital-7' });
+    } finally {
+      process.env.TYPESAFE_API_KEY = chaveAnterior ?? '';
+    }
   });
 });

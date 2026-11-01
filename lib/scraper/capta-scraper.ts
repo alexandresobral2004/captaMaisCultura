@@ -151,6 +151,7 @@ export async function buscarEditaisCapta(): Promise<Edital[]> {
 
       try {
         const triagem = await triarEditalDoPortal('capta', {
+          editalId: idEdital,
           titulo: item.titulo,
           descricao: item.descricao,
           orgao: 'Capta/ISPN',
