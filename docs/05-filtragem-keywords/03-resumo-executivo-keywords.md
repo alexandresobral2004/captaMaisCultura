@@ -25,7 +25,6 @@ Criar um sistema que **filtre automaticamente editais válidos** procurando por 
 | `keyword-map.ts` | 220 | Define 8 categorias de 200+ palavras-chave |
 | `keyword-validator.ts` | 310 | Valida conteúdo e calcula score (0-100%) |
 | `keyword-logger.ts` | 280 | Registra logs e gera relatórios |
-| `edital-extractor.ts` | 280 | Extrai dados estruturados (resumo, datas, valores) |
 | `pipeline-keywords.ts` | 180 | Integra tudo na pipeline de busca |
 
 ### 2. **Integração com Sistema Existente**

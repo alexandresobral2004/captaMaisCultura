@@ -121,7 +121,6 @@ captaMais/
 │   │   ├── pdf-downloader.ts         # Download em cascata
 │   │   ├── pdf-extractor.ts          # Extracao de URLs PDF
 │   │   ├── llamaparse-extractor.ts   # Extracao via LlamaParse
-│   │   ├── edital-extractor.ts       # Extracao de conteudo
 │   │   ├── worker.ts                 # Worker background
 │   │   ├── filtros-ti.ts             # Whitelist/Blacklist/OpenAI
 │   │   ├── keyword-map.ts            # Mapeamento de keywords

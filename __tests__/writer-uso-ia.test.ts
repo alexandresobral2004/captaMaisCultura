@@ -41,26 +41,6 @@ describe('projeto e edital nos registros de uso da redação', () => {
     });
   });
 
-  it('polirSecao grava o projetoId recebido', async () => {
-    await new ProposalWriterCientifico().polirSecao('Metodologia', '<p>texto</p>', 'pesquisa', 'projeto-w2');
-
-    await vi.waitFor(async () => {
-      const linhas = await db.select().from(usoIa);
-      expect(linhas).toHaveLength(1);
-      expect(linhas[0]).toMatchObject({ origem: 'redacao_projeto', projetoId: 'projeto-w2' });
-    });
-  });
-
-  it('polirSecao grava o editalId recebido junto com o projetoId', async () => {
-    await new ProposalWriterCientifico().polirSecao('Metodologia', '<p>texto</p>', 'pesquisa', 'projeto-w4', 'edital-w4');
-
-    await vi.waitFor(async () => {
-      const linhas = await db.select().from(usoIa);
-      expect(linhas).toHaveLength(1);
-      expect(linhas[0]).toMatchObject({ origem: 'redacao_projeto', editalId: 'edital-w4', projetoId: 'projeto-w4' });
-    });
-  });
-
   it('gerarPropostaCompleta grava o editalId do contexto e o id da proposta', async () => {
     // Só interessa o registro de uso: a resposta não precisa ser uma proposta completa
     await new ProposalWriterCientifico()

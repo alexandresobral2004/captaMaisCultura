@@ -53,7 +53,6 @@ lib/scraper/
 ├── keyword-map.ts           # 200+ palavras-chave em 8 categorias
 ├── keyword-validator.ts     # Lógica de validação
 ├── keyword-logger.ts        # Logging estruturado
-├── edital-extractor.ts      # Extração de dados estruturados
 └── pipeline-keywords.ts     # Integração com pipeline
 
 __tests__/
@@ -70,15 +69,13 @@ __tests__/
 
 ```typescript
 import { validarComKeywords } from '@/lib/scraper/keyword-validator';
-import { extrairDadosEdital } from '@/lib/scraper/edital-extractor';
 
 const texto = await extrairTexto(pdfPath);
 const validacao = await validarComKeywords(texto, editalId);
 
 if (validacao.aprovado) {
-  // Prosseguir com análise IA
-  const dados = await extrairDadosEdital(texto);
-  await salvarEdital({ ...edital, ...dados });
+  // Prosseguir com análise IA (a extração estruturada fica em lib/ai/analyzer.ts)
+  await salvarEdital(edital);
 }
 ```
 

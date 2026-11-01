@@ -144,34 +144,6 @@ export class ProposalWriterCientifico {
   }
 
   /**
-   * Polimento de seção específica
-   */
-  async polirSecao(
-    secao: string,
-    conteudo: string,
-    tipoEdital: string,
-    projetoId?: string,
-    editalId?: string
-  ): Promise<string> {
-    // Tentar obter prompt customizado primeiro
-    const promptCustomizado = await this.promptRepository.getAtivo('projetos_pesquisa', 'polimento');
-    const prompt = promptCustomizado || gerarPromptPolimento(secao, conteudo, tipoEdital);
-
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model: this.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.4,
-    });
-
-    void registrarUsoDeResposta({ origem: 'redacao_projeto', editalId, projetoId }, response, this.model);
-    const raw = response.choices[0]?.message?.content;
-    if (!raw) throw new Error('Resposta vazia da IA');
-
-    return raw.trim();
-  }
-
-  /**
    * Analisa adequação do projeto ao edital
    */
   async analisarAdequacao(
