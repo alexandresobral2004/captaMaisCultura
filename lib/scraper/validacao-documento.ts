@@ -112,7 +112,49 @@ export const CORTE_ACEITAR = DOCUMENTO_ACEITAR;
 export const CORTE_DESCARTAR = DOCUMENTO_DESCARTAR;
 
 /**
+ * Número do edital no formato N/AAAA (ex.: "Edital 02/2026" -> "2/2026").
+ * Não casa dentro de datas: em "30/11/2026" o "11/2026" vem precedido de "/".
+ */
+const NUMERO_EDITAL = /(?<![\d/])(\d{1,4})\s*\/\s*(20\d\d)(?![\d/])/g;
+const TAMANHO_CABECALHO = 800;
+
+function normalizarNumero(m: RegExpExecArray): string {
+  return `${Number(m[1])}/${m[2]}`;
+}
+
+function numerosEmTrecho(trecho: string): string[] {
+  return Array.from(trecho.matchAll(NUMERO_EDITAL), normalizarNumero);
+}
+
+export type SituacaoPertinencia = 'confirmada' | 'nao_cita' | 'outro_edital' | 'sem_numero';
+
+/**
+ * Verifica se o documento é do edital do título, pelo número N/AAAA.
+ * - outro_edital: o cabeçalho do documento traz outro número (é resultado ou anexo de outro edital);
+ * - nao_cita: o título tem número, mas o documento nunca o menciona;
+ * - confirmada: o número do título aparece no documento;
+ * - sem_numero: o título não traz número, então não há como conferir.
+ */
+export function verificarPertinencia(titulo: string, texto: string): { situacao: SituacaoPertinencia; numeroDoEdital?: string } {
+  const m = /(?<![\d/])(\d{1,4})\s*\/\s*(20\d\d)(?![\d/])/.exec(titulo || '');
+  if (!m) return { situacao: 'sem_numero' };
+  const numeroDoEdital = normalizarNumero(m);
+
+  const limpo = (texto || '').replace(/\s+/g, ' ');
+  const numerosNoCabecalho = numerosEmTrecho(limpo.slice(0, TAMANHO_CABECALHO));
+  if (numerosNoCabecalho.length > 0) {
+    return numerosNoCabecalho.includes(numeroDoEdital)
+      ? { situacao: 'confirmada', numeroDoEdital }
+      : { situacao: 'outro_edital', numeroDoEdital: numerosNoCabecalho[0] };
+  }
+  return numerosEmTrecho(limpo).includes(numeroDoEdital)
+    ? { situacao: 'confirmada', numeroDoEdital }
+    : { situacao: 'nao_cita', numeroDoEdital };
+}
+
+/**
  * Segunda etapa da triagem: valida o texto de um documento já baixado.
+ * 0) Pertinência: se o cabeçalho é de outro edital, descarta; se nunca cita o número do edital, não aceita sozinho.
  * 1) Regra: precisa ter palavras de pelo menos MINIMO_DE_GRUPOS grupos.
  * 2) Jev: recebe título, palavras e trechos e decide, com três saídas (válido, dúvida, descartado).
  *    Sem Jev, vale só a regra: muitos grupos aceita, poucos vai para revisão.
@@ -120,6 +162,32 @@ export const CORTE_DESCARTAR = DOCUMENTO_DESCARTAR;
 export async function validarDocumentoEdital(
   doc: { titulo: string; orgao: string; texto: string; editalId?: string },
   julgar: JulgarEdital | null = jevDisponivel() ? julgarComJev : null
+): Promise<ResultadoValidacao> {
+  const pertinencia = verificarPertinencia(doc.titulo, doc.texto);
+  if (pertinencia.situacao === 'outro_edital') {
+    return {
+      decisao: 'descartado',
+      etapa: 'regra',
+      motivo: `Documento é de outro edital (nº ${pertinencia.numeroDoEdital}), não do título`,
+      termos: [],
+      grupos: [],
+    };
+  }
+
+  const resultado = await classificarDocumento(doc, julgar);
+  if (pertinencia.situacao === 'nao_cita' && resultado.decisao === 'valido') {
+    return {
+      ...resultado,
+      decisao: 'duvida',
+      motivo: `${resultado.motivo}; documento não cita o nº ${pertinencia.numeroDoEdital} do edital, vai para revisão`,
+    };
+  }
+  return resultado;
+}
+
+async function classificarDocumento(
+  doc: { titulo: string; orgao: string; texto: string; editalId?: string },
+  julgar: JulgarEdital | null
 ): Promise<ResultadoValidacao> {
   const { termos, trechos } = buscarSinaisDeEdital(doc.texto);
   const palavras = termos.map(t => t.palavra);

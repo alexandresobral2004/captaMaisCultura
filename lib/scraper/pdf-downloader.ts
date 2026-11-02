@@ -30,7 +30,7 @@ function initDownloadDir() {
 /**
  * Tenta encontrar um link PDF dentro de uma página HTML usando múltiplas estratégias
  */
-async function buscarPdfNaPaginaHtml(urlHtml: string): Promise<string | null> {
+async function buscarPdfNaPaginaHtml(urlHtml: string, titulo: string): Promise<string | null> {
   try {
     // Tentar com diferentes headers para evitar bloqueios
     const response = await axios.get(urlHtml, { 
@@ -45,7 +45,7 @@ async function buscarPdfNaPaginaHtml(urlHtml: string): Promise<string | null> {
     });
     
     // Usar novo extrator com múltiplas estratégias
-    const resultado = await extrairUrlPDF(response.data, urlHtml);
+    const resultado = await extrairUrlPDF(response.data, urlHtml, { titulo });
     
     if (resultado.url) {
       console.log(`  ✅ PDF encontrado via ${resultado.metodo} (${resultado.confianca}% confiança)`);
@@ -382,7 +382,7 @@ export async function baixarELerPDFEdital(
            console.log(`   🔍 Estratégia 2b: Link é página web. Procurando PDF...`);
            
            try {
-             const pdfDaWeb = await buscarPdfNaPaginaHtml(linkLimpo);
+             const pdfDaWeb = await buscarPdfNaPaginaHtml(linkLimpo, titulo);
              
              if (pdfDaWeb) {
                try {

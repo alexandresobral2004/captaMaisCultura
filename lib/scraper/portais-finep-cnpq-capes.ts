@@ -4,6 +4,7 @@ import { Edital, isEditalExcluido } from '../db/editais-store';
 import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper';
 import { pipelineLogger } from './pipeline-logger';
 import { getPortal, atualizarUltimoScan } from './config';
+import { linkEhPaginaDeNoticia } from './filtro-link-edital';
 
 const DEFAULT_URLS = {
   finep: [
@@ -113,6 +114,8 @@ export async function buscarEditaisFinep(): Promise<Edital[]> {
       if (!titulo || !link || titulo.length < 10) {
         continue;
       }
+
+      if (linkEhPaginaDeNoticia(link)) continue;
 
       const idEdital = `finep-${Buffer.from(titulo).toString('base64').substring(0, 10)}`;
       const linkAbsoluto = link.startsWith('http') ? link : `https://www.finep.gov.br${link}`;
@@ -237,6 +240,8 @@ export async function buscarEditaisCNPq(): Promise<Edital[]> {
       if (!titulo || titulo.length < 10) {
         continue;
       }
+
+      if (link && linkEhPaginaDeNoticia(link)) continue;
 
       const idEdital = `cnpq-${Buffer.from(titulo).toString('base64').substring(0, 10)}`;
       const urlCompleta = link && !link.startsWith('http') 
@@ -363,6 +368,8 @@ export async function buscarEditaisCapes(): Promise<Edital[]> {
       if (!titulo || titulo.length < 10) {
         continue;
       }
+
+      if (link && linkEhPaginaDeNoticia(link)) continue;
 
       const idEdital = `capes-${Buffer.from(titulo).toString('base64').substring(0, 10)}`;
       const urlCompleta = link && !link.startsWith('http')

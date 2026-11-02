@@ -29,7 +29,7 @@ export async function extrairUrlPDF(
   }
 
   // Estratégia 2: Links diretos com terminação .pdf
-  const urlLinkDireto = extrairDosLinksDiretos(html, url);
+  const urlLinkDireto = extrairDosLinksDiretos(html, url, metadata?.titulo);
   if (urlLinkDireto) {
     return {
       url: urlLinkDireto,
@@ -94,32 +94,65 @@ function extrairDasMetaTags(html: string): string | null {
   return null;
 }
 
+// Palavras que indicam documento que não é o edital (resultado, notícia, comunicado, recurso...)
+const TERMOS_NAO_EDITAL = /\b(resultado|noticias?|comunicado|retifica\w*|recurso|impugna\w*|homologa\w*|convoca\w*|gabarito|classificad\w*|deferid\w*|ata)\b/;
+const TERMOS_DE_EDITAL = /\b(edital|chamada|chamamento|selecao|credenciamento)\b/;
+
+function normalizarTexto(texto: string): string {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 /**
- * Estratégia 2: Procura links com terminação .pdf
+ * Pontua um link de PDF pelo quanto ele parece ser o edital do título.
+ * Retorna -1 quando o link tem termo de documento que não é edital (resultado, notícia...).
  */
-function extrairDosLinksDiretos(html: string, baseUrl: string): string | null {
-  const $ = cheerio.load(html);
+export function pontuarLinkPdf(textoAncora: string, href: string, titulo = ''): number {
+  const alvo = normalizarTexto(`${textoAncora} ${href}`);
+  if (TERMOS_NAO_EDITAL.test(alvo)) return -1;
 
-  // Regex para encontrar qualquer link terminado em .pdf
-  const pdfLinks = $('a[href*=".pdf"]').toArray();
-
-  if (pdfLinks.length > 0) {
-    let href = $(pdfLinks[0]).attr('href');
-
-    if (!href) return null;
-
-    // Converter URL relativa em absoluta
-    if (href.startsWith('/')) {
-      const dominio = new URL(baseUrl).origin;
-      return dominio + href;
-    } else if (!href.startsWith('http')) {
-      return new URL(href, baseUrl).href;
-    }
-
-    return href;
+  let pontos = TERMOS_DE_EDITAL.test(alvo) ? 2 : 0;
+  const palavrasDoTitulo = normalizarTexto(titulo).split(/[^a-z0-9]+/).filter(p => p.length >= 3 || /\d/.test(p));
+  for (const palavra of Array.from(new Set(palavrasDoTitulo))) {
+    if (alvo.includes(palavra)) pontos += 1;
   }
+  return pontos;
+}
 
-  return null;
+function resolverAbsoluta(href: string, baseUrl: string): string {
+  return new URL(href, baseUrl).href;
+}
+
+/**
+ * Escolhe o melhor PDF entre os candidatos. Descarta documentos que não são edital;
+ * em empate, mantém o primeiro da página.
+ */
+function escolherMelhorPdf(
+  candidatos: { href: string; texto: string }[],
+  baseUrl: string,
+  titulo = ''
+): string | null {
+  let melhor: { url: string; pontos: number } | null = null;
+  for (const candidato of candidatos) {
+    if (!candidato.href) continue;
+    const pontos = pontuarLinkPdf(candidato.texto, candidato.href, titulo);
+    if (pontos < 0) continue;
+    if (!melhor || pontos > melhor.pontos) {
+      melhor = { url: resolverAbsoluta(candidato.href, baseUrl), pontos };
+    }
+  }
+  return melhor ? melhor.url : null;
+}
+
+/**
+ * Estratégia 2: Procura links com terminação .pdf e escolhe o que mais parece o edital
+ */
+function extrairDosLinksDiretos(html: string, baseUrl: string, titulo = ''): string | null {
+  const $ = cheerio.load(html);
+  const candidatos = $('a[href*=".pdf"]').toArray().map(el => ({
+    href: $(el).attr('href') || '',
+    texto: $(el).text(),
+  }));
+  return escolherMelhorPdf(candidatos, baseUrl, titulo);
 }
 
 /**
@@ -138,7 +171,7 @@ function extrairDoHTMLParse(html: string, baseUrl: string): string | null {
       const $el = $(elemento);
       const href = $el.attr('href') || $el.attr('data-url') || $el.attr('data-href');
 
-      if (href && (href.includes('pdf') || href.includes('download'))) {
+      if (href && (href.includes('pdf') || href.includes('download')) && pontuarLinkPdf($el.text(), href) >= 0) {
         // Converter URL relativa em absoluta
         if (href.startsWith('/')) {
           const dominio = new URL(baseUrl).origin;
@@ -181,25 +214,20 @@ function extrairComIA(
 ): { url: string | null; confianca?: number } | null {
   const $ = cheerio.load(html);
 
-  // Passo 1: Buscar <a> onde href termina em .pdf
-  const links = $('a').toArray();
-  for (const link of links) {
-    const href = $(link).attr('href');
-    if (href && href.toLowerCase().endsWith('.pdf')) {
-      const urlResolvida = resolverHref(href, url);
-      return { url: urlResolvida, confianca: 80 };
-    }
+  // Passo 1: Buscar <a> onde href termina em .pdf, escolhendo o que mais parece o edital
+  const links = $('a').toArray().map(el => ({ href: $(el).attr('href') || '', texto: $(el).text() }));
+  const pdfs = links.filter(l => l.href.toLowerCase().endsWith('.pdf'));
+  const escolhidoPdf = escolherMelhorPdf(pdfs, url, metadata?.titulo);
+  if (escolhidoPdf) {
+    return { url: escolhidoPdf, confianca: 80 };
   }
 
   // Passo 2 (fallback): Buscar <a> cujo texto contém palavras-chave
   const palavrasChave = ['baixar', 'edital', 'anexo', 'documento'];
-  for (const link of links) {
-    const textoAncora = $(link).text().toLowerCase();
-    const href = $(link).attr('href');
-    if (href && palavrasChave.some(p => textoAncora.includes(p))) {
-      const urlResolvida = resolverHref(href, url);
-      return { url: urlResolvida, confianca: 60 };
-    }
+  const comPalavraChave = links.filter(l => palavrasChave.some(p => l.texto.toLowerCase().includes(p)));
+  const escolhidoPorTexto = escolherMelhorPdf(comPalavraChave, url, metadata?.titulo);
+  if (escolhidoPorTexto) {
+    return { url: escolhidoPorTexto, confianca: 60 };
   }
 
   return null;
