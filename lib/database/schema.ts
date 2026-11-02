@@ -1,5 +1,8 @@
 import { pgTable, text, integer, real, bigint, boolean as pgBoolean, index, uniqueIndex, serial, customType } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+
+/** Data/hora atual em ISO UTC. Gerada pela aplicação, funciona em PostgreSQL e SQLite. */
+const agoraIso = () => new Date().toISOString();
 import { relations } from 'drizzle-orm';
 
 /**
@@ -78,8 +81,8 @@ export const editais = pgTable('editais', {
   confiancaPorCampo: text('confianca_por_campo'), // JSON object serializado
 
   // Timestamps
-  criadoEm: text('criado_em').default('now()'),
-  atualizadoEm: text('atualizado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
+  atualizadoEm: text('atualizado_em').$defaultFn(agoraIso),
   deletedAt: text('deleted_at'), // NULL = ativo, timestamp = deletado (soft-delete)
   bloqueado: boolean('bloqueado').notNull().default(false), // excluído como "não é edital": nunca mais baixado
 
@@ -123,8 +126,8 @@ export const analiseIa = pgTable('analise_ia', {
   contatoEdital: text('contato_edital'),
   scoreAdequacao: integer('score_adequacao'),
   secoesRequeridas: text('secoes_requeridas'), // JSON array serializado de strings
-  criadoEm: text('criado_em').default('now()'),
-  atualizadoEm: text('atualizado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
+  atualizadoEm: text('atualizado_em').$defaultFn(agoraIso),
 });
 
 export const analiseIaRelations = relations(analiseIa, ({ one, many }) => ({
@@ -253,7 +256,7 @@ export const arquivosAnexos = pgTable('arquivos_anexos', {
   caminhoLocal: text('caminho_local'),
   tamanhoBytes: integer('tamanho_bytes'),
   hashArquivo: text('hash_arquivo'),
-  criadoEm: text('criado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
 });
 
 export const arquivosAnexosRelations = relations(arquivosAnexos, ({ one }) => ({
@@ -278,7 +281,7 @@ export const motivosPontuacao = pgTable('motivos_pontuacao', {
   scoreFinal: integer('score_final'),
   // JSON com dados contextuais extras (termos encontrados, categoria, tipo de erro, etc.)
   detalhes: text('detalhes'),
-  criadoEm: text('criado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
 }, (table) => ({
   editalFonteIdx: index('idx_motivos_edital_fonte').on(table.editalId, table.fonte),
   fonteIdx: index('idx_motivos_fonte').on(table.fonte),
@@ -301,8 +304,8 @@ export const usuarios = pgTable('usuarios', {
   password: text('password').notNull(),
   role: text('role').notNull().default('leitor'),
   status: text('status').notNull().default('ativo'),
-  criadoEm: text('criado_em').default('now()'),
-  atualizadoEm: text('atualizado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
+  atualizadoEm: text('atualizado_em').$defaultFn(agoraIso),
 });
 
 // ============================================================
@@ -354,8 +357,8 @@ export const projetos = pgTable('projetos', {
   dadosProponente: text('dados_proponente'), // JSON com identificação, endereço, etc.
 
   // Timestamps
-  criadoEm: text('criado_em').default('now()'),
-  atualizadoEm: text('atualizado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
+  atualizadoEm: text('atualizado_em').$defaultFn(agoraIso),
 }, (table) => {
   return {
     editalIdIdx: index('idx_projetos_edital_id').on(table.editalId),
@@ -418,7 +421,7 @@ export const logsSistema = pgTable('logs_sistema', {
   userAgent: text('user_agent'),
 
   // Timestamp
-  criadoEm: text('criado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
 }, (table) => {
   return {
     nivelIdx: index('idx_logs_nivel').on(table.nivel),
@@ -565,7 +568,7 @@ export const ragChunks = pgTable('rag_chunks', {
 
   // Controle
   hashConteudo: text('hash_conteudo').notNull(),
-  criadoEm: text('criado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
 }, (table) => ({
   docIdx: index('idx_rag_documento').on(table.documentoNome),
   catIdx: index('idx_rag_categoria').on(table.categoria),
@@ -582,7 +585,7 @@ export const promptsSistema = pgTable('prompts_sistema', {
   chave: text('chave').notNull(),
   conteudoPadrao: text('conteudo_padrao').notNull(),
   descricao: text('descricao'),
-  criadoEm: text('criado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
 }, (table) => ({
   moduloIdx: index('idx_prompts_sistema_modulo').on(table.modulo),
   chaveIdx: index('idx_prompts_sistema_chave').on(table.chave),
@@ -595,8 +598,8 @@ export const promptsCustomizados = pgTable('prompts_customizados', {
   conteudo: text('conteudo').notNull(),
   ativo: boolean('ativo').default(true),
   criadoPor: text('criado_por').references(() => usuarios.id),
-  criadoEm: text('criado_em').default('now()'),
-  atualizadoEm: text('atualizado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
+  atualizadoEm: text('atualizado_em').$defaultFn(agoraIso),
 }, (table) => ({
   promptSistemaIdx: index('idx_prompts_customizados_sistema_id').on(table.promptSistemaId),
   ativoIdx: index('idx_prompts_customizados_ativo').on(table.ativo),
@@ -608,7 +611,7 @@ export const promptsHistorico = pgTable('prompts_historico', {
   conteudoAnterior: text('conteudo_anterior').notNull(),
   conteudoNovo: text('conteudo_novo').notNull(),
   alteradoPor: text('alterado_por').references(() => usuarios.id),
-  alteradoEm: text('alterado_em').default('now()'),
+  alteradoEm: text('alterado_em').$defaultFn(agoraIso),
   justificativa: text('justificativa'),
 }, (table) => ({
   promptCustomizadoIdx: index('idx_prompts_historico_customizado_id').on(table.promptCustomizadoId),
@@ -653,8 +656,8 @@ export const projetosCientificos = pgTable('projetos_cientificos', {
   titulo: text('titulo').notNull(),
   status: text('status').notNull().default('rascunho'),
   dados: text('dados').notNull(), // JSON do projeto completo
-  criadoEm: text('criado_em').default('now()'),
-  atualizadoEm: text('atualizado_em').default('now()'),
+  criadoEm: text('criado_em').$defaultFn(agoraIso),
+  atualizadoEm: text('atualizado_em').$defaultFn(agoraIso),
 }, (table) => ({
   statusIdx: index('idx_projetos_cientificos_status').on(table.status),
 }));
