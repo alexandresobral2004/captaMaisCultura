@@ -3,6 +3,8 @@
 Data: 31/10/2026
 Base: verificação do código e dos commits em 31/10/2026, cruzada com o estudo de arguição (temas 1 a 11) e com os planos `docs/12-multi-instancia` e `docs/13-jobs-recuperacao`.
 
+> **Status em 04/11/2026:** 10 pendências concluídas, 5 parciais e 29 pendentes. Fases 0 e 1 concluídas com ressalva; fases 2 e 3 parciais; fases 4 a 8 não iniciadas. A tabela abaixo é o plano original de 31/10 e não foi reescrita. O status item a item e a análise das melhorias estão em [`02-analise-melhorias-realizadas.md`](02-analise-melhorias-realizadas.md).
+
 Este documento não substitui os dois planos existentes. Ele junta as pendências de todos os temas em um só lugar e as ordena em fases. Quando uma fase já tem plano detalhado, o item aponta para ele.
 
 ---

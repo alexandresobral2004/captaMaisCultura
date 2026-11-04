@@ -183,6 +183,17 @@ Estado atual e plano para heartbeat, recuperação de órfãos, fila e geração
 
 ---
 
+### 🧭 [14. Plano de melhorias](14-plano-melhorias/) — 2 docs
+
+Pendências em fases (plano de 31/10) e o status atual de cada item (análise de 04/11).
+
+| # | Documento | Descrição |
+|---|-----------|-----------|
+| 01 | [`01-pendencias-e-fases.md`](14-plano-melhorias/01-pendencias-e-fases.md) | 🧭 Plano original: 44 pendências em 8 fases |
+| 02 | [`02-analise-melhorias-realizadas.md`](14-plano-melhorias/02-analise-melhorias-realizadas.md) | 📊 Análise do que foi feito, status item a item e riscos abertos |
+
+---
+
 ### 📎 Documentos avulsos e apresentação
 
 Arquivos ainda sem categoria, na raiz de `docs/`, e a apresentação de arquitetura.
@@ -267,6 +278,12 @@ Arquivos ainda sem categoria, na raiz de `docs/`, e a apresentação de arquitet
 
 ## 🔄 Histórico de Mudanças
 
+### Revisão de 04/11/2026 — Análise das melhorias e plano atualizado
+- ✅ Novo documento `14-plano-melhorias/02-analise-melhorias-realizadas.md`: status de cada uma das 44 pendências, fases, entregas fora do plano e riscos abertos
+- ✅ Plano de 31/10 com aviso de status no topo (tabela original preservada)
+- ✅ Pasta `14-plano-melhorias` incluída no índice (não estava listada)
+- ✅ Contagem de testes atualizada: 590 casos em 87 arquivos (566 passando, 24 pulados)
+
 ### Revisão de 28/10/2026 — Evolução após o LlamaParse
 - ✅ Novo documento `09-guias-referencias/09-evolucao-pos-llamaparse.md` com o que mudou no Capta+ desde 04/06/2026 (extração de PDF, triagem com Jev, jobs, infraestrutura, segurança)
 - ✅ Itens pendentes e não entregues separados (extração de prazo pelo Jev, Docling)
@@ -328,6 +345,7 @@ docs/
 ├── 11-melhorias-interface/                         1 doc
 ├── 12-multi-instancia/                             1 doc
 ├── 13-jobs-recuperacao/                            1 doc
+├── 14-plano-melhorias/                             2 docs
 ├── 10-guia-de-estudo.md                            guia de estudo (começe aqui)
 ├── analise-completa-pipeline.md                    avulso
 ├── fluxo-busca-cadastro-editais.md                 avulso
