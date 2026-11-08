@@ -1,5 +1,5 @@
 import { JobRepository, TEMPO_SEM_ATUALIZACAO_MS } from './job-repository';
-import { iniciarOrcamentoVarredura, encerrarOrcamentoVarredura, orcamentoVarreduraEsgotado, reservarChamadaIA, pendentesDoOrcamento } from '../ai/orcamento-ia';
+import { iniciarOrcamentoVarredura, iniciarFaseAnalise, encerrarOrcamentoVarredura, orcamentoVarreduraEsgotado, reservarChamadaIA, pendentesDoOrcamento } from '../ai/orcamento-ia';
 import { executarComLimite } from './concorrencia';
 
 // Análises na OpenAI em paralelo por varredura (sugestão aceita: 3, para respeitar limites de taxa)
@@ -170,6 +170,7 @@ export class JobRunner {
       // FASE 2: BAIXAR E LER PDFs
       // ============================================
       job = await this.atualizarFase(job.id, JobPhase.DOWNLOAD);
+      iniciarFaseAnalise();
       console.log(`📄 [JOB ${jobId}] FASE 2: Baixando e lendo PDFs...`);
 
       const editaisProcessar: Edital[] = [];

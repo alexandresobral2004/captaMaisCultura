@@ -5,6 +5,7 @@ import {
   reservarChamadaIA,
   orcamentoVarreduraEsgotado,
   encerrarOrcamentoVarredura,
+  iniciarFaseAnalise,
   PRAZO_VARREDURA_MS,
   MAX_CHAMADAS_IA_VARREDURA,
 } from '../../lib/ai/orcamento-ia';
@@ -49,6 +50,25 @@ describe('orçamento da varredura', () => {
     agora = PRAZO_VARREDURA_MS + 1;
     expect(reservarChamadaIA()).toBe(false);
     expect(orcamentoVarreduraEsgotado()).toBe('prazo');
+  });
+
+  it('a triagem não consome a parcela reservada à análise', () => {
+    iniciarOrcamentoVarredura(0, { prazoMs: PRAZO_VARREDURA_MS, maxChamadas: 3 }, () => 1_000);
+    expect(reservarChamadaIA()).toBe(true);
+    expect(reservarChamadaIA()).toBe(true);
+    expect(reservarChamadaIA()).toBe(false);
+    expect(orcamentoVarreduraEsgotado()).toBe('limite_ia');
+  });
+
+  it('na fase de análise, a parcela reservada fica disponível', () => {
+    iniciarOrcamentoVarredura(0, { prazoMs: PRAZO_VARREDURA_MS, maxChamadas: 3 }, () => 1_000);
+    reservarChamadaIA();
+    reservarChamadaIA();
+    iniciarFaseAnalise();
+    expect(orcamentoVarreduraEsgotado()).toBeNull();
+    expect(reservarChamadaIA()).toBe(true);
+    expect(reservarChamadaIA()).toBe(false);
+    expect(orcamentoVarreduraEsgotado()).toBe('limite_ia');
   });
 
   it('fora de uma varredura, não limita (busca manual e upload seguem como antes)', () => {

@@ -24,15 +24,25 @@ export function motivoParada(estado: {
   return null;
 }
 
+/** Fração do teto reservada à análise (PDF + IA). A triagem para antes dessa parcela. */
+export const FRACAO_RESERVA_ANALISE = 1 / 3;
+
+type Fase = 'triagem' | 'analise';
+
 // Estado da varredura em andamento. Só existe entre iniciar e encerrar; fora disso não há limite.
-let ativo: { inicio: number; limites: LimitesVarredura; chamadas: number; pendentes: number; agora: () => number } | null = null;
+let ativo: { inicio: number; limites: LimitesVarredura; chamadas: number; pendentes: number; agora: () => number; fase: Fase } | null = null;
 
 export function iniciarOrcamentoVarredura(
   inicio: number,
   limites: LimitesVarredura = { prazoMs: PRAZO_VARREDURA_MS, maxChamadas: MAX_CHAMADAS_IA_VARREDURA },
   agora: () => number = () => Date.now(),
 ): void {
-  ativo = { inicio, limites, chamadas: 0, pendentes: 0, agora };
+  ativo = { inicio, limites, chamadas: 0, pendentes: 0, agora, fase: 'triagem' };
+}
+
+/** Marca o início da análise: a partir daqui a parcela reservada também pode ser usada. */
+export function iniciarFaseAnalise(): void {
+  if (ativo) ativo.fase = 'analise';
 }
 
 /** Candidato que não foi triado por falta de orçamento: não é salvo e fica para a próxima varredura. */
@@ -52,12 +62,14 @@ export function encerrarOrcamentoVarredura(): void {
 /** Retorna o motivo que impede nova chamada, ou null se ainda há orçamento. Sem varredura ativa, nunca impede. */
 export function orcamentoVarreduraEsgotado(): MotivoParada | null {
   if (!ativo) return null;
+  const teto = ativo.limites.maxChamadas;
+  const reserva = Math.floor(teto * FRACAO_RESERVA_ANALISE);
   return motivoParada({
     inicio: ativo.inicio,
     agora: ativo.agora(),
     prazoMs: ativo.limites.prazoMs,
     chamadas: ativo.chamadas,
-    maxChamadas: ativo.limites.maxChamadas,
+    maxChamadas: ativo.fase === 'triagem' ? teto - reserva : teto,
   });
 }
 
