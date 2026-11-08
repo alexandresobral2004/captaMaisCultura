@@ -1,3 +1,4 @@
+import { prazoVarreduraEsgotado } from '../ai/orcamento-ia';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { Edital, isEditalExcluido } from '../db/editais-store';
@@ -77,6 +78,7 @@ export async function buscarEditaisFinep(): Promise<Edital[]> {
 
     // Tentar múltiplas URLs
     for (const url of urls) {
+      if (prazoVarreduraEsgotado()) break;
       try {
         console.log(`   🔍 Tentando URL: ${url}`);
         response = await axios.get(url, {
@@ -203,6 +205,7 @@ export async function buscarEditaisCNPq(): Promise<Edital[]> {
 
     // Tentar múltiplas URLs
     for (const url of urls) {
+      if (prazoVarreduraEsgotado()) break;
       try {
         console.log(`   🔍 Tentando URL: ${url}`);
         response = await axios.get(url, {
@@ -331,6 +334,7 @@ export async function buscarEditaisCapes(): Promise<Edital[]> {
 
     // Tentar múltiplas URLs
     for (const url of urls) {
+      if (prazoVarreduraEsgotado()) break;
       try {
         console.log(`   🔍 Tentando URL: ${url}`);
         response = await axios.get(url, {
@@ -456,6 +460,7 @@ export async function buscarEditaisMinisterioCiencia(): Promise<Edital[]> {
 
     // Tentar múltiplas URLs
     for (const url of urls) {
+      if (prazoVarreduraEsgotado()) break;
       try {
         console.log(`   🔍 Tentando URL: ${url}`);
         response = await axios.get(url, {

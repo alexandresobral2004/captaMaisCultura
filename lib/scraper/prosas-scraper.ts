@@ -1,3 +1,4 @@
+import { prazoVarreduraEsgotado } from '../ai/orcamento-ia';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { lerConfiguracao, gravarConfiguracao } from '../config/configuracoes';
@@ -140,6 +141,7 @@ async function realizarLoginProsas(): Promise<string[]> {
  * Busca os editais usando a sessão ativa.
  */
 export async function buscarEditaisProsas(): Promise<Edital[]> {
+  if (prazoVarreduraEsgotado()) return [];
   // A busca usa a API pública (OAuth2 client credentials); o login por formulário é opcional.
   const temCredenciais = Boolean(process.env.PROSAS_EMAIL && process.env.PROSAS_PASSWORD);
   let cookies = await carregarSessaoSalva();
@@ -242,6 +244,7 @@ async function tentarBuscaComSessao(cookies: string[] | null): Promise<Edital[]>
          console.log(`📄 [PROSAS] Total de páginas detectadas: ${totalPaginasDetectadas}. Buscando até ${totalPaginas} páginas...`);
 
          for (let pagina = 2; pagina <= totalPaginas; pagina++) {
+           if (prazoVarreduraEsgotado()) break;
            const proxPagina = await axios.get('https://prosas.com.br/selecao/api/v2/third_party/oportunidades/inscricoes_abertas', {
              headers: {
                'Authorization': `Bearer ${token}`,
@@ -271,6 +274,7 @@ async function tentarBuscaComSessao(cookies: string[] | null): Promise<Edital[]>
 
         // Para CADA edital, buscar detalhes com arquivos
         for (let idx = 0; idx < todasAsPaginas.length; idx++) {
+           if (prazoVarreduraEsgotado()) break;
           try {
           const item = todasAsPaginas[idx];
           

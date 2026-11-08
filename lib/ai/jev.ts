@@ -7,6 +7,8 @@
  * - Perguntas independentes sobre o mesmo `state` vão na mesma requisição (rodam em paralelo).
  */
 
+import { reservarChamadaIA } from './orcamento-ia';
+
 const ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 const TIMEOUT_MS = 8000;
 
@@ -67,6 +69,7 @@ export function obterModeloJev(): string {
 }
 
 async function chamar(corpo: unknown, chave: string): Promise<Response> {
+  if (!reservarChamadaIA()) throw new JevError('Limite de chamadas à IA da varredura atingido');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {

@@ -1,4 +1,9 @@
 import { JobRepository, TEMPO_SEM_ATUALIZACAO_MS } from './job-repository';
+import { iniciarOrcamentoVarredura, encerrarOrcamentoVarredura, orcamentoVarreduraEsgotado, reservarChamadaIA, pendentesDoOrcamento } from '../ai/orcamento-ia';
+import { executarComLimite } from './concorrencia';
+
+// Análises na OpenAI em paralelo por varredura (sugestão aceita: 3, para respeitar limites de taxa)
+const CONCORRENCIA_ANALISE = 3;
 import { JobStatus, JobPhase, JobProgresso, JobResultado, JobRecord, ErroFase, TipoJob } from './job-types';
 import { executarBuscaManual } from '../scraper/busca-manual';
 import { buscaDoJobAsync, iniciarExecucaoBuscaAsync, batidaBuscaPorJobAsync } from '../scraper/controle-busca';
@@ -129,6 +134,8 @@ export class JobRunner {
         return await this.executarBuscaManualJob(jobId);
       }
       console.log(`🚀 [JOB ${jobId}] Iniciando varredura semanal de editais...`);
+      // Prazo total e teto de chamadas à IA valem da busca até a análise (ver lib/ai/orcamento-ia.ts)
+      iniciarOrcamentoVarredura(Date.now());
 
       // ============================================
       // FASE 1: BUSCAR EDITAIS NOS PORTAIS E CLASSIFICAR
@@ -168,6 +175,11 @@ export class JobRunner {
       const editaisProcessar: Edital[] = [];
 
       for (const edital of editaisValidos) {
+        const motivo = orcamentoVarreduraEsgotado();
+        if (motivo) {
+          console.warn(`⏱️ [JOB ${jobId}] Varredura interrompida na fase de download (${motivo}); os demais ficam para a próxima.`);
+          break;
+        }
         try {
           if (await isEditalExcluido(edital.id, edital.link)) {
             console.log(`⏭️ [JOB] Edital [${edital.id}] já está excluído no banco de dados. Pulando download.`);
@@ -207,7 +219,9 @@ export class JobRunner {
       job = await this.atualizarFase(job.id, JobPhase.ANALISE);
       console.log(`🧠 [JOB ${jobId}] FASE 3: Analisando editais com IA...`);
 
-      for (const edital of editaisProcessar) {
+      await executarComLimite(editaisProcessar, CONCORRENCIA_ANALISE, async (edital) => {
+        // Cada análise conta no teto de chamadas e respeita o prazo; sem orçamento, não chama a IA
+        if (!reservarChamadaIA()) return;
         try {
           console.log(`Analisando [${edital.id}]...`);
           console.log(`Enviando edital para IA: "${edital.titulo}"`);
@@ -228,11 +242,11 @@ export class JobRunner {
           edital.statusAnalise = 'erro';
           await saveEdital(edital);
           progresso.totalErros++;
-          await this.repository.registrarErro(job.id, JobPhase.ANALISE, `Erro no edital ${edital.id}: ${erro.message}`);
+          await this.repository.registrarErro(jobId, JobPhase.ANALISE, `Erro no edital ${edital.id}: ${erro.message}`);
           pipelineLogger.logResultado(edital.id, edital.titulo, 'erro', erro.message);
         }
-      }
-      
+      }, () => orcamentoVarreduraEsgotado() !== null);
+
       await this.atualizarProgresso(job.id, JobPhase.ANALISE, progresso);
       console.log(`✅ ${progresso.totalAnalisados} editais analisados`);
 
@@ -242,15 +256,25 @@ export class JobRunner {
       job = await this.atualizarFase(job.id, JobPhase.NOTIFICACAO);
       console.log(`🔔 [JOB ${jobId}] FASE 4: Criando notificação...`);
 
-      if (progresso.totalAnalisados > 0) {
+      // Candidatos sem triagem por falta de orçamento de IA: a notificação conta, para não sumirem em silêncio
+      const pendentes = pendentesDoOrcamento();
+      const avisoPendentes = pendentes > 0
+        ? ` ${pendentes} candidatos não foram triados (limite de IA ou prazo da varredura) e ficam para a próxima.`
+        : '';
+
+      if (progresso.totalAnalisados > 0 || pendentes > 0) {
         try {
           const { randomUUID: uuidv4 } = await import('crypto');
-          const titulo = `${progresso.totalAnalisados} novos editais disponíveis`;
+          const titulo = progresso.totalAnalisados > 0
+            ? `${progresso.totalAnalisados} novos editais disponíveis`
+            : 'Varredura sem novos editais analisados';
           await salvarNotificacao({
             id: uuidv4(),
             tipo: 'editais_novos',
             titulo,
-            descricao: `Encontrados ${progresso.totalAnalisados} editais aguardando revisão. Acesse o painel para analisar.`,
+            descricao: progresso.totalAnalisados > 0
+              ? `Encontrados ${progresso.totalAnalisados} editais aguardando revisão. Acesse o painel para analisar.${avisoPendentes}`
+              : `Nenhum edital novo foi analisado nesta varredura.${avisoPendentes}`,
             quantidade: progresso.totalAnalisados,
             link: '/editais?tab=review',
             urgencia: 'alta',
@@ -279,6 +303,7 @@ export class JobRunner {
       return this.formatarResultado(jobFinal!, erro.message);
     } finally {
       clearInterval(heartbeat);
+      encerrarOrcamentoVarredura();
       // Restaurar o console original
       console.log = originalLog;
       console.warn = originalWarn;

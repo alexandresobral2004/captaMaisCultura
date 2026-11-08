@@ -7,6 +7,7 @@ import { triarEditalDoPortal, camposTriagemParaEdital } from '../triagem/scraper
 import { pipelineLogger } from './pipeline-logger';
 import { PortalConfig, atualizarUltimoScan } from './config';
 import { tituloInstitucional } from './validacao-documento';
+import { prazoVarreduraEsgotado } from '../ai/orcamento-ia';
 
 /** Portais que já têm coletor próprio e não devem passar pelo genérico. */
 export const PORTAIS_COM_COLETOR_PROPRIO = ['prosas', 'capta', 'finep', 'cnpq', 'capes', 'mcti'];
@@ -140,6 +141,8 @@ export async function buscarEditaisPortalGenerico(portal: PortalConfig): Promise
   let urlUsada = portal.urlBusca;
 
   for (const url of urls) {
+    // Prazo da varredura vencido: não abre mais páginas deste portal
+    if (prazoVarreduraEsgotado()) break;
     try {
       const resp = await axios.get(url, {
         timeout: 15000,
@@ -167,6 +170,8 @@ export async function buscarEditaisPortalGenerico(portal: PortalConfig): Promise
   let rejeitados = 0;
 
   for (const item of itens) {
+    // Antes da página de cada candidato (descobrirPrazo) e da triagem: com o prazo vencido, para aqui
+    if (prazoVarreduraEsgotado()) break;
     const id = gerarId(portal.id, item.link);
     if (await isEditalExcluido(id, item.link)) continue;
     // Já processado em buscas anteriores: não gasta consulta ao Jev nem novo download

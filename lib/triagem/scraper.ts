@@ -3,6 +3,7 @@ import { PortalService } from '../database/services/portal.service';
 import { tituloInstitucional } from '../scraper/validacao-documento';
 import { registrarDecisao } from '../scraper/funil';
 import { triarEdital, type EixoPortal, type ResultadoTriagem, type EntradaTriagem } from './index';
+import { orcamentoVarreduraEsgotado, registrarPendente } from '../ai/orcamento-ia';
 
 /**
  * Eixo configurado para o portal (auto, Cultura ou Pesquisa).
@@ -37,6 +38,12 @@ export async function triarEditalDoPortal(
   if (tituloInstitucional(entrada.titulo)) {
     registrarDecisao({ portal: portalId, titulo: entrada.titulo, etapa: 'triagem', resultado: 'descartado', motivo: '[menu] Parece item de menu ou página institucional' });
     return { aceito: false, incerto: false, categoriaArea: null, etapa: 'eixo', motivo: 'Parece item de menu ou página institucional do portal', termosBranco: [] };
+  }
+  // Sem orçamento de IA não há decisão por palavras: o candidato não é salvo e fica para a próxima varredura
+  const bloqueio = orcamentoVarreduraEsgotado();
+  if (bloqueio) {
+    registrarPendente();
+    return { aceito: false, incerto: false, categoriaArea: null, etapa: 'ia', motivo: `Não triado: limite de IA da varredura (${bloqueio}); fica para a próxima`, termosBranco: [] };
   }
   try {
     const resultado = await triarEdital({ ...entrada, eixoPortal: await obterEixoPortal(portalId) });

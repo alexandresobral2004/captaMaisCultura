@@ -1,3 +1,4 @@
+import { prazoVarreduraEsgotado } from '../ai/orcamento-ia';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import crypto from 'crypto';
@@ -106,6 +107,7 @@ export async function buscarEditaisCapta(): Promise<Edital[]> {
     console.log('\n🌐 [CAPTA] Iniciando busca de editais...');
     console.log(`   🔍 URL: ${CAPTA_URL}`);
 
+    if (prazoVarreduraEsgotado()) return [];
     const response = await axios.get(CAPTA_URL, {
       timeout: 15000,
       headers: {

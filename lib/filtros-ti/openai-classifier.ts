@@ -5,6 +5,7 @@ import { loadCategorias } from '../scraper/filtros/loaders';
 
 import { lerApiKey, obterModelo } from '../ai/client';
 import { registrarUsoDeResposta } from '../ai/uso-ia';
+import { reservarChamadaIA } from '../ai/orcamento-ia';
 import { validarComJev } from './jev-classifier';
 export type AiClassificationResult =
   | {
@@ -167,6 +168,16 @@ RESPONDA EM JSON VÁLIDO (sem markdown, sem explicação adicional):
   "confiança": número,
   "razão": "explicação breve"
 }`;
+
+    if (!reservarChamadaIA()) {
+      return {
+        ok: false,
+        válido: false,
+        erroTipo: 'unknown',
+        mensagem: 'Limite de chamadas à IA da varredura atingido',
+        modelo
+      };
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);

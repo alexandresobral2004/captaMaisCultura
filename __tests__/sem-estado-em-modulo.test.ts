@@ -33,6 +33,7 @@ const ALLOWLIST: Readonly<Record<string, string>> = {
   'lib/analise-cientifica/writer.ts:instance': 'Instância singleton do serviço, sem estado de negócio compartilhado.',
   'lib/storage/armazenamento.ts:instancia': 'Instância singleton do armazenamento, sem estado de negócio compartilhado.',
   'lib/ai/client.ts:clienteEmCache': 'Cliente de IA reaproveitado enquanto a chave não muda.',
+  'lib/ai/orcamento-ia.ts:ativo': 'Orçamento da varredura em andamento: só existe no processo do worker que executa o job (um job por vez, pelo índice único) e é nulo fora da varredura, quando não limita.',
   'lib/jobs/scheduler.ts:taskAgendada': 'Handle da tarefa agendada; só o processo que agenda o mantém.',
   'lib/jobs/scheduler.ts:taskLimpezaLimites': 'Handle da tarefa de limpeza agendada; só o processo que agenda o mantém.',
 };
